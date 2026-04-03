@@ -10,6 +10,13 @@ def main_menu() -> InlineKeyboardMarkup:
     ])
 
 
+def confirm_input() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📝 Сочинить сказку", callback_data="compose_story")],
+        [InlineKeyboardButton(text="✏️ Изменить запрос", callback_data="change_topic")],
+    ])
+
+
 def review_story() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🎙 Озвучить сказку", callback_data="generate")],
@@ -19,7 +26,6 @@ def review_story() -> InlineKeyboardMarkup:
 
 
 def confirm_generate(topic: str) -> InlineKeyboardMarkup:
-    """Legacy — redirect to review_story."""
     return review_story()
 
 

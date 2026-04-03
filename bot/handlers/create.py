@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Fairy tale flow: input → story text → review/edit → generate audio → deliver."""
+"""Fairy tale flow: input → confirm → compose story → review/edit → generate audio → deliver."""
 
 import logging
 import re
@@ -10,7 +10,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile
 
 from bot.states.create import CreateFairyTale
-from bot.keyboards.inline import review_story, feedback, main_menu
+from bot.keyboards.inline import confirm_input, review_story, feedback, main_menu
 from engine.pipeline import generate_fairytale
 from engine.llm_client import generate_screenplay
 from engine.transcribe import transcribe_voice
@@ -95,7 +95,7 @@ async def on_create(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-# ── 2. Receive input → generate story text ──
+# ── 2. Receive input → show confirmation ──
 @router.message(CreateFairyTale.waiting_topic, F.text | F.voice)
 async def on_input(message: types.Message, state: FSMContext, bot: Bot):
     text, was_voice = await _get_text(message, bot)
@@ -109,19 +109,40 @@ async def on_input(message: types.Message, state: FSMContext, bot: Bot):
     await state.update_data(context=text)
 
     if was_voice:
-        status = await message.answer(
-            f"🎤 <b>Вот что я услышал:</b>\n<i>{text[:500]}</i>\n\n"
-            f"Если имена или детали неверны — нажмите «Внести изменения» после генерации текста.\n\n"
-            f"⏳ Сочиняю сказку...",
-            parse_mode="HTML",
-        )
+        label = "🎤 <b>Вот что я услышал:</b>"
     else:
-        status = await message.answer("📝 Принял! Сочиняю сказку...")
+        label = "📝 <b>Ваш запрос:</b>"
+
+    await message.answer(
+        f"{label}\n\n<i>{text[:500]}</i>\n\n"
+        f"Всё верно?",
+        reply_markup=confirm_input(),
+        parse_mode="HTML",
+    )
+    await state.set_state(CreateFairyTale.confirming_input)
+
+
+# ── 3. Change input ──
+@router.callback_query(F.data == "change_topic")
+async def on_change_topic(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.answer("📖 Расскажите заново — текстом или голосовым сообщением:")
+    await state.set_state(CreateFairyTale.waiting_topic)
+    await callback.answer()
+
+
+# ── 4. Confirm → compose story ──
+@router.callback_query(F.data == "compose_story")
+async def on_compose(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    context = data["context"]
+
+    status = await callback.message.answer("📝 Сочиняю сказку...")
+    await callback.answer()
 
     try:
-        screenplay = await generate_screenplay(text)
+        screenplay = await generate_screenplay(context)
         await status.delete()
-        await _show_story(message, state, screenplay)
+        await _show_story(callback.message, state, screenplay)
     except Exception as e:
         logger.error("Screenplay failed: %s", e, exc_info=True)
         await status.edit_text(
@@ -131,7 +152,7 @@ async def on_input(message: types.Message, state: FSMContext, bot: Bot):
         await state.clear()
 
 
-# ── 3. Edit story ──
+# ── 5. Edit story ──
 @router.callback_query(F.data == "edit_story")
 async def on_edit(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer(
@@ -151,8 +172,6 @@ async def on_edits_received(message: types.Message, state: FSMContext, bot: Bot)
 
     data = await state.get_data()
     original_context = data.get("context", "")
-
-    # Combine original request + edits
     new_context = f"{original_context}\n\nИзменения: {edit_text}"
     await state.update_data(context=new_context)
 
@@ -164,14 +183,11 @@ async def on_edits_received(message: types.Message, state: FSMContext, bot: Bot)
         await _show_story(message, state, screenplay)
     except Exception as e:
         logger.error("Edit failed: %s", e, exc_info=True)
-        await status.edit_text(
-            f"😔 Не удалось переписать: {str(e)[:200]}",
-            reply_markup=main_menu(),
-        )
+        await status.edit_text(f"😔 Не удалось переписать: {str(e)[:200]}", reply_markup=main_menu())
         await state.clear()
 
 
-# ── 4. Regenerate from scratch ──
+# ── 6. Regenerate from scratch ──
 @router.callback_query(F.data == "regenerate_story")
 async def on_regenerate(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
@@ -186,13 +202,10 @@ async def on_regenerate(callback: types.CallbackQuery, state: FSMContext):
         await _show_story(callback.message, state, screenplay)
     except Exception as e:
         logger.error("Regenerate failed: %s", e, exc_info=True)
-        await status.edit_text(
-            f"😔 Ошибка: {str(e)[:200]}",
-            reply_markup=main_menu(),
-        )
+        await status.edit_text(f"😔 Ошибка: {str(e)[:200]}", reply_markup=main_menu())
 
 
-# ── 5. Generate audio ──
+# ── 7. Generate audio ──
 @router.callback_query(F.data == "generate")
 async def on_generate(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(CreateFairyTale.generating)
@@ -246,7 +259,7 @@ async def on_generate(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
 
 
-# ── 6. Feedback ──
+# ── 8. Feedback ──
 @router.callback_query(F.data.startswith("fb_"))
 async def on_feedback(callback: types.CallbackQuery):
     fb_type = callback.data.replace("fb_", "")
