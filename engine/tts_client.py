@@ -1,0 +1,99 @@
+# -*- coding: utf-8 -*-
+"""Async ElevenLabs TTS client with SOCKS proxy support."""
+
+import asyncio
+import logging
+
+import aiohttp
+from aiohttp_socks import ProxyConnector
+
+from bot.config import settings
+
+logger = logging.getLogger(__name__)
+
+ELEVENLABS_TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}?output_format=mp3_44100_128"
+
+
+def _make_connector():
+    """Create a proxy connector if proxy is configured."""
+    if settings.elevenlabs_proxy:
+        proxy_url = settings.elevenlabs_proxy.replace("socks5h://", "socks5://")
+        return ProxyConnector.from_url(proxy_url, rdns=True)
+    return None
+
+
+async def synthesize_batch(
+    segments: list[dict],
+    max_concurrent: int = 3,
+    on_progress: callable = None,
+) -> list[bytes]:
+    """Synthesize multiple segments with a shared session and concurrency limit.
+
+    Each segment dict must have: text, voice_id, stability, similarity, style.
+    Returns list of MP3 bytes in same order (None for failures).
+    """
+    semaphore = asyncio.Semaphore(max_concurrent)
+    results: list[bytes | None] = [None] * len(segments)
+    done_count = 0
+    done_lock = asyncio.Lock()
+
+    headers = {
+        "xi-api-key": settings.elevenlabs_api_key,
+        "Content-Type": "application/json",
+    }
+
+    async def _do(session: aiohttp.ClientSession, index: int, seg: dict):
+        nonlocal done_count
+        url = ELEVENLABS_TTS_URL.format(voice_id=seg["voice_id"])
+        payload = {
+            "text": seg["text"],
+            "model_id": "eleven_v3",
+            "language_code": "ru",
+            "voice_settings": {
+                "stability": seg.get("stability", 0.45),
+                "similarity_boost": seg.get("similarity", 0.80),
+                "style": seg.get("style", 0.25),
+            },
+        }
+
+        for attempt in range(1, 4):
+            try:
+                async with semaphore:
+                    async with session.post(
+                        url, json=payload, headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=120),
+                    ) as resp:
+                        if resp.status == 200:
+                            audio = await resp.read()
+                            if len(audio) > 500:
+                                results[index] = audio
+                                async with done_lock:
+                                    done_count += 1
+                                    if on_progress:
+                                        await on_progress(done_count, len(segments))
+                                return
+                            logger.warning("TTS audio too small: %d bytes (seg %d)", len(audio), index)
+                        else:
+                            body = await resp.text()
+                            logger.warning("TTS HTTP %d (seg %d, attempt %d): %s", resp.status, index, attempt, body[:200])
+                            # Don't retry on quota exceeded
+                            if resp.status == 401 and "quota_exceeded" in body:
+                                return
+            except Exception as e:
+                logger.warning("TTS error (seg %d, attempt %d): %s", index, attempt, e)
+
+            if attempt < 3:
+                await asyncio.sleep(attempt * 2)
+
+    # Single shared session for all requests
+    connector = _make_connector()
+    async with aiohttp.ClientSession(connector=connector) as session:
+        tasks = [_do(session, i, seg) for i, seg in enumerate(segments)]
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Check for failures
+    failed = [i for i, r in enumerate(results) if r is None]
+    if len(failed) > len(segments) * 0.3:
+        raise RuntimeError(f"Too many TTS failures: {len(failed)}/{len(segments)}")
+
+    return results
