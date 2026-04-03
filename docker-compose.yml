@@ -1,0 +1,10 @@
+version: "3.8"
+
+services:
+  skazka-bot:
+    build: .
+    container_name: skazka-bot
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./media:/app/media
