@@ -317,6 +317,87 @@ def _build_scene_prompt(
     )
 
 
+async def _generate_with_flux_kontext(
+    scene: dict,
+    scene_index: int,
+    total_scenes: int,
+    reference_photo_b64: str,
+    fairy_tale_title: str,
+    characters_desc: str,
+    character_appearances: dict[str, str] | None = None,
+) -> bytes | None:
+    """Generate illustration via FLUX Kontext (preserves face from reference photo)."""
+    import os
+    os.environ.setdefault("FAL_KEY", settings.fal_key)
+
+    # Build appearance info
+    appearance_lines = []
+    for char_name in scene.get("characters_present", []):
+        desc = (character_appearances or {}).get(char_name, "")
+        if desc:
+            appearance_lines.append(f"{char_name}: {desc}")
+    appearance_info = "; ".join(appearance_lines) if appearance_lines else ""
+
+    prompt = (
+        f"Transform this photo into a beautiful Pixar-style 3D cartoon illustration. "
+        f"Scene from fairy tale '{fairy_tale_title}': {scene.get('description', '')}. "
+        f"Setting: {scene.get('setting', 'magical forest')}. Mood: {scene.get('mood', 'magical')}. "
+        f"The child from the photo must be the main character — keep their face recognizable. "
+        f"If there are multiple people in the photo, focus ONLY on the child. "
+        f"Pixar-style 3D render, warm magical lighting, rich vibrant colors. "
+        f"Wide landscape 16:9 composition. "
+        f"STRICTLY NO text, words, or letters anywhere in the image."
+    )
+    if appearance_info:
+        prompt += f" Characters: {appearance_info}."
+
+    photo_url = reference_photo_b64
+    if not photo_url.startswith("data:"):
+        photo_url = f"data:image/jpeg;base64,{photo_url}"
+
+    try:
+        import fal_client
+        logger.info("Generating illustration %d via FLUX Kontext", scene_index)
+
+        result = await asyncio.to_thread(
+            fal_client.subscribe,
+            "fal-ai/flux-kontext/dev",
+            arguments={
+                "prompt": prompt,
+                "image_url": photo_url,
+                "num_inference_steps": 28,
+                "guidance_scale": 3.5,
+                "output_format": "png",
+            },
+        )
+
+        images = result.get("images", [])
+        if not images:
+            logger.warning("FLUX Kontext returned no images for scene %d", scene_index)
+            return None
+
+        img_url = images[0].get("url", "")
+        if not img_url:
+            logger.warning("FLUX Kontext returned empty URL for scene %d", scene_index)
+            return None
+
+        # Download the image
+        async with aiohttp.ClientSession() as session:
+            async with session.get(img_url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                if resp.status == 200:
+                    img_bytes = await resp.read()
+                    logger.info("FLUX Kontext illustration %d: %d bytes", scene_index, len(img_bytes))
+                    return img_bytes
+                else:
+                    logger.warning("Failed to download FLUX image for scene %d: HTTP %d", scene_index, resp.status)
+                    return None
+
+    except Exception as e:
+        import traceback
+        logger.error("FLUX Kontext error for scene %d: %s\n%s", scene_index, e, traceback.format_exc())
+        return None
+
+
 async def generate_illustration(
     scene: dict,
     scene_index: int,
@@ -327,7 +408,16 @@ async def generate_illustration(
     characters_desc: str,
     character_appearances: dict[str, str] | None = None,
 ) -> bytes | None:
-    """Generate one Pixar-style illustration."""
+    """Generate one illustration. Uses FLUX Kontext when photo provided, Gemini otherwise."""
+
+    # If we have a reference photo AND fal.ai key → use FLUX Kontext for face preservation
+    if reference_photo_b64 and settings.fal_key:
+        return await _generate_with_flux_kontext(
+            scene, scene_index, total_scenes, reference_photo_b64,
+            fairy_tale_title, characters_desc, character_appearances,
+        )
+
+    # Fallback: Gemini Flash Image (no face preservation)
     photo_content = []
     if reference_photo_b64:
         photo_url = reference_photo_b64
