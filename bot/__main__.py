@@ -34,8 +34,13 @@ async def main():
     settings.media_dir.mkdir(parents=True, exist_ok=True)
 
     # Initialize database
-    from db.database import init_db
+    from db.database import init_db, _pool
     await init_db()
+
+    # Initialize config manager
+    from db.config_manager import cfg
+    cfg.set_pool(_pool)
+    await cfg.seed_defaults()
 
     bot = Bot(
         token=settings.bot_token,

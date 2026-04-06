@@ -73,7 +73,7 @@ async def generate_fairytale(
         assigned: dict[str, str] = {}
 
         for char in screenplay["characters"]:
-            voice = pick_voice(
+            voice = await pick_voice(
                 gender=char.get("gender", "female"),
                 age=char.get("age", "middle"),
                 role=char.get("role", "narrator"),

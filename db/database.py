@@ -113,6 +113,14 @@ CREATE TABLE IF NOT EXISTS errors (
     traceback     TEXT,
     created_at    TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS config (
+    key         TEXT PRIMARY KEY,
+    value       JSONB NOT NULL,
+    category    TEXT NOT NULL,
+    description TEXT,
+    updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
 """
 
 

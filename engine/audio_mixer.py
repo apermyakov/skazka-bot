@@ -95,8 +95,11 @@ async def concat_segments(
     # Generate silence files
     short_pause = workdir / "_pause_short.mp3"
     long_pause = workdir / "_pause_long.mp3"
-    await _generate_silence(short_pause, 0.7)
-    await _generate_silence(long_pause, 1.3)
+    from db.config_manager import cfg
+    short_dur = await cfg.get("audio.short_pause_sec", 0.7)
+    long_dur = await cfg.get("audio.long_pause_sec", 1.3)
+    await _generate_silence(short_pause, short_dur)
+    await _generate_silence(long_pause, long_dur)
 
     filelist = workdir / "filelist.txt"
 
@@ -142,6 +145,12 @@ async def create_video(
 
     Each image is scaled to fit 1920x1080 preserving aspect ratio.
     """
+    from db.config_manager import cfg
+    v_width = await cfg.get("video.width", 1920)
+    v_height = await cfg.get("video.height", 1080)
+    v_fps = await cfg.get("video.fps", 2)
+    v_crf = await cfg.get("video.crf", 18)
+
     audio_dur = await get_duration(audio_path)
     n = len(image_paths)
     if n == 0:
@@ -154,10 +163,10 @@ async def create_video(
     filter_parts = []
 
     for i, (img, dur) in enumerate(zip(image_paths, durations)):
-        inputs.extend(["-loop", "1", "-t", f"{dur:.2f}", "-framerate", "2", "-i", str(img)])
+        inputs.extend(["-loop", "1", "-t", f"{dur:.2f}", "-framerate", str(v_fps), "-i", str(img)])
         filter_parts.append(
-            f"[{i}:v]scale=1920:1080:force_original_aspect_ratio=increase,"
-            f"crop=1920:1080,setsar=1,fps=2,format=yuv420p[v{i}]"
+            f"[{i}:v]scale={v_width}:{v_height}:force_original_aspect_ratio=increase,"
+            f"crop={v_width}:{v_height},setsar=1,fps={v_fps},format=yuv420p[v{i}]"
         )
 
     concat_inputs = "".join(f"[v{i}]" for i in range(n))
@@ -174,7 +183,7 @@ async def create_video(
         "-map", f"{n}:a",
         "-c:v", "libx264",
         "-preset", "fast",
-        "-crf", "18",
+        "-crf", str(v_crf),
         "-c:a", "aac",
         "-b:a", "128k",
         "-pix_fmt", "yuv420p",

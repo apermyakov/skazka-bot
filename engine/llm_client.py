@@ -18,20 +18,26 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
 async def _call_llm(system: str, user: str, max_retries: int = 3,
-                    story_id: int = None, purpose: str = "llm") -> str:
+                    story_id: int = None, purpose: str = "llm",
+                    temperature: float = None, max_tokens: int = None) -> str:
     """Call OpenRouter API and return the assistant's text response."""
+    from db.config_manager import cfg
+    model = await cfg.get("model.llm", settings.llm_model)
+    temp = temperature if temperature is not None else await cfg.get("llm.screenplay_temperature", 0.8)
+    tokens = max_tokens if max_tokens is not None else await cfg.get("llm.screenplay_max_tokens", 8000)
+
     headers = {
         "Authorization": f"Bearer {settings.openrouter_api_key}",
         "Content-Type": "application/json",
     }
     payload = {
-        "model": settings.llm_model,
+        "model": model,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
-        "temperature": 0.8,
-        "max_tokens": 8000,
+        "temperature": temp,
+        "max_tokens": tokens,
     }
 
     for attempt in range(1, max_retries + 1):
@@ -102,11 +108,15 @@ async def generate_screenplay(context: str, story_id: int = None) -> dict:
     Returns:
         Dict with keys: title, characters, segments, scenes.
     """
-    prompt = SCREENWRITER_PROMPT.format(context=context)
+    from db.config_manager import cfg
+    screenwriter_prompt = await cfg.get("prompt.screenwriter", SCREENWRITER_PROMPT)
+    system_prompt = await cfg.get("prompt.screenwriter_system",
+                                   "Ты генерируешь ТОЛЬКО валидный JSON. Никакого текста до или после JSON.")
+    prompt = screenwriter_prompt.format(context=context)
 
     for attempt in range(1, 4):
         response = await _call_llm(
-            system="Ты генерируешь ТОЛЬКО валидный JSON. Никакого текста до или после JSON.",
+            system=system_prompt,
             user=prompt,
             story_id=story_id,
             purpose="screenplay",

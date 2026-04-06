@@ -99,10 +99,16 @@ async def split_into_scenes(screenplay: dict, story_id: int = None) -> list[dict
             story_lines.append(f"[{idx}] {clean}")
     story_text = "\n".join(story_lines)
 
-    prompt = SCENE_SPLIT_PROMPT.format(
+    from db.config_manager import cfg
+    scene_split_prompt = await cfg.get("prompt.scene_split", SCENE_SPLIT_PROMPT)
+    max_chars = await cfg.get("llm.story_text_max_chars", 3000)
+    split_temp = await cfg.get("llm.scene_split_temperature", 0.5)
+    split_tokens = await cfg.get("llm.scene_split_max_tokens", 8000)
+
+    prompt = scene_split_prompt.format(
         title=title,
         characters=characters,
-        story_text=story_text[:3000],
+        story_text=story_text[:max_chars],
     )
 
     headers = {
@@ -115,8 +121,8 @@ async def split_into_scenes(screenplay: dict, story_id: int = None) -> list[dict
             {"role": "system", "content": "Ты генерируешь ТОЛЬКО валидный JSON."},
             {"role": "user", "content": prompt},
         ],
-        "temperature": 0.5,
-        "max_tokens": 8000,
+        "temperature": split_temp,
+        "max_tokens": split_tokens,
     }
 
     for attempt in range(1, 6):
@@ -210,12 +216,15 @@ async def split_into_scenes(screenplay: dict, story_id: int = None) -> list[dict
 async def _call_image_api(content: list[dict], scene_index: int, style_label: str,
                           story_id: int = None) -> bytes | None:
     """Send image generation request to OpenRouter and return image bytes."""
+    from db.config_manager import cfg
+    image_model = await cfg.get("model.image", IMAGE_MODEL)
+
     headers = {
         "Authorization": f"Bearer {settings.openrouter_api_key}",
         "Content-Type": "application/json",
     }
     payload = {
-        "model": IMAGE_MODEL,
+        "model": image_model,
         "modalities": ["image", "text"],
         "messages": [{"role": "user", "content": content}],
         "image_config": {
@@ -467,10 +476,13 @@ async def generate_illustration(
                 "same face shape, hair color, hair style, eye color, skin tone."
             )
 
+    from db.config_manager import cfg
+    style_block = await cfg.get("prompt.style_pixar", STYLE_PIXAR)
+
     prompt = _build_scene_prompt(
         scene, scene_index, total_scenes, fairy_tale_title, characters_desc,
         character_appearances or {},
-        previous_scene_desc, STYLE_PIXAR,
+        previous_scene_desc, style_block,
         f"Pixar-style 3D render. {face_suffix}",
     )
     content = [{"type": "text", "text": prompt}] + photo_content

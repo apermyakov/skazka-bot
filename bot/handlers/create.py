@@ -338,8 +338,10 @@ async def _start_generation(message: types.Message, state: FSMContext):
                           photo_count=len(reference_photos)))
 
     # Magic wand sticker while generating
-    MAGIC_WAND_STICKER = "CAACAgEAAxUAAWnUJVEkOcUGvclrW1NRjLNvU-L_AAJwBAAChoMgREmYf7NqHL4KOwQ"
-    await message.answer_sticker(MAGIC_WAND_STICKER)
+    from db.config_manager import cfg
+    sticker_id = await cfg.get("ui.sticker_generation",
+                                "CAACAgEAAxUAAWnUJVEkOcUGvclrW1NRjLNvU-L_AAJwBAAChoMgREmYf7NqHL4KOwQ")
+    await message.answer_sticker(sticker_id)
     status_msg = await message.answer("🎙 Озвучиваю и рисую сказку...")
 
     async def on_status(msg: str):
@@ -367,7 +369,7 @@ async def _start_generation(message: types.Message, state: FSMContext):
         await message.answer_audio(
             audio=audio_file,
             title=audio_info["title"],
-            performer="Сказка на ночь",
+            performer=await cfg.get("ui.audio_performer", "Сказка на ночь"),
             caption="🎧 Включайте — видеосказка скоро будет готова!",
         )
         audio_sent = True
@@ -429,7 +431,7 @@ async def _start_generation(message: types.Message, state: FSMContext):
             await message.answer_audio(
                 audio=audio_file,
                 title=result["title"],
-                performer="Сказка на ночь",
+                performer=await cfg.get("ui.audio_performer", "Сказка на ночь"),
             )
 
         # Send MP4 video at the end

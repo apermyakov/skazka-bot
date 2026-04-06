@@ -164,13 +164,20 @@ _ROLE_TONE_SCORE = {
 }
 
 
-def pick_voice(
+async def pick_voice(
     gender: str,
     age: str,
     role: str,
     already_used: dict[str, str] | None = None,
 ) -> VoiceProfile:
     """Pick the best voice for given character traits, avoiding duplicates."""
+    from db.config_manager import cfg
+    weights = await cfg.get("voice.score_weights", [0.3, 0.5, 0.2])
+    child_deep_pen = await cfg.get("voice.child_deep_penalty", 0.2)
+    child_bright_bon = await cfg.get("voice.child_bright_bonus", 1.3)
+    animal_tone_bon = await cfg.get("voice.animal_tone_bonus", 1.3)
+    used_pen = await cfg.get("voice.already_used_penalty", 0.5)
+
     used_ids = set((already_used or {}).values())
 
     scored: list[tuple[float, VoiceProfile]] = []
@@ -188,22 +195,22 @@ def pick_voice(
         age_s = _AGE_SCORE.get((age, v.age_group), 0.3)
         tone_s = _ROLE_TONE_SCORE.get((role, v.tone), 0.3)
         role_bonus = 0.3 if role in v.best_for else 0.0
-        score = (age_s * 0.3 + tone_s * 0.5 + role_bonus * 0.2) * v.priority
+        score = (age_s * weights[0] + tone_s * weights[1] + role_bonus * weights[2]) * v.priority
 
         # Children should never get deep/authoritative voices
         if age == "child" and v.tone in ("deep", "authoritative"):
-            score *= 0.2
+            score *= child_deep_pen
 
         # Prefer bright/soft/squeaky tones for children
         if age == "child" and v.tone in ("bright", "soft", "squeaky"):
-            score *= 1.3
+            score *= child_bright_bon
 
         # Animals prefer character voices with matching tones
         if role == "animal" and v.tone in ("squeaky", "gruff", "raspy"):
-            score *= 1.3
+            score *= animal_tone_bon
 
         if v.voice_id in used_ids:
-            score *= 0.5
+            score *= used_pen
 
         scored.append((score, v))
 

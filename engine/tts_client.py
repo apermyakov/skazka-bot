@@ -48,14 +48,21 @@ async def synthesize_batch(
     async def _do(session: aiohttp.ClientSession, index: int, seg: dict):
         nonlocal done_count
         url = ELEVENLABS_TTS_URL.format(voice_id=seg["voice_id"])
+        from db.config_manager import cfg
+        tts_model = await cfg.get("model.tts", "eleven_v3")
+        tts_lang = await cfg.get("tts.language_code", "ru")
+        def_stab = await cfg.get("tts.default_stability", 0.45)
+        def_sim = await cfg.get("tts.default_similarity", 0.80)
+        def_style = await cfg.get("tts.default_style", 0.25)
+
         payload = {
             "text": seg["text"],
-            "model_id": "eleven_v3",
-            "language_code": "ru",
+            "model_id": tts_model,
+            "language_code": tts_lang,
             "voice_settings": {
-                "stability": seg.get("stability", 0.45),
-                "similarity_boost": seg.get("similarity", 0.80),
-                "style": seg.get("style", 0.25),
+                "stability": seg.get("stability", def_stab),
+                "similarity_boost": seg.get("similarity", def_sim),
+                "style": seg.get("style", def_style),
             },
         }
 

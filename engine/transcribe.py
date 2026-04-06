@@ -58,8 +58,15 @@ async def transcribe_voice(ogg_data: bytes) -> str:
             "Content-Type": "application/json",
         }
 
+        from db.config_manager import cfg
+        transcribe_model = await cfg.get("model.transcribe", "google/gemini-2.5-flash")
+        transcribe_prompt = await cfg.get("prompt.transcription",
+            "Расшифруй это голосовое сообщение на русском языке. Это запрос на создание детской сказки — особенно внимательно расшифруй имена детей, возраст и названия. Верни ТОЛЬКО точный текст расшифровки, без комментариев и пояснений.")
+        transcribe_tokens = await cfg.get("llm.transcribe_max_tokens", 500)
+        transcribe_temp = await cfg.get("llm.transcribe_temperature", 0.1)
+
         payload = {
-            "model": "google/gemini-2.5-flash",
+            "model": transcribe_model,
             "messages": [
                 {
                     "role": "user",
@@ -73,13 +80,13 @@ async def transcribe_voice(ogg_data: bytes) -> str:
                         },
                         {
                             "type": "text",
-                            "text": "Расшифруй это голосовое сообщение на русском языке. Это запрос на создание детской сказки — особенно внимательно расшифруй имена детей, возраст и названия. Верни ТОЛЬКО точный текст расшифровки, без комментариев и пояснений.",
+                            "text": transcribe_prompt,
                         },
                     ],
                 }
             ],
-            "max_tokens": 500,
-            "temperature": 0.1,
+            "max_tokens": transcribe_tokens,
+            "temperature": transcribe_temp,
         }
 
         t0 = time.time()
