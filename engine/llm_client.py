@@ -40,7 +40,11 @@ async def _call_llm(system: str, user: str, max_retries: int = 3) -> str:
                         logger.warning("LLM HTTP %d (attempt %d): %s", resp.status, attempt, body[:300])
                         continue
                     data = await resp.json()
-                    return data["choices"][0]["message"]["content"]
+                    content = data["choices"][0]["message"]["content"]
+                    if not content or not content.strip():
+                        logger.warning("LLM returned empty content (attempt %d)", attempt)
+                        continue
+                    return content
         except Exception as e:
             logger.warning("LLM error (attempt %d): %s", attempt, e)
 
@@ -81,11 +85,27 @@ async def generate_screenplay(context: str) -> dict:
         Dict with keys: title, characters, segments, scenes.
     """
     prompt = SCREENWRITER_PROMPT.format(context=context)
-    response = await _call_llm(
-        system="Ты генерируешь ТОЛЬКО валидный JSON. Никакого текста до или после JSON.",
-        user=prompt,
-    )
-    screenplay = _extract_json(response)
+
+    for attempt in range(1, 4):
+        response = await _call_llm(
+            system="Ты генерируешь ТОЛЬКО валидный JSON. Никакого текста до или после JSON.",
+            user=prompt,
+        )
+        logger.info("Screenplay LLM response (attempt %d): length=%d, start=%s",
+                     attempt, len(response) if response else 0,
+                     (response[:100] if response else "EMPTY"))
+
+        if not response or not response.strip():
+            logger.warning("Empty screenplay response (attempt %d)", attempt)
+            continue
+
+        try:
+            screenplay = _extract_json(response)
+            break
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning("Screenplay JSON parse failed (attempt %d): %s", attempt, e)
+            if attempt == 3:
+                raise
 
     # Validate required fields
     required = {"title", "characters", "segments"}
