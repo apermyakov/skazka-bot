@@ -163,10 +163,10 @@ async def create_video(
     filter_parts = []
 
     for i, (img, dur) in enumerate(zip(image_paths, durations)):
-        inputs.extend(["-loop", "1", "-t", f"{dur:.2f}", "-framerate", str(v_fps), "-i", str(img)])
+        inputs.extend(["-loop", "1", "-t", f"{dur:.2f}", "-i", str(img)])
         filter_parts.append(
             f"[{i}:v]scale={v_width}:{v_height}:force_original_aspect_ratio=increase,"
-            f"crop={v_width}:{v_height},setsar=1,fps={v_fps},format=yuv420p[v{i}]"
+            f"crop={v_width}:{v_height},setsar=1,format=yuv420p[v{i}]"
         )
 
     concat_inputs = "".join(f"[v{i}]" for i in range(n))
@@ -184,6 +184,8 @@ async def create_video(
         "-c:v", "libx264",
         "-preset", "fast",
         "-crf", str(v_crf),
+        "-r", str(v_fps),
+        "-g", str(v_fps * 2),      # keyframe every 2 seconds for smooth seeking
         "-c:a", "aac",
         "-b:a", "128k",
         "-pix_fmt", "yuv420p",
