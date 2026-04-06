@@ -206,7 +206,18 @@ async def generate_illustration(
                     logger.warning("Image gen failed for scene %d: HTTP %d: %s", scene_index, resp.status, body[:300])
                     return None
 
-                data = await resp.json()
+                raw_body = await resp.text()
+                if not raw_body or not raw_body.strip():
+                    logger.warning("Empty response body for scene %d", scene_index)
+                    return None
+
+                import json as _json
+                try:
+                    data = _json.loads(raw_body)
+                except Exception as je:
+                    logger.warning("JSON parse error for scene %d: %s | body: %s", scene_index, je, raw_body[:300])
+                    return None
+
                 message = data["choices"][0]["message"]
                 logger.info("Image response keys: %s, content type: %s", list(message.keys()), type(message.get("content")))
 
