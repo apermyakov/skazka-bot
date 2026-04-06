@@ -277,14 +277,17 @@ async def _start_generation(message: types.Message, state: FSMContext):
         )
         audio_sent = True
 
-    async def on_illustration_ready(idx: int, img_path: str):
+    style_labels = {"pixar": "3D Pixar", "watercolor": "Акварель"}
+
+    async def on_illustration_ready(idx: int, img_path: str, style: str):
         try:
+            label = style_labels.get(style, style)
             await message.answer_photo(
                 photo=FSInputFile(img_path),
-                caption=f"🎨 Сцена {idx + 1}",
+                caption=f"🎨 Сцена {idx + 1} — {label}",
             )
         except Exception as e:
-            logger.warning("Failed to send illustration %d: %s", idx, e)
+            logger.warning("Failed to send illustration %d [%s]: %s", idx, style, e)
 
     try:
         result = await generate_fairytale(
