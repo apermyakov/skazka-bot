@@ -25,6 +25,7 @@ async def generate_fairytale(
     reference_photo_b64: str | None = None,
     on_status: Callable[[str], Awaitable[None]] | None = None,
     on_audio_ready: Callable[[dict], Awaitable[None]] | None = None,
+    on_illustration_ready: Callable[[int, str], Awaitable[None]] | None = None,
 ) -> dict:
     """Generate a complete fairy tale: MP3 audio + illustrations.
 
@@ -34,6 +35,7 @@ async def generate_fairytale(
         reference_photo_b64: Base64-encoded child photo for illustrations.
         on_status: Callback for status updates.
         on_audio_ready: Callback fired as soon as MP3 is mixed, before illustrations.
+        on_illustration_ready: Callback fired for each illustration. Receives (index, file_path).
             Receives dict with: title, file_path, duration, segments_count.
 
     Returns:
@@ -108,11 +110,20 @@ async def generate_fairytale(
         # Start illustrations (if photo provided or generate without face)
         illustration_paths: list[str] = []
         scene_durations_list: list[float] = []
+
+        async def _on_img_ready(idx: int, img_bytes: bytes):
+            img_path = illustrations_dir / f"scene_{idx + 1}.png"
+            img_path.write_bytes(img_bytes)
+            illustration_paths.append(str(img_path))
+            if on_illustration_ready:
+                await on_illustration_ready(idx, str(img_path))
+
         img_task = asyncio.create_task(
             generate_illustrations_batch(
                 screenplay=screenplay,
                 reference_photo_b64=reference_photo_b64,
                 on_progress=status,
+                on_illustration_ready=_on_img_ready,
             )
         )
 
@@ -175,11 +186,6 @@ async def generate_fairytale(
         # ── Step 7: Wait for illustrations ──
         try:
             img_results = await img_task
-            for i, img_bytes in enumerate(img_results):
-                if img_bytes:
-                    img_path = illustrations_dir / f"scene_{i + 1}.png"
-                    img_path.write_bytes(img_bytes)
-                    illustration_paths.append(str(img_path))
             logger.info("Illustrations: %d/%d saved", len(illustration_paths), len(img_results))
         except Exception as e:
             logger.warning("Illustrations failed: %s, continuing without them", e)

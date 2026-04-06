@@ -273,9 +273,18 @@ async def _start_generation(message: types.Message, state: FSMContext):
             audio=audio_file,
             title=audio_info["title"],
             performer="Сказка на ночь",
-            caption="🎧 Включайте — иллюстрации придут в нужный момент!",
+            caption="🎧 Включайте — иллюстрации скоро появятся!",
         )
         audio_sent = True
+
+    async def on_illustration_ready(idx: int, img_path: str):
+        try:
+            await message.answer_photo(
+                photo=FSInputFile(img_path),
+                caption=f"🎨 Сцена {idx + 1}",
+            )
+        except Exception as e:
+            logger.warning("Failed to send illustration %d: %s", idx, e)
 
     try:
         result = await generate_fairytale(
@@ -284,17 +293,17 @@ async def _start_generation(message: types.Message, state: FSMContext):
             reference_photo_b64=photo_b64,
             on_status=on_status,
             on_audio_ready=on_audio_ready,
+            on_illustration_ready=on_illustration_ready,
         )
 
-        # Update status after illustrations are done
-        if audio_sent:
-            try:
-                await status_msg.edit_text(
-                    f"✅ <b>Сказка готова!</b>",
-                    parse_mode="HTML",
-                )
-            except Exception:
-                pass
+        # Update status after everything is done
+        try:
+            await status_msg.edit_text(
+                "✅ <b>Сказка готова!</b>",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
 
         # Fallback: send MP3 if callback didn't fire (shouldn't happen)
         if not audio_sent:
@@ -304,24 +313,6 @@ async def _start_generation(message: types.Message, state: FSMContext):
                 title=result["title"],
                 performer="Сказка на ночь",
             )
-
-        # Send illustrations timed to scene start
-        illustrations = result.get("illustrations", [])
-        timecodes = result.get("scene_start_times", [])
-
-        if illustrations and timecodes and len(timecodes) == len(illustrations):
-            import asyncio
-            for i, (img_path, start_time) in enumerate(zip(illustrations, timecodes)):
-                if i == 0:
-                    await asyncio.sleep(max(0, start_time))
-                else:
-                    delay = timecodes[i] - timecodes[i - 1]
-                    await asyncio.sleep(max(0, delay))
-
-                await message.answer_photo(
-                    photo=FSInputFile(img_path),
-                    caption=f"🎨 Сцена {i + 1}",
-                )
 
         # Send MP4 video at the end
         video_path = result.get("video_path")

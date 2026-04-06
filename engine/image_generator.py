@@ -7,6 +7,7 @@ import json
 import logging
 import re
 from pathlib import Path
+from typing import Callable, Awaitable
 
 import aiohttp
 
@@ -14,7 +15,7 @@ from bot.config import settings
 
 logger = logging.getLogger(__name__)
 
-IMAGE_MODEL = "google/gemini-3-pro-image-preview"
+IMAGE_MODEL = "google/gemini-2.5-flash-image"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 STYLE_BLOCK = (
@@ -283,8 +284,13 @@ async def generate_illustrations_batch(
     screenplay: dict,
     reference_photo_b64: str | None = None,
     on_progress=None,
+    on_illustration_ready: Callable[[int, bytes], Awaitable[None]] | None = None,
 ) -> list[bytes]:
     """Generate all illustrations for a fairy tale.
+
+    Args:
+        on_illustration_ready: Callback fired for each illustration as it's generated.
+            Receives (scene_index, image_bytes).
 
     Returns list of PNG bytes (may contain None for failed scenes).
     """
@@ -326,6 +332,13 @@ async def generate_illustrations_batch(
             i + 1, len(scenes),
             f"{len(img_bytes):,} bytes" if img_bytes else "FAILED",
         )
+
+        # Deliver illustration immediately
+        if img_bytes and on_illustration_ready:
+            try:
+                await on_illustration_ready(i, img_bytes)
+            except Exception as e:
+                logger.warning("on_illustration_ready callback failed for scene %d: %s", i, e)
 
     successful = sum(1 for r in results if r is not None)
     logger.info("Illustrations complete: %d/%d successful", successful, len(results))
