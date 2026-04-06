@@ -253,43 +253,65 @@ async def _start_generation(message: types.Message, state: FSMContext):
         except Exception:
             pass
 
+    audio_sent = False
+
+    async def on_audio_ready(audio_info: dict):
+        nonlocal audio_sent
+        dur_min = int(audio_info["duration"]) // 60
+        dur_sec = int(audio_info["duration"]) % 60
+
+        await status_msg.edit_text(
+            f"✅ <b>Аудио готово!</b>\n\n"
+            f"📖 <b>{audio_info['title']}</b>\n"
+            f"⏱ {dur_min}:{dur_sec:02d}\n\n"
+            f"🎨 Рисую иллюстрации...",
+            parse_mode="HTML",
+        )
+
+        audio_file = FSInputFile(audio_info["file_path"], filename=f"{audio_info['title']}.mp3")
+        await message.answer_audio(
+            audio=audio_file,
+            title=audio_info["title"],
+            performer="Сказка на ночь",
+            caption="🎧 Включайте — иллюстрации придут в нужный момент!",
+        )
+        audio_sent = True
+
     try:
         result = await generate_fairytale(
             context=context,
             screenplay=screenplay,
             reference_photo_b64=photo_b64,
             on_status=on_status,
+            on_audio_ready=on_audio_ready,
         )
 
-        # Send audio
-        audio_file = FSInputFile(result["file_path"], filename=f"{result['title']}.mp3")
-        dur_min = int(result["duration"]) // 60
-        dur_sec = int(result["duration"]) % 60
+        # Update status after illustrations are done
+        if audio_sent:
+            try:
+                await status_msg.edit_text(
+                    f"✅ <b>Сказка готова!</b>",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
 
-        await status_msg.edit_text(
-            f"✅ <b>Сказка готова!</b>\n\n"
-            f"📖 <b>{result['title']}</b>\n"
-            f"⏱ {dur_min}:{dur_sec:02d}",
-            parse_mode="HTML",
-        )
+        # Fallback: send MP3 if callback didn't fire (shouldn't happen)
+        if not audio_sent:
+            audio_file = FSInputFile(result["file_path"], filename=f"{result['title']}.mp3")
+            await message.answer_audio(
+                audio=audio_file,
+                title=result["title"],
+                performer="Сказка на ночь",
+            )
 
-        # 1. Send MP3 immediately
-        audio_file = FSInputFile(result["file_path"], filename=f"{result['title']}.mp3")
-        await message.answer_audio(
-            audio=audio_file,
-            title=result["title"],
-            performer="Сказка на ночь",
-            caption=f"🎧 Включайте — иллюстрации придут в нужный момент!",
-        )
-
-        # 2. Send illustrations timed to scene start
+        # Send illustrations timed to scene start
         illustrations = result.get("illustrations", [])
         timecodes = result.get("scene_start_times", [])
 
         if illustrations and timecodes and len(timecodes) == len(illustrations):
             import asyncio
             for i, (img_path, start_time) in enumerate(zip(illustrations, timecodes)):
-                # Wait until this scene starts in the audio
                 if i == 0:
                     await asyncio.sleep(max(0, start_time))
                 else:
@@ -301,7 +323,7 @@ async def _start_generation(message: types.Message, state: FSMContext):
                     caption=f"🎨 Сцена {i + 1}",
                 )
 
-        # 3. Send MP4 video at the end
+        # Send MP4 video at the end
         video_path = result.get("video_path")
         if video_path:
             video_file = FSInputFile(video_path, filename=f"{result['title']}.mp4")

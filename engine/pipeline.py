@@ -24,6 +24,7 @@ async def generate_fairytale(
     screenplay: dict | None = None,
     reference_photo_b64: str | None = None,
     on_status: Callable[[str], Awaitable[None]] | None = None,
+    on_audio_ready: Callable[[dict], Awaitable[None]] | None = None,
 ) -> dict:
     """Generate a complete fairy tale: MP3 audio + illustrations.
 
@@ -32,6 +33,8 @@ async def generate_fairytale(
         screenplay: Pre-generated screenplay dict.
         reference_photo_b64: Base64-encoded child photo for illustrations.
         on_status: Callback for status updates.
+        on_audio_ready: Callback fired as soon as MP3 is mixed, before illustrations.
+            Receives dict with: title, file_path, duration, segments_count.
 
     Returns:
         Dict with: title, file_path, duration, segments_count, script, illustrations.
@@ -159,6 +162,15 @@ async def generate_fairytale(
             shutil.copy2(dry_path, final_path)
 
         duration = await get_duration(final_path)
+
+        # ── Notify: audio is ready, deliver MP3 immediately ──
+        if on_audio_ready:
+            await on_audio_ready({
+                "title": title,
+                "file_path": str(final_path),
+                "duration": duration,
+                "segments_count": len(seg_files),
+            })
 
         # ── Step 7: Wait for illustrations ──
         try:
