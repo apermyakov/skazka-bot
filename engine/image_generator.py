@@ -339,8 +339,10 @@ async def generate_illustration(
         }]
 
     face_suffix = (
-        "CRITICAL REQUIREMENT: The child in this illustration MUST closely match "
-        "the reference photo. Preserve EXACTLY: face shape, face proportions, "
+        "CRITICAL REQUIREMENT: The reference photo may contain multiple people (parents, siblings). "
+        "Identify the CHILD in the photo — use ONLY the child's appearance for the main character. "
+        "Ignore adults in the photo. "
+        "Preserve the child's face EXACTLY: face shape, face proportions, "
         "hair color, hair style, hair length, eye color, eye shape, skin tone, "
         "nose shape, and overall facial features. "
         "The result must be immediately recognizable as the same child. "
