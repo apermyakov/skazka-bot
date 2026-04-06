@@ -92,13 +92,25 @@ async def split_into_scenes(screenplay: dict) -> list[dict]:
         "max_tokens": 2000,
     }
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(OPENROUTER_URL, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=60)) as resp:
-            if resp.status != 200:
-                body = await resp.text()
-                raise RuntimeError(f"Scene split LLM error {resp.status}: {body[:200]}")
-            data = await resp.json()
-            text = data["choices"][0]["message"]["content"]
+    for attempt in range(1, 4):
+        async with aiohttp.ClientSession() as session:
+            async with session.post(OPENROUTER_URL, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=60)) as resp:
+                if resp.status != 200:
+                    body = await resp.text()
+                    logger.warning("Scene split LLM error %d (attempt %d): %s", resp.status, attempt, body[:200])
+                    continue
+                data = await resp.json()
+
+        text = data["choices"][0]["message"]["content"]
+        logger.info("Scene split raw response (attempt %d): %s", attempt, text[:200])
+
+        if not text or not text.strip():
+            logger.warning("Empty scene split response (attempt %d)", attempt)
+            continue
+
+        break
+    else:
+        raise RuntimeError("Scene split failed after 3 attempts")
 
     # Parse JSON
     cleaned = re.sub(r"```(?:json)?\s*", "", text).strip().rstrip("`")
@@ -183,6 +195,7 @@ async def generate_illustration(
     }
 
     try:
+        logger.info("Generating illustration %d: %s", scene_index, scene.get("title", "?"))
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 OPENROUTER_URL, json=payload, headers=headers,
@@ -190,11 +203,12 @@ async def generate_illustration(
             ) as resp:
                 if resp.status != 200:
                     body = await resp.text()
-                    logger.warning("Image gen failed for scene %d: HTTP %d: %s", scene_index, resp.status, body[:200])
+                    logger.warning("Image gen failed for scene %d: HTTP %d: %s", scene_index, resp.status, body[:300])
                     return None
 
                 data = await resp.json()
                 message = data["choices"][0]["message"]
+                logger.info("Image response keys: %s, content type: %s", list(message.keys()), type(message.get("content")))
 
                 # Extract image from response
                 images = message.get("images", [])
