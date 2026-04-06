@@ -192,7 +192,7 @@ async def generate_fairytale(
             img_results = await img_task
             logger.info("Illustrations: %d/%d saved", len(illustration_paths), len(img_results))
         except Exception as e:
-            logger.warning("Illustrations failed: %s, continuing without them", e)
+            logger.warning("Illustrations failed: %s, continuing without them", e, exc_info=True)
 
         logger.info("Fairy tale audio complete: '%s', %.1fs, %d illustrations", title, duration, len(illustration_paths))
 

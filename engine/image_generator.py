@@ -112,12 +112,12 @@ async def split_into_scenes(screenplay: dict) -> list[dict]:
         "max_tokens": 8000,
     }
 
-    for attempt in range(1, 4):
+    for attempt in range(1, 6):
         if attempt > 1:
             await asyncio.sleep(3)  # wait between retries
 
         async with aiohttp.ClientSession() as session:
-            async with session.post(OPENROUTER_URL, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=90)) as resp:
+            async with session.post(OPENROUTER_URL, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=120)) as resp:
                 raw = await resp.text()
                 logger.info("Scene split HTTP %d (attempt %d), body length: %d", resp.status, attempt, len(raw))
 
@@ -186,7 +186,7 @@ async def split_into_scenes(screenplay: dict) -> list[dict]:
 
         break
     else:
-        raise RuntimeError("Scene split failed after 3 attempts")
+        raise RuntimeError("Scene split failed after 5 attempts")
 
     logger.info("Split into %d scenes for illustration, appearances: %s", len(scenes), character_appearances)
     return scenes, character_appearances
