@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Illustration generation for fairy tales using Nano Banana Pro (Gemini 3 Pro Image)."""
 
+import asyncio
 import base64
 import json
 import logging
@@ -92,44 +93,62 @@ async def split_into_scenes(screenplay: dict) -> list[dict]:
         "max_tokens": 2000,
     }
 
+    import time as _time
     for attempt in range(1, 4):
+        if attempt > 1:
+            await asyncio.sleep(3)  # wait between retries
+
         async with aiohttp.ClientSession() as session:
-            async with session.post(OPENROUTER_URL, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=60)) as resp:
+            async with session.post(OPENROUTER_URL, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=90)) as resp:
+                raw = await resp.text()
+                logger.info("Scene split HTTP %d (attempt %d), body length: %d", resp.status, attempt, len(raw))
+
                 if resp.status != 200:
-                    body = await resp.text()
-                    logger.warning("Scene split LLM error %d (attempt %d): %s", resp.status, attempt, body[:200])
+                    logger.warning("Scene split error (attempt %d): %s", attempt, raw[:300])
                     continue
-                data = await resp.json()
+
+                if not raw or not raw.strip():
+                    logger.warning("Empty scene split body (attempt %d)", attempt)
+                    continue
+
+                data = json.loads(raw)
 
         text = data["choices"][0]["message"]["content"]
-        logger.info("Scene split raw response (attempt %d): %s", attempt, text[:200])
+        logger.info("Scene split content (attempt %d): %s", attempt, text[:200] if text else "EMPTY")
 
         if not text or not text.strip():
-            logger.warning("Empty scene split response (attempt %d)", attempt)
+            logger.warning("Empty scene split content (attempt %d)", attempt)
             continue
 
         break
     else:
         raise RuntimeError("Scene split failed after 3 attempts")
 
-    # Parse JSON
-    cleaned = re.sub(r"```(?:json)?\s*", "", text).strip().rstrip("`")
-    start = cleaned.find("{")
-    if start == -1:
-        raise ValueError("No JSON in scene split response")
+    # Parse JSON — strip markdown fences and find the JSON object
+    cleaned = re.sub(r"```(?:json)?\s*", "", text)
+    cleaned = re.sub(r"```\s*$", "", cleaned).strip()
 
-    depth = 0
-    end = start
-    for i in range(start, len(cleaned)):
-        if cleaned[i] == "{":
-            depth += 1
-        elif cleaned[i] == "}":
-            depth -= 1
-            if depth == 0:
-                end = i + 1
-                break
+    # Try direct parse first
+    try:
+        result = json.loads(cleaned)
+    except json.JSONDecodeError:
+        # Find JSON object by matching braces
+        start = cleaned.find("{")
+        if start == -1:
+            raise ValueError(f"No JSON object in scene split response: {cleaned[:200]}")
 
-    result = json.loads(cleaned[start:end])
+        depth = 0
+        end = len(cleaned)
+        for i in range(start, len(cleaned)):
+            if cleaned[i] == "{":
+                depth += 1
+            elif cleaned[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i + 1
+                    break
+
+        result = json.loads(cleaned[start:end])
     scenes = result.get("scenes", [])
 
     if not scenes:
@@ -165,8 +184,11 @@ async def generate_illustration(
         f"Visual description: {scene.get('description', '')}\n"
         f"{continuity}\n\n"
         f"Generate a single children's book illustration for this scene. "
-        f"The main character is the child from the reference photo (if provided). "
-        f"Make the child recognizable but in illustrated style."
+        f"IMPORTANT: If a reference photo of a child is provided, the main character MUST closely resemble that child — "
+        f"same face shape, same hair color and style, same eye color. "
+        f"The child and their parents must be able to recognize themselves in the illustration. "
+        f"Keep the likeness accurate while applying the watercolor illustration style. "
+        f"Do NOT change the child's gender, age, or distinctive features."
     )
 
     content = [{"type": "text", "text": prompt}]
@@ -248,14 +270,15 @@ async def generate_illustration(
                     return None
 
     except Exception as e:
-        logger.error("Image generation error for scene %d: %s", scene_index, e)
+        import traceback
+        logger.error("Image generation error for scene %d: %s\n%s", scene_index, e, traceback.format_exc())
         return None
 
 
 async def generate_illustrations_batch(
     screenplay: dict,
     reference_photo_b64: str | None = None,
-    on_progress: callable = None,
+    on_progress=None,
 ) -> list[bytes]:
     """Generate all illustrations for a fairy tale.
 
@@ -277,7 +300,9 @@ async def generate_illustrations_batch(
 
     for i, scene in enumerate(scenes):
         if on_progress:
-            await on_progress(f"🎨 Рисую иллюстрацию {i + 1}/{len(scenes)}...")
+            result = on_progress(f"🎨 Рисую иллюстрацию {i + 1}/{len(scenes)}...")
+            if asyncio.iscoroutine(result):
+                await result
 
         img_bytes = await generate_illustration(
             scene=scene,
