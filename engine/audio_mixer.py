@@ -132,59 +132,15 @@ async def concat_segments(
     filelist.unlink(missing_ok=True)
 
 
-# Ken Burns animation patterns: (zoom_expr, x_expr, y_expr)
-# Each pattern provides subtle motion — slow zoom or gentle pan
-_KEN_BURNS_PATTERNS = [
-    # Slow zoom-in, centered
-    (
-        "min(zoom+0.0008,1.15)",
-        "iw/2-(iw/zoom/2)",
-        "ih/2-(ih/zoom/2)",
-    ),
-    # Slow zoom-out from 1.15x
-    (
-        "if(eq(on,1),1.15,max(zoom-0.0008,1.0))",
-        "iw/2-(iw/zoom/2)",
-        "ih/2-(ih/zoom/2)",
-    ),
-    # Gentle pan left-to-right with slight zoom
-    (
-        "1.10",
-        "(iw*0.10)*(on/({frames}-1))",
-        "ih/2-(ih/zoom/2)",
-    ),
-    # Gentle pan right-to-left with slight zoom
-    (
-        "1.10",
-        "(iw*0.10)*(1-on/({frames}-1))",
-        "ih/2-(ih/zoom/2)",
-    ),
-    # Zoom-in with slight downward drift
-    (
-        "min(zoom+0.0008,1.15)",
-        "iw/2-(iw/zoom/2)",
-        "ih*0.05*(on/({frames}-1))",
-    ),
-    # Zoom-out with slight upward drift
-    (
-        "if(eq(on,1),1.15,max(zoom-0.0008,1.0))",
-        "iw/2-(iw/zoom/2)",
-        "ih*0.05*(1-on/({frames}-1))",
-    ),
-]
-
-FPS = 25
-
-
 async def create_video(
     audio_path: str | Path,
     image_paths: list[str | Path],
     output_path: str | Path,
     durations: list[float] | None = None,
 ) -> None:
-    """Create MP4 video with Ken Burns animation synced to audio.
+    """Create MP4 video: static slideshow of images synced to audio.
 
-    Each image gets a subtle zoom/pan effect that alternates per scene.
+    Each image is scaled to fit 1920x1080 preserving aspect ratio.
     """
     audio_dur = await get_duration(audio_path)
     n = len(image_paths)
@@ -198,19 +154,10 @@ async def create_video(
     filter_parts = []
 
     for i, (img, dur) in enumerate(zip(image_paths, durations)):
-        inputs.extend(["-i", str(img)])
-
-        frames = max(int(dur * FPS), 1)
-        pattern = _KEN_BURNS_PATTERNS[i % len(_KEN_BURNS_PATTERNS)]
-        z_expr = pattern[0]
-        x_expr = pattern[1].replace("{frames}", str(frames))
-        y_expr = pattern[2].replace("{frames}", str(frames))
-
+        inputs.extend(["-loop", "1", "-t", f"{dur:.2f}", "-i", str(img)])
         filter_parts.append(
-            f"[{i}:v]scale=2048:-1,"
-            f"zoompan=z='{z_expr}':x='{x_expr}':y='{y_expr}'"
-            f":d={frames}:s=1920x1080:fps={FPS},"
-            f"format=yuv420p[v{i}]"
+            f"[{i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,"
+            f"pad=1920:1080:-1:-1:color=black,setsar=1,format=yuv420p[v{i}]"
         )
 
     concat_inputs = "".join(f"[v{i}]" for i in range(n))

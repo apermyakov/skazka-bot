@@ -292,7 +292,7 @@ async def _start_generation(message: types.Message, state: FSMContext):
             f"✅ <b>Аудио готово!</b>\n\n"
             f"📖 <b>{audio_info['title']}</b>\n"
             f"⏱ {dur_min}:{dur_sec:02d}\n\n"
-            f"🎨 Рисую иллюстрации...",
+            f"🎨 Рисую иллюстрации и собираю видео...",
             parse_mode="HTML",
         )
 
@@ -301,18 +301,9 @@ async def _start_generation(message: types.Message, state: FSMContext):
             audio=audio_file,
             title=audio_info["title"],
             performer="Сказка на ночь",
-            caption="🎧 Включайте — иллюстрации скоро появятся!",
+            caption="🎧 Включайте — видеосказка скоро будет готова!",
         )
         audio_sent = True
-
-    async def on_illustration_ready(idx: int, img_path: str):
-        try:
-            await message.answer_photo(
-                photo=FSInputFile(img_path),
-                caption=f"🎨 Сцена {idx + 1}",
-            )
-        except Exception as e:
-            logger.warning("Failed to send illustration %d: %s", idx, e)
 
     try:
         result = await generate_fairytale(
@@ -322,7 +313,6 @@ async def _start_generation(message: types.Message, state: FSMContext):
             reference_photos=reference_photos,
             on_status=on_status,
             on_audio_ready=on_audio_ready,
-            on_illustration_ready=on_illustration_ready,
         )
 
         # Update status after everything is done
