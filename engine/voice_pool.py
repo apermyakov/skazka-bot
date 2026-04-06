@@ -127,8 +127,17 @@ VOICE_POOL: list[VoiceProfile] = [
     VoiceProfile("oae6GCCzwoEbfc5FHdEu", "William_Bedtime",   "male",   "elderly",  "soft",          ("narrator", "wise")),
     VoiceProfile("ouL9IsyrSnUkCmfnD02u", "Grimblewood",       "male",   "elderly",  "raspy",         ("comic", "magical", "animal")),
 
+    # --- Female conversational & spirited ---
+    VoiceProfile("jqcCZkN6Knx8BJ5TBdYR", "Zara",              "female", "young",    "warm",          ("hero", "narrator")),
+    VoiceProfile("i4CzbCVWoqvD0P1QJCUL", "Ivy",               "female", "young",    "bright",        ("hero", "comic", "magical")),
+
     # --- Female villain ---
     VoiceProfile("esy0r39YPLQjOczyOib8", "Britney_Villain",   "female", "middle",   "deep",          ("villain", "magical")),
+
+    # --- Male elderly / deep character ---
+    VoiceProfile("7p1Ofvcwsv7UBPoFNcpI", "Julian",            "male",   "elderly",  "deep",          ("narrator", "wise")),
+    VoiceProfile("qAZH0aMXY8tw1QufPN0D", "Flint",             "male",   "elderly",  "raspy",         ("narrator", "wise", "villain"), 1.3),
+    VoiceProfile("4YYIPFl9wE5c4L2eu2Gb", "Burt_Reynolds",     "male",   "middle",   "deep",          ("narrator", "hero")),
 
     # --- Cartoon / comic voices ---
     VoiceProfile("DUnzBkwtjRWXPr6wRbmL", "Mad_Scientist",     "male",   "young",    "bright",        ("comic", "villain", "magical")),

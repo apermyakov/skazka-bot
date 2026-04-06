@@ -27,6 +27,7 @@ async def generate_fairytale(
     on_status: Callable[[str], Awaitable[None]] | None = None,
     on_audio_ready: Callable[[dict], Awaitable[None]] | None = None,
     on_illustration_ready: Callable[[int, str], Awaitable[None]] | None = None,
+    story_id: int | None = None,
 ) -> dict:
     """Generate a complete fairy tale: MP3 audio + illustrations.
 
@@ -81,6 +82,15 @@ async def generate_fairytale(
             voice_map[char["id"]] = voice
             assigned[char["id"]] = voice.voice_id
             logger.info("Cast: %s -> %s (%s)", char["name"], voice.name, voice.voice_id)
+
+            # Log to DB
+            if story_id:
+                from db.database import save_voice_assignment, fire
+                fire(save_voice_assignment(
+                    story_id=story_id, character_id=char["id"], character_name=char["name"],
+                    voice_id=voice.voice_id, voice_name=voice.name,
+                    gender=char.get("gender"), age=char.get("age"), role=char.get("role"),
+                ))
 
         # ── Step 3: Build TTS requests ──
         tts_requests = []

@@ -2,8 +2,11 @@
 """Fairy tale flow: input → confirm → story → review → photo → generate audio+images → deliver."""
 
 import base64
+import json
 import logging
+import os
 import re
+import traceback as tb_mod
 from io import BytesIO
 
 from aiogram import Router, types, F, Bot
@@ -15,6 +18,11 @@ from bot.keyboards.inline import confirm_input, review_story, skip_photo, photos
 from engine.pipeline import generate_fairytale
 from engine.llm_client import generate_screenplay
 from engine.transcribe import transcribe_voice
+from db.database import (
+    save_user, get_user_id, create_story, update_story,
+    save_revision, log_api_call, log_error, save_feedback,
+    save_media_file, fire,
+)
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -76,10 +84,22 @@ async def _show_story(message: types.Message, state: FSMContext, screenplay: dic
     await state.set_state(CreateFairyTale.reviewing_story)
 
 
+async def _ensure_user(user: types.User) -> int | None:
+    """Save/update user in DB and return internal user_id."""
+    return await save_user(
+        telegram_id=user.id,
+        username=user.username,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        language_code=user.language_code,
+    )
+
+
 # ── 1. "Создать сказку" ──
 @router.callback_query(F.data == "create")
 async def on_create(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
+    fire(_ensure_user(callback.from_user))
     await callback.message.answer(
         "📖 <b>Расскажите мне всё для сказки!</b>\n\n"
         "Отправьте <b>одно сообщение</b> (текстом или голосом):\n\n"
@@ -107,7 +127,7 @@ async def on_input(message: types.Message, state: FSMContext, bot: Bot):
         await message.answer("Расскажите чуть подробнее — хотя бы имя ребёнка и тему.")
         return
 
-    await state.update_data(context=text)
+    await state.update_data(context=text, was_voice=was_voice)
 
     if was_voice:
         label = "🎤 <b>Вот что я услышал:</b>"
@@ -135,16 +155,31 @@ async def on_change_topic(callback: types.CallbackQuery, state: FSMContext):
 async def on_compose(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     context = data["context"]
+    was_voice = data.get("was_voice", False)
+
+    # Create story in DB
+    db_user_id = await get_user_id(callback.from_user.id)
+    story_id = await create_story(user_id=db_user_id, context=context, was_voice=was_voice)
+    await state.update_data(db_story_id=story_id)
 
     status = await callback.message.answer("📝 Сочиняю сказку...")
     await callback.answer()
 
     try:
         screenplay = await generate_screenplay(context)
+        if story_id:
+            fire(update_story(story_id, title=screenplay.get("title"),
+                              screenplay_json=json.dumps(screenplay, ensure_ascii=False),
+                              status="screenplay"))
         await status.delete()
         await _show_story(callback.message, state, screenplay)
     except Exception as e:
         logger.error("Screenplay failed: %s", e, exc_info=True)
+        if story_id:
+            fire(update_story(story_id, status="failed", error_message=str(e)[:500]))
+            fire(log_error(story_id=story_id, user_id=db_user_id, phase="screenplay",
+                           error_type=type(e).__name__, error_message=str(e),
+                           traceback_str=tb_mod.format_exc()))
         await status.edit_text(
             f"😔 Не удалось сочинить сказку: {str(e)[:200]}\nПопробуйте ещё раз!",
             reply_markup=main_menu(),
@@ -174,13 +209,24 @@ async def on_edits_received(message: types.Message, state: FSMContext, bot: Bot)
     new_context = f"{data.get('context', '')}\n\nИзменения: {edit_text}"
     await state.update_data(context=new_context)
 
+    story_id = data.get("db_story_id")
+    if story_id:
+        fire(save_revision(story_id, revision_type="edit", user_input=edit_text, full_context=new_context))
+
     status = await message.answer("✏️ Переписываю сказку с учётом правок...")
     try:
         screenplay = await generate_screenplay(new_context)
+        if story_id:
+            fire(update_story(story_id, title=screenplay.get("title"),
+                              screenplay_json=json.dumps(screenplay, ensure_ascii=False)))
         await status.delete()
         await _show_story(message, state, screenplay)
     except Exception as e:
         logger.error("Edit failed: %s", e, exc_info=True)
+        if story_id:
+            fire(log_error(story_id=story_id, phase="edit",
+                           error_type=type(e).__name__, error_message=str(e),
+                           traceback_str=tb_mod.format_exc()))
         await status.edit_text(f"😔 Ошибка: {str(e)[:200]}", reply_markup=main_menu())
         await state.clear()
 
@@ -189,14 +235,25 @@ async def on_edits_received(message: types.Message, state: FSMContext, bot: Bot)
 @router.callback_query(F.data == "regenerate_story")
 async def on_regenerate(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
+    story_id = data.get("db_story_id")
+    if story_id:
+        fire(save_revision(story_id, revision_type="regenerate", full_context=data.get("context", "")))
+
     status = await callback.message.answer("🔄 Сочиняю новую версию...")
     await callback.answer()
     try:
         screenplay = await generate_screenplay(data.get("context", ""))
+        if story_id:
+            fire(update_story(story_id, title=screenplay.get("title"),
+                              screenplay_json=json.dumps(screenplay, ensure_ascii=False)))
         await status.delete()
         await _show_story(callback.message, state, screenplay)
     except Exception as e:
         logger.error("Regenerate failed: %s", e, exc_info=True)
+        if story_id:
+            fire(log_error(story_id=story_id, phase="regenerate",
+                           error_type=type(e).__name__, error_message=str(e),
+                           traceback_str=tb_mod.format_exc()))
         await status.edit_text(f"😔 Ошибка: {str(e)[:200]}", reply_markup=main_menu())
 
 
@@ -235,7 +292,6 @@ async def on_photo_received(message: types.Message, state: FSMContext, bot: Bot)
     count = len(photos)
     if count >= 3:
         await message.answer(f"📸 Отлично, {count} фото! Начинаю генерацию.")
-        # Use first photo as primary reference, pass all for prompt
         await state.update_data(reference_photo_b64=photos[0])
         await _start_generation(message, state)
     else:
@@ -272,6 +328,14 @@ async def _start_generation(message: types.Message, state: FSMContext):
     screenplay = data.get("screenplay_json")
     photo_b64 = data.get("reference_photo_b64")
     reference_photos = data.get("reference_photos", [photo_b64] if photo_b64 else [])
+    story_id = data.get("db_story_id")
+
+    # Update story with photo info
+    if story_id:
+        fire(update_story(story_id,
+                          status="generating",
+                          has_photo=bool(photo_b64),
+                          photo_count=len(reference_photos)))
 
     # Magic wand sticker while generating
     MAGIC_WAND_STICKER = "CAACAgEAAxUAAWnUJVEkOcUGvclrW1NRjLNvU-L_AAJwBAAChoMgREmYf7NqHL4KOwQ"
@@ -308,6 +372,13 @@ async def _start_generation(message: types.Message, state: FSMContext):
         )
         audio_sent = True
 
+        # Save audio to DB
+        if story_id:
+            file_size = os.path.getsize(audio_info["file_path"]) if os.path.exists(audio_info["file_path"]) else None
+            fire(save_media_file(story_id, file_type="audio", file_path=audio_info["file_path"],
+                                 file_size=file_size, duration_sec=audio_info["duration"],
+                                 mime_type="audio/mpeg"))
+
     try:
         result = await generate_fairytale(
             context=context,
@@ -316,18 +387,42 @@ async def _start_generation(message: types.Message, state: FSMContext):
             reference_photos=reference_photos,
             on_status=on_status,
             on_audio_ready=on_audio_ready,
+            story_id=story_id,
         )
 
-        # Update status after everything is done
+        # Update story with results
+        if story_id:
+            fire(update_story(story_id,
+                              order_id=result.get("order_id"),
+                              title=result.get("title"),
+                              duration_sec=result.get("duration"),
+                              segments_count=result.get("segments_count"),
+                              illustrations_count=len(result.get("illustrations", [])),
+                              has_video=bool(result.get("video_path")),
+                              status="completed",
+                              completed_at="NOW()"))
+
+            # Save video to DB
+            if result.get("video_path"):
+                vsize = os.path.getsize(result["video_path"]) if os.path.exists(result["video_path"]) else None
+                fire(save_media_file(story_id, file_type="video", file_path=result["video_path"],
+                                     file_size=vsize, duration_sec=result.get("duration"),
+                                     width=1920, height=1080, mime_type="video/mp4"))
+
+            # Save illustrations to DB
+            for idx, img_path in enumerate(result.get("illustrations", [])):
+                if img_path:
+                    isize = os.path.getsize(img_path) if os.path.exists(img_path) else None
+                    fire(save_media_file(story_id, file_type="illustration", file_path=img_path,
+                                         file_size=isize, scene_index=idx, mime_type="image/png"))
+
+        # Update status
         try:
-            await status_msg.edit_text(
-                "✅ <b>Сказка готова!</b>",
-                parse_mode="HTML",
-            )
+            await status_msg.edit_text("✅ <b>Сказка готова!</b>", parse_mode="HTML")
         except Exception:
             pass
 
-        # Fallback: send MP3 if callback didn't fire (shouldn't happen)
+        # Fallback: send MP3 if callback didn't fire
         if not audio_sent:
             audio_file = FSInputFile(result["file_path"], filename=f"{result['title']}.mp3")
             await message.answer_audio(
@@ -352,6 +447,11 @@ async def _start_generation(message: types.Message, state: FSMContext):
 
     except Exception as e:
         logger.error("Generation failed: %s", e, exc_info=True)
+        if story_id:
+            fire(update_story(story_id, status="failed", error_message=str(e)[:500]))
+            fire(log_error(story_id=story_id, phase="generation",
+                           error_type=type(e).__name__, error_message=str(e),
+                           traceback_str=tb_mod.format_exc()))
         await status_msg.edit_text(
             f"😔 Не удалось создать сказку: {str(e)[:200]}\nПопробуйте ещё раз!",
             reply_markup=main_menu(),
@@ -362,11 +462,18 @@ async def _start_generation(message: types.Message, state: FSMContext):
 
 # ── 9. Feedback ──
 @router.callback_query(F.data.startswith("fb_"))
-async def on_feedback(callback: types.CallbackQuery):
+async def on_feedback(callback: types.CallbackQuery, state: FSMContext):
     fb_type = callback.data.replace("fb_", "")
     labels = {"love": "❤️", "ok": "👍", "bad": "👎"}
     label = labels.get(fb_type, "?")
     logger.info("Feedback from user %d: %s", callback.from_user.id, fb_type)
+
+    # Save feedback — try to get story_id from state (may be cleared already)
+    data = await state.get_data()
+    story_id = data.get("db_story_id")
+    if story_id:
+        fire(save_feedback(story_id, fb_type))
+
     await callback.message.edit_text(
         f"Спасибо за отзыв {label}!\n\nХотите ещё сказку?",
         reply_markup=main_menu(),

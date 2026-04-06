@@ -33,6 +33,10 @@ async def main():
     # Ensure media dir exists
     settings.media_dir.mkdir(parents=True, exist_ok=True)
 
+    # Initialize database
+    from db.database import init_db
+    await init_db()
+
     bot = Bot(
         token=settings.bot_token,
         default=DefaultBotProperties(parse_mode="HTML"),

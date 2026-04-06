@@ -37,7 +37,10 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
 
     # Database
-    database_url: str = "sqlite+aiosqlite:///./skazka.db"
+    database_url: str = "postgresql://skazka:skazka@postgres:5432/skazka"
+
+    # Media public URL base (for nginx)
+    media_base_url: str = "http://95.216.117.49/media"
 
     # Media
     media_dir: Path = Path("./media")
