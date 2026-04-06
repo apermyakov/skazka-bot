@@ -23,6 +23,7 @@ async def generate_fairytale(
     context: str,
     screenplay: dict | None = None,
     reference_photo_b64: str | None = None,
+    reference_photos: list[str] | None = None,
     on_status: Callable[[str], Awaitable[None]] | None = None,
     on_audio_ready: Callable[[dict], Awaitable[None]] | None = None,
     on_illustration_ready: Callable[[int, str], Awaitable[None]] | None = None,
@@ -32,7 +33,8 @@ async def generate_fairytale(
     Args:
         context: User's topic + child info.
         screenplay: Pre-generated screenplay dict.
-        reference_photo_b64: Base64-encoded child photo for illustrations.
+        reference_photo_b64: Base64-encoded child photo (primary) for illustrations.
+        reference_photos: List of all reference photos (for multi-angle face matching).
         on_status: Callback for status updates.
         on_audio_ready: Callback fired as soon as MP3 is mixed, before illustrations.
         on_illustration_ready: Callback fired for each illustration. Receives (index, file_path).
@@ -125,6 +127,7 @@ async def generate_fairytale(
             generate_illustrations_batch(
                 screenplay=screenplay,
                 reference_photo_b64=reference_photo_b64,
+                reference_photos=reference_photos,
                 on_progress=status,
                 on_illustration_ready=_on_img_ready,
             )

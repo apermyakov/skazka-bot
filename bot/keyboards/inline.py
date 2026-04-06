@@ -35,6 +35,13 @@ def skip_photo() -> InlineKeyboardMarkup:
     ])
 
 
+def photos_done() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Готово", callback_data="photos_done")],
+        [InlineKeyboardButton(text="⏭ Без иллюстраций", callback_data="skip_photo")],
+    ])
+
+
 def feedback() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [

@@ -11,7 +11,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile
 
 from bot.states.create import CreateFairyTale
-from bot.keyboards.inline import confirm_input, review_story, skip_photo, feedback, main_menu
+from bot.keyboards.inline import confirm_input, review_story, skip_photo, photos_done, feedback, main_menu
 from engine.pipeline import generate_fairytale
 from engine.llm_client import generate_screenplay
 from engine.transcribe import transcribe_voice
@@ -205,18 +205,19 @@ async def on_regenerate(callback: types.CallbackQuery, state: FSMContext):
 async def on_generate_ask_photo(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer(
         "🖼 <b>Хотите добавить иллюстрации?</b>\n\n"
-        "Отправьте фото ребёнка <b>в полный рост</b> (одного, крупным планом) — "
+        "Отправьте <b>1-3 фото ребёнка</b> (одного, без других людей) — "
         "и он станет главным героем на картинках к сказке!\n\n"
-        "📌 Лучше всего подойдёт фото, где ребёнок один, без других людей.\n\n"
+        "📌 Чем больше разных фото — тем точнее будет сходство.\n"
+        "Когда закончите, нажмите <b>«Готово»</b>.\n\n"
         "Или нажмите кнопку ниже, чтобы получить сказку без иллюстраций.",
-        reply_markup=skip_photo(),
+        reply_markup=photos_done(),
         parse_mode="HTML",
     )
     await state.set_state(CreateFairyTale.waiting_photo)
     await callback.answer()
 
 
-# ── 8a. Receive photo → start generation ──
+# ── 8a. Receive photo → collect into list ──
 @router.message(CreateFairyTale.waiting_photo, F.photo)
 async def on_photo_received(message: types.Message, state: FSMContext, bot: Bot):
     # Download the highest resolution photo
@@ -226,12 +227,36 @@ async def on_photo_received(message: types.Message, state: FSMContext, bot: Bot)
     await bot.download_file(file.file_path, buf)
     photo_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
 
-    await state.update_data(reference_photo_b64=photo_b64)
-    await message.answer("📸 Фото получено! Ребёнок будет на иллюстрациях.")
-    await _start_generation(message, state)
+    data = await state.get_data()
+    photos = data.get("reference_photos", [])
+    photos.append(photo_b64)
+    await state.update_data(reference_photos=photos)
+
+    count = len(photos)
+    if count >= 3:
+        await message.answer(f"📸 Отлично, {count} фото! Начинаю генерацию.")
+        # Use first photo as primary reference, pass all for prompt
+        await state.update_data(reference_photo_b64=photos[0])
+        await _start_generation(message, state)
+    else:
+        await message.answer(
+            f"📸 Фото {count} получено! Отправьте ещё или нажмите «Готово».",
+            reply_markup=photos_done(),
+        )
 
 
-# ── 8b. Skip photo → start generation without illustrations ──
+# ── 8b. Photos done → start generation ──
+@router.callback_query(F.data == "photos_done")
+async def on_photos_done(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    photos = data.get("reference_photos", [])
+    if photos:
+        await state.update_data(reference_photo_b64=photos[0])
+    await callback.answer()
+    await _start_generation(callback.message, state)
+
+
+# ── 8c. Skip photo → start generation without illustrations ──
 @router.callback_query(F.data == "skip_photo")
 async def on_skip_photo(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(reference_photo_b64=None)
@@ -246,6 +271,7 @@ async def _start_generation(message: types.Message, state: FSMContext):
     context = data["context"]
     screenplay = data.get("screenplay_json")
     photo_b64 = data.get("reference_photo_b64")
+    reference_photos = data.get("reference_photos", [photo_b64] if photo_b64 else [])
 
     status_msg = await message.answer("🎙 Озвучиваю и рисую сказку...")
 
@@ -293,6 +319,7 @@ async def _start_generation(message: types.Message, state: FSMContext):
             context=context,
             screenplay=screenplay,
             reference_photo_b64=photo_b64,
+            reference_photos=reference_photos,
             on_status=on_status,
             on_audio_ready=on_audio_ready,
             on_illustration_ready=on_illustration_ready,

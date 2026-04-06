@@ -402,24 +402,37 @@ async def generate_illustration(
     fairy_tale_title: str,
     characters_desc: str,
     character_appearances: dict[str, str] | None = None,
+    reference_photos: list[str] | None = None,
 ) -> bytes | None:
     """Generate one Pixar-style illustration via Gemini, then face swap if photo provided."""
 
-    # Step 1: Generate scene with Gemini (always, with or without photo for style hints)
+    # Build photo content from all reference photos (more photos = better face matching)
+    photos = reference_photos or ([reference_photo_b64] if reference_photo_b64 else [])
     photo_content = []
-    if reference_photo_b64:
-        photo_url = reference_photo_b64
-        if not photo_url.startswith("data:"):
-            photo_url = f"data:image/jpeg;base64,{photo_url}"
-        photo_content = [{
-            "type": "image_url",
-            "image_url": {"url": photo_url},
-        }]
+    for photo in photos:
+        if photo:
+            photo_url = photo
+            if not photo_url.startswith("data:"):
+                photo_url = f"data:image/jpeg;base64,{photo}"
+            photo_content.append({
+                "type": "image_url",
+                "image_url": {"url": photo_url},
+            })
 
-    face_suffix = (
-        "The main child character should roughly match the child in the reference photo: "
-        "similar hair color, hair style, eye color, and clothing style."
-    ) if reference_photo_b64 else ""
+    face_suffix = ""
+    if photo_content:
+        if len(photo_content) > 1:
+            face_suffix = (
+                f"Reference: {len(photo_content)} photos of the same child from different angles. "
+                "The main child character MUST closely match this child: "
+                "same face shape, hair color, hair style, eye color, skin tone. "
+                "Study ALL reference photos carefully to capture the child's true appearance."
+            )
+        else:
+            face_suffix = (
+                "The main child character MUST closely match the child in the reference photo: "
+                "same face shape, hair color, hair style, eye color, skin tone."
+            )
 
     prompt = _build_scene_prompt(
         scene, scene_index, total_scenes, fairy_tale_title, characters_desc,
@@ -442,6 +455,7 @@ async def generate_illustration(
 async def generate_illustrations_batch(
     screenplay: dict,
     reference_photo_b64: str | None = None,
+    reference_photos: list[str] | None = None,
     on_progress=None,
     on_illustration_ready: Callable[[int, bytes], Awaitable[None]] | None = None,
 ) -> list[bytes]:
@@ -482,6 +496,7 @@ async def generate_illustrations_batch(
             fairy_tale_title=title,
             characters_desc=characters_desc,
             character_appearances=character_appearances,
+            reference_photos=reference_photos,
         )
 
         results.append(img_bytes)
