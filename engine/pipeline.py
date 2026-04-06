@@ -181,9 +181,14 @@ async def generate_fairytale(
         ambient_name = AMBIENT_MAP.get(primary_ambient, "forest_ambience.mp3")
         ambient_path = assets_dir / ambient_name
 
+        logger.info("Ambient: type=%s, name=%s, path=%s, exists=%s",
+                    primary_ambient, ambient_name, ambient_path, ambient_path.exists())
         if ambient_path.exists():
             try:
-                await mix_with_ambient(dry_path, ambient_path, final_path, ambient_vol=0.10)
+                from db.config_manager import cfg
+                amb_vol = await cfg.get("audio.ambient_volume", 0.10)
+                await mix_with_ambient(dry_path, ambient_path, final_path, ambient_vol=amb_vol)
+                logger.info("Ambient mixed: %s at vol %.2f", ambient_name, amb_vol)
             except Exception as e:
                 logger.warning("Ambient mix failed: %s, using dry speech", e)
                 shutil.copy2(dry_path, final_path)
