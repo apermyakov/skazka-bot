@@ -392,6 +392,7 @@ async def _start_generation(message: types.Message, state: FSMContext):
 
         # Update story with results
         if story_id:
+            from datetime import datetime, timezone
             fire(update_story(story_id,
                               order_id=result.get("order_id"),
                               title=result.get("title"),
@@ -400,7 +401,7 @@ async def _start_generation(message: types.Message, state: FSMContext):
                               illustrations_count=len(result.get("illustrations", [])),
                               has_video=bool(result.get("video_path")),
                               status="completed",
-                              completed_at="NOW()"))
+                              completed_at=datetime.now(timezone.utc)))
 
             # Save video to DB
             if result.get("video_path"):
@@ -456,8 +457,7 @@ async def _start_generation(message: types.Message, state: FSMContext):
             f"😔 Не удалось создать сказку: {str(e)[:200]}\nПопробуйте ещё раз!",
             reply_markup=main_menu(),
         )
-
-    await state.clear()
+        await state.clear()
 
 
 # ── 9. Feedback ──
@@ -474,6 +474,7 @@ async def on_feedback(callback: types.CallbackQuery, state: FSMContext):
     if story_id:
         fire(save_feedback(story_id, fb_type))
 
+    await state.clear()
     await callback.message.edit_text(
         f"Спасибо за отзыв {label}!\n\nХотите ещё сказку?",
         reply_markup=main_menu(),
