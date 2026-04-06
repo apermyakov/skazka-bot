@@ -273,6 +273,9 @@ async def _start_generation(message: types.Message, state: FSMContext):
     photo_b64 = data.get("reference_photo_b64")
     reference_photos = data.get("reference_photos", [photo_b64] if photo_b64 else [])
 
+    # Magic wand sticker while generating
+    MAGIC_WAND_STICKER = "CAACAgEAAxUAAWnUJVEkOcUGvclrW1NRjLNvU-L_AAJwBAAChoMgREmYf7NqHL4KOwQ"
+    await message.answer_sticker(MAGIC_WAND_STICKER)
     status_msg = await message.answer("🎙 Озвучиваю и рисую сказку...")
 
     async def on_status(msg: str):
