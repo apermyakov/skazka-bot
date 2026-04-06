@@ -28,6 +28,15 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
+async def _dismiss(callback: types.CallbackQuery):
+    """Remove inline buttons from the message after user clicks one."""
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    await _dismiss(callback)
+
+
 def _clean_story_text(screenplay: dict) -> str:
     """Build clean readable text from screenplay, stripping audio tags."""
     lines = []
@@ -113,7 +122,7 @@ async def on_create(callback: types.CallbackQuery, state: FSMContext):
         parse_mode="HTML",
     )
     await state.set_state(CreateFairyTale.waiting_topic)
-    await callback.answer()
+    await _dismiss(callback)
 
 
 # ── 2. Receive input → show confirmation ──
@@ -147,7 +156,7 @@ async def on_input(message: types.Message, state: FSMContext, bot: Bot):
 async def on_change_topic(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer("📖 Расскажите заново — текстом или голосовым сообщением:")
     await state.set_state(CreateFairyTale.waiting_topic)
-    await callback.answer()
+    await _dismiss(callback)
 
 
 # ── 4. Confirm → compose story ──
@@ -163,7 +172,7 @@ async def on_compose(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(db_story_id=story_id)
 
     status = await callback.message.answer("📝 Сочиняю сказку...")
-    await callback.answer()
+    await _dismiss(callback)
 
     try:
         screenplay = await generate_screenplay(context, story_id=story_id)
@@ -196,7 +205,7 @@ async def on_edit(callback: types.CallbackQuery, state: FSMContext):
         parse_mode="HTML",
     )
     await state.set_state(CreateFairyTale.waiting_edits)
-    await callback.answer()
+    await _dismiss(callback)
 
 
 @router.message(CreateFairyTale.waiting_edits, F.text | F.voice)
@@ -240,7 +249,7 @@ async def on_regenerate(callback: types.CallbackQuery, state: FSMContext):
         fire(save_revision(story_id, revision_type="regenerate", full_context=data.get("context", "")))
 
     status = await callback.message.answer("🔄 Сочиняю новую версию...")
-    await callback.answer()
+    await _dismiss(callback)
     try:
         screenplay = await generate_screenplay(data.get("context", ""), story_id=story_id)
         if story_id:
@@ -271,7 +280,7 @@ async def on_generate_ask_photo(callback: types.CallbackQuery, state: FSMContext
         parse_mode="HTML",
     )
     await state.set_state(CreateFairyTale.waiting_photo)
-    await callback.answer()
+    await _dismiss(callback)
 
 
 # ── 8a. Receive photo → collect into list ──
@@ -310,7 +319,7 @@ async def on_photo_received(message: types.Message, state: FSMContext, bot: Bot)
 # ── 8b. Photos done → start generation ──
 @router.callback_query(F.data == "photos_done")
 async def on_photos_done(callback: types.CallbackQuery, state: FSMContext):
-    await callback.answer()
+    await _dismiss(callback)
     await _start_generation(callback.message, state)
 
 
@@ -318,7 +327,7 @@ async def on_photos_done(callback: types.CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "skip_photo")
 async def on_skip_photo(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(reference_photo_b64=None)
-    await callback.answer()
+    await _dismiss(callback)
     await _start_generation(callback.message, state)
 
 
@@ -354,7 +363,7 @@ async def _start_generation(message: types.Message, state: FSMContext):
     from db.config_manager import cfg
     sticker_id = await cfg.get("ui.sticker_generation",
                                 "CAACAgEAAxUAAWnUJVEkOcUGvclrW1NRjLNvU-L_AAJwBAAChoMgREmYf7NqHL4KOwQ")
-    await message.answer_sticker(sticker_id)
+    sticker_msg = await message.answer_sticker(sticker_id)
     status_msg = await message.answer(
         "🎙 <b>Создаю сказку...</b>\n\n"
         "⏳ Озвучиваю текст...",
@@ -431,6 +440,10 @@ async def _start_generation(message: types.Message, state: FSMContext):
             dur_min = int(result["duration"]) // 60
             dur_sec = int(result["duration"]) % 60
             try:
+                await sticker_msg.delete()
+            except Exception:
+                pass
+            try:
                 await status_msg.edit_text(
                     f"✅ <b>Сказка готова!</b>\n\n"
                     f"📖 <b>{result['title']}</b>\n"
@@ -450,6 +463,10 @@ async def _start_generation(message: types.Message, state: FSMContext):
             )
         else:
             # Fallback: no video — send MP3
+            try:
+                await sticker_msg.delete()
+            except Exception:
+                pass
             try:
                 await status_msg.edit_text("✅ <b>Сказка готова!</b>", parse_mode="HTML")
             except Exception:
