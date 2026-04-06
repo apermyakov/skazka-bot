@@ -166,7 +166,7 @@ async def on_compose(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
     try:
-        screenplay = await generate_screenplay(context)
+        screenplay = await generate_screenplay(context, story_id=story_id)
         if story_id:
             fire(update_story(story_id, title=screenplay.get("title"),
                               screenplay_json=json.dumps(screenplay, ensure_ascii=False),
@@ -215,7 +215,7 @@ async def on_edits_received(message: types.Message, state: FSMContext, bot: Bot)
 
     status = await message.answer("✏️ Переписываю сказку с учётом правок...")
     try:
-        screenplay = await generate_screenplay(new_context)
+        screenplay = await generate_screenplay(new_context, story_id=story_id)
         if story_id:
             fire(update_story(story_id, title=screenplay.get("title"),
                               screenplay_json=json.dumps(screenplay, ensure_ascii=False)))
@@ -242,7 +242,7 @@ async def on_regenerate(callback: types.CallbackQuery, state: FSMContext):
     status = await callback.message.answer("🔄 Сочиняю новую версию...")
     await callback.answer()
     try:
-        screenplay = await generate_screenplay(data.get("context", ""))
+        screenplay = await generate_screenplay(data.get("context", ""), story_id=story_id)
         if story_id:
             fire(update_story(story_id, title=screenplay.get("title"),
                               screenplay_json=json.dumps(screenplay, ensure_ascii=False)))

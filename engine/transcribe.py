@@ -5,11 +5,13 @@ import asyncio
 import base64
 import logging
 import tempfile
+import time
 from pathlib import Path
 
 import aiohttp
 
 from bot.config import settings
+from db.database import log_api_call, fire
 
 logger = logging.getLogger(__name__)
 
@@ -80,20 +82,32 @@ async def transcribe_voice(ogg_data: bytes) -> str:
             "temperature": 0.1,
         }
 
+        t0 = time.time()
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 OPENROUTER_URL, json=payload, headers=headers,
                 timeout=aiohttp.ClientTimeout(total=30),
             ) as resp:
+                duration_ms = int((time.time() - t0) * 1000)
                 if resp.status != 200:
                     body = await resp.text()
+                    fire(log_api_call(service="openrouter", model="google/gemini-2.5-flash",
+                                      purpose="transcribe", status="failed", duration_ms=duration_ms,
+                                      error=body[:500]))
                     raise RuntimeError(f"OpenRouter STT error {resp.status}: {body[:200]}")
 
                 result = await resp.json()
                 text = result["choices"][0]["message"]["content"].strip()
+                usage = result.get("usage", {})
 
                 if not text:
                     raise RuntimeError("Empty transcription")
+
+                fire(log_api_call(service="openrouter", model="google/gemini-2.5-flash",
+                                  purpose="transcribe", status="success", duration_ms=duration_ms,
+                                  response_text=text[:1000],
+                                  tokens_in=usage.get("prompt_tokens"),
+                                  tokens_out=usage.get("completion_tokens")))
 
                 logger.info("Transcribed voice: '%s'", text[:100])
                 return text

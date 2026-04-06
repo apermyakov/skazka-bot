@@ -4,18 +4,21 @@
 import json
 import logging
 import re
+import time
 
 import aiohttp
 
 from bot.config import settings
 from engine.story_parser import SCREENWRITER_PROMPT
+from db.database import log_api_call, fire
 
 logger = logging.getLogger(__name__)
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
-async def _call_llm(system: str, user: str, max_retries: int = 3) -> str:
+async def _call_llm(system: str, user: str, max_retries: int = 3,
+                    story_id: int = None, purpose: str = "llm") -> str:
     """Call OpenRouter API and return the assistant's text response."""
     headers = {
         "Authorization": f"Bearer {settings.openrouter_api_key}",
@@ -32,21 +35,36 @@ async def _call_llm(system: str, user: str, max_retries: int = 3) -> str:
     }
 
     for attempt in range(1, max_retries + 1):
+        t0 = time.time()
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(OPENROUTER_URL, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=120)) as resp:
+                    duration_ms = int((time.time() - t0) * 1000)
                     if resp.status != 200:
                         body = await resp.text()
                         logger.warning("LLM HTTP %d (attempt %d): %s", resp.status, attempt, body[:300])
+                        fire(log_api_call(story_id=story_id, service="openrouter", model=settings.llm_model,
+                                          purpose=purpose, status="failed", duration_ms=duration_ms,
+                                          request_text=user[:10000], error=body[:1000]))
                         continue
                     data = await resp.json()
                     content = data["choices"][0]["message"]["content"]
+                    usage = data.get("usage", {})
                     if not content or not content.strip():
                         logger.warning("LLM returned empty content (attempt %d)", attempt)
                         continue
+                    fire(log_api_call(story_id=story_id, service="openrouter", model=settings.llm_model,
+                                      purpose=purpose, status="success", duration_ms=duration_ms,
+                                      request_text=user[:10000], response_text=content[:10000],
+                                      tokens_in=usage.get("prompt_tokens"),
+                                      tokens_out=usage.get("completion_tokens")))
                     return content
         except Exception as e:
+            duration_ms = int((time.time() - t0) * 1000)
             logger.warning("LLM error (attempt %d): %s", attempt, e)
+            fire(log_api_call(story_id=story_id, service="openrouter", model=settings.llm_model,
+                              purpose=purpose, status="failed", duration_ms=duration_ms,
+                              request_text=user[:10000], error=str(e)[:1000]))
 
     raise RuntimeError("LLM failed after all retries")
 
@@ -75,7 +93,7 @@ def _extract_json(text: str) -> dict:
     return json.loads(cleaned[start:end])
 
 
-async def generate_screenplay(context: str) -> dict:
+async def generate_screenplay(context: str, story_id: int = None) -> dict:
     """Generate a structured fairy tale screenplay.
 
     Args:
@@ -90,6 +108,8 @@ async def generate_screenplay(context: str) -> dict:
         response = await _call_llm(
             system="Ты генерируешь ТОЛЬКО валидный JSON. Никакого текста до или после JSON.",
             user=prompt,
+            story_id=story_id,
+            purpose="screenplay",
         )
         logger.info("Screenplay LLM response (attempt %d): length=%d, start=%s",
                      attempt, len(response) if response else 0,

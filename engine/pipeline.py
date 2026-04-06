@@ -116,7 +116,8 @@ async def generate_fairytale(
 
         # Start TTS
         tts_task = asyncio.create_task(
-            synthesize_batch(tts_requests, max_concurrent=settings.max_concurrent_tts)
+            synthesize_batch(tts_requests, max_concurrent=settings.max_concurrent_tts,
+                             story_id=story_id)
         )
 
         # Start illustrations (if photo provided or generate without face)
@@ -139,6 +140,7 @@ async def generate_fairytale(
                 reference_photo_b64=reference_photo_b64,
                 reference_photos=reference_photos,
                 on_progress=status,
+                story_id=story_id,
                 on_illustration_ready=_on_img_ready,
             )
         )

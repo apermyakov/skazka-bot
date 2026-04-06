@@ -3,11 +3,13 @@
 
 import asyncio
 import logging
+import time
 
 import aiohttp
 from aiohttp_socks import ProxyConnector
 
 from bot.config import settings
+from db.database import log_api_call, fire
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +28,7 @@ async def synthesize_batch(
     segments: list[dict],
     max_concurrent: int = 3,
     on_progress: callable = None,
+    story_id: int = None,
 ) -> list[bytes]:
     """Synthesize multiple segments with a shared session and concurrency limit.
 
@@ -57,16 +60,22 @@ async def synthesize_batch(
         }
 
         for attempt in range(1, 4):
+            t0 = time.time()
             try:
                 async with semaphore:
                     async with session.post(
                         url, json=payload, headers=headers,
                         timeout=aiohttp.ClientTimeout(total=120),
                     ) as resp:
+                        duration_ms = int((time.time() - t0) * 1000)
                         if resp.status == 200:
                             audio = await resp.read()
                             if len(audio) > 500:
                                 results[index] = audio
+                                fire(log_api_call(story_id=story_id, service="elevenlabs",
+                                                  model="eleven_v3", purpose="tts", status="success",
+                                                  duration_ms=duration_ms, request_text=seg["text"][:1000],
+                                                  input_chars=len(seg["text"])))
                                 async with done_lock:
                                     done_count += 1
                                     if on_progress:
@@ -76,11 +85,18 @@ async def synthesize_batch(
                         else:
                             body = await resp.text()
                             logger.warning("TTS HTTP %d (seg %d, attempt %d): %s", resp.status, index, attempt, body[:200])
-                            # Don't retry on quota exceeded
+                            fire(log_api_call(story_id=story_id, service="elevenlabs",
+                                              model="eleven_v3", purpose="tts", status="failed",
+                                              duration_ms=duration_ms, request_text=seg["text"][:1000],
+                                              input_chars=len(seg["text"]), error=body[:500]))
                             if resp.status == 401 and "quota_exceeded" in body:
                                 return
             except Exception as e:
+                duration_ms = int((time.time() - t0) * 1000)
                 logger.warning("TTS error (seg %d, attempt %d): %s", index, attempt, e)
+                fire(log_api_call(story_id=story_id, service="elevenlabs",
+                                  model="eleven_v3", purpose="tts", status="failed",
+                                  duration_ms=duration_ms, error=str(e)[:500]))
 
             if attempt < 3:
                 await asyncio.sleep(attempt * 2)

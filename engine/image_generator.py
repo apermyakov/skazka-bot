@@ -6,12 +6,14 @@ import base64
 import json
 import logging
 import re
+import time
 from pathlib import Path
 from typing import Callable, Awaitable
 
 import aiohttp
 
 from bot.config import settings
+from db.database import log_api_call, fire
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +84,7 @@ SCENE_SPLIT_PROMPT = """\
 """
 
 
-async def split_into_scenes(screenplay: dict) -> list[dict]:
+async def split_into_scenes(screenplay: dict, story_id: int = None) -> list[dict]:
     """Split screenplay into 7-8 key visual scenes for illustration."""
     title = screenplay["title"]
     characters = ", ".join(c["name"] for c in screenplay["characters"] if c["id"] != "narrator")
@@ -121,13 +123,18 @@ async def split_into_scenes(screenplay: dict) -> list[dict]:
         if attempt > 1:
             await asyncio.sleep(3)  # wait between retries
 
+        t0 = time.time()
         async with aiohttp.ClientSession() as session:
             async with session.post(OPENROUTER_URL, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=120)) as resp:
                 raw = await resp.text()
+                duration_ms = int((time.time() - t0) * 1000)
                 logger.info("Scene split HTTP %d (attempt %d), body length: %d", resp.status, attempt, len(raw))
 
                 if resp.status != 200:
                     logger.warning("Scene split error (attempt %d): %s", attempt, raw[:300])
+                    fire(log_api_call(story_id=story_id, service="openrouter", model=settings.llm_model,
+                                      purpose="scene_split", status="failed", duration_ms=duration_ms,
+                                      error=raw[:1000]))
                     continue
 
                 if not raw or not raw.strip():
@@ -189,6 +196,9 @@ async def split_into_scenes(screenplay: dict) -> list[dict]:
             logger.warning("No scenes in parsed result (attempt %d)", attempt)
             continue
 
+        fire(log_api_call(story_id=story_id, service="openrouter", model=settings.llm_model,
+                          purpose="scene_split", status="success", duration_ms=duration_ms,
+                          request_text=prompt[:10000], response_text=text[:10000]))
         break
     else:
         raise RuntimeError("Scene split failed after 5 attempts")
@@ -197,7 +207,8 @@ async def split_into_scenes(screenplay: dict) -> list[dict]:
     return scenes, character_appearances
 
 
-async def _call_image_api(content: list[dict], scene_index: int, style_label: str) -> bytes | None:
+async def _call_image_api(content: list[dict], scene_index: int, style_label: str,
+                          story_id: int = None) -> bytes | None:
     """Send image generation request to OpenRouter and return image bytes."""
     headers = {
         "Authorization": f"Bearer {settings.openrouter_api_key}",
@@ -213,7 +224,11 @@ async def _call_image_api(content: list[dict], scene_index: int, style_label: st
         },
     }
 
+    # Extract text prompt for logging (skip base64 images)
+    prompt_text = " ".join(p.get("text", "") for p in content if p.get("type") == "text")[:5000]
+
     try:
+        t0 = time.time()
         logger.info("Generating illustration %d [%s]", scene_index, style_label)
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -253,8 +268,13 @@ async def _call_image_api(content: list[dict], scene_index: int, style_label: st
                             if isinstance(part, dict) and part.get("type") == "image_url":
                                 images.append(part)
 
+                duration_ms = int((time.time() - t0) * 1000)
+
                 if not images:
                     logger.warning("No images in response for scene %d [%s]", scene_index, style_label)
+                    fire(log_api_call(story_id=story_id, service="openrouter", model=IMAGE_MODEL,
+                                      purpose="illustration", status="failed", duration_ms=duration_ms,
+                                      request_text=prompt_text, error="No images in response"))
                     return None
 
                 img_url = images[0]
@@ -263,9 +283,16 @@ async def _call_image_api(content: list[dict], scene_index: int, style_label: st
 
                 if img_url.startswith("data:"):
                     b64_data = img_url.split(",", 1)[1] if "," in img_url else img_url
-                    return base64.b64decode(b64_data)
+                    img_bytes = base64.b64decode(b64_data)
+                    fire(log_api_call(story_id=story_id, service="openrouter", model=IMAGE_MODEL,
+                                      purpose="illustration", status="success", duration_ms=duration_ms,
+                                      request_text=prompt_text))
+                    return img_bytes
                 else:
                     logger.warning("Unexpected image format for scene %d [%s]", scene_index, style_label)
+                    fire(log_api_call(story_id=story_id, service="openrouter", model=IMAGE_MODEL,
+                                      purpose="illustration", status="failed", duration_ms=duration_ms,
+                                      request_text=prompt_text, error="Unexpected image format"))
                     return None
 
     except Exception as e:
@@ -408,6 +435,7 @@ async def generate_illustration(
     characters_desc: str,
     character_appearances: dict[str, str] | None = None,
     reference_photos: list[str] | None = None,
+    story_id: int = None,
 ) -> bytes | None:
     """Generate one Pixar-style illustration via Gemini, then face swap if photo provided."""
 
@@ -447,7 +475,7 @@ async def generate_illustration(
     )
     content = [{"type": "text", "text": prompt}] + photo_content
 
-    img_bytes = await _call_image_api(content, scene_index, "pixar")
+    img_bytes = await _call_image_api(content, scene_index, "pixar", story_id=story_id)
 
     # Step 2: Face swap if we have a photo and Replicate token
     if img_bytes and reference_photo_b64 and settings.replicate_api_token:
@@ -462,6 +490,7 @@ async def generate_illustrations_batch(
     reference_photo_b64: str | None = None,
     reference_photos: list[str] | None = None,
     on_progress=None,
+    story_id: int = None,
     on_illustration_ready: Callable[[int, bytes], Awaitable[None]] | None = None,
 ) -> list[bytes]:
     """Generate all Pixar-style illustrations for a fairy tale.
@@ -473,7 +502,7 @@ async def generate_illustrations_batch(
     Returns list of PNG bytes (may contain None for failed scenes).
     """
     # Step 1: Split into scenes
-    scenes, character_appearances = await split_into_scenes(screenplay)
+    scenes, character_appearances = await split_into_scenes(screenplay, story_id=story_id)
 
     title = screenplay["title"]
     characters_desc = ", ".join(
@@ -502,6 +531,7 @@ async def generate_illustrations_batch(
             characters_desc=characters_desc,
             character_appearances=character_appearances,
             reference_photos=reference_photos,
+            story_id=story_id,
         )
 
         results.append(img_bytes)
