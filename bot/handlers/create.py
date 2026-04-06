@@ -341,6 +341,8 @@ async def _start_generation(message: types.Message, state: FSMContext):
                 video=video_file,
                 caption=f"🎬 Полная видеосказка «{result['title']}»",
                 duration=int(result["duration"]),
+                width=1920,
+                height=1080,
             )
 
         await message.answer("Как вам сказка?", reply_markup=feedback())
