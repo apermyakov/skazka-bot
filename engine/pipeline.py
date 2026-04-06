@@ -13,7 +13,7 @@ from engine.llm_client import generate_screenplay
 from engine.voice_pool import pick_voice, VoiceProfile
 from engine.story_parser import build_tagged_text, AMBIENT_MAP
 from engine.tts_client import synthesize_batch
-from engine.audio_mixer import mix_with_ambient, concat_segments, get_duration
+from engine.audio_mixer import mix_with_ambient, concat_segments, get_duration, create_video
 from engine.image_generator import generate_illustrations_batch
 
 logger = logging.getLogger(__name__)
@@ -159,7 +159,19 @@ async def generate_fairytale(
         except Exception as e:
             logger.warning("Illustrations failed: %s, continuing without them", e)
 
-        logger.info("Fairy tale complete: '%s', %.1fs, %d illustrations", title, duration, len(illustration_paths))
+        logger.info("Fairy tale audio complete: '%s', %.1fs, %d illustrations", title, duration, len(illustration_paths))
+
+        # ── Step 8: Create MP4 video if illustrations exist ──
+        video_path = None
+        if illustration_paths:
+            await status("🎬 Собираю видео...")
+            mp4_path = work_dir / "fairytale.mp4"
+            try:
+                await create_video(final_path, illustration_paths, mp4_path)
+                video_path = str(mp4_path)
+                logger.info("Video created: %s", video_path)
+            except Exception as e:
+                logger.warning("Video creation failed: %s, delivering audio + images separately", e)
 
         # Cleanup temp files
         shutil.rmtree(segments_dir, ignore_errors=True)
@@ -168,6 +180,7 @@ async def generate_fairytale(
         return {
             "title": title,
             "file_path": str(final_path),
+            "video_path": video_path,
             "duration": duration,
             "segments_count": len(seg_files),
             "order_id": order_id,

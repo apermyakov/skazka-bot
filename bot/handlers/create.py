@@ -8,7 +8,7 @@ from io import BytesIO
 
 from aiogram import Router, types, F, Bot
 from aiogram.fsm.context import FSMContext
-from aiogram.types import FSInputFile, InputMediaPhoto
+from aiogram.types import FSInputFile
 
 from bot.states.create import CreateFairyTale
 from bot.keyboards.inline import confirm_input, review_story, skip_photo, feedback, main_menu
@@ -273,26 +273,23 @@ async def _start_generation(message: types.Message, state: FSMContext):
             parse_mode="HTML",
         )
 
-        await message.answer_audio(
-            audio=audio_file,
-            title=result["title"],
-            performer="Сказка на ночь",
-            caption=f"🌙 {result['title']}",
-        )
-
-        # Send illustrations as album
-        illustrations = result.get("illustrations", [])
-        if illustrations:
-            media_group = []
-            for i, img_path in enumerate(illustrations):
-                caption = f"Сцена {i + 1}" if i > 0 else f"🎨 Иллюстрации к сказке «{result['title']}»"
-                media_group.append(InputMediaPhoto(
-                    media=FSInputFile(img_path),
-                    caption=caption if i == 0 else None,
-                ))
-
-            if media_group:
-                await message.answer_media_group(media=media_group)
+        # Send MP4 video if available, otherwise audio + images
+        video_path = result.get("video_path")
+        if video_path:
+            video_file = FSInputFile(video_path, filename=f"{result['title']}.mp4")
+            await message.answer_video(
+                video=video_file,
+                caption=f"🌙 {result['title']}",
+                duration=int(result["duration"]),
+            )
+        else:
+            audio_file = FSInputFile(result["file_path"], filename=f"{result['title']}.mp3")
+            await message.answer_audio(
+                audio=audio_file,
+                title=result["title"],
+                performer="Сказка на ночь",
+                caption=f"🌙 {result['title']}",
+            )
 
         await message.answer("Как вам сказка?", reply_markup=feedback())
 

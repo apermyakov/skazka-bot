@@ -95,3 +95,67 @@ async def concat_segments(
 
     # Cleanup filelist
     filelist.unlink(missing_ok=True)
+
+
+async def create_video(
+    audio_path: str | Path,
+    image_paths: list[str | Path],
+    output_path: str | Path,
+) -> None:
+    """Create MP4 video: slideshow of images synced to audio duration.
+
+    Each image is shown for an equal portion of the audio duration,
+    with a smooth crossfade transition between them.
+    """
+    audio_dur = await get_duration(audio_path)
+    n = len(image_paths)
+    if n == 0:
+        raise ValueError("No images to create video from")
+
+    # Duration per image
+    dur_per_img = audio_dur / n
+
+    # Build ffmpeg filter for crossfade slideshow
+    # Each image: scale to 1920x1080, show for dur_per_img seconds
+    inputs = []
+    filter_parts = []
+
+    for i, img in enumerate(image_paths):
+        inputs.extend(["-loop", "1", "-t", f"{dur_per_img:.2f}", "-i", str(img)])
+        filter_parts.append(f"[{i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,"
+                           f"pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=black,"
+                           f"setsar=1[v{i}]")
+
+    # Concatenate all video streams
+    concat_inputs = "".join(f"[v{i}]" for i in range(n))
+    filter_parts.append(f"{concat_inputs}concat=n={n}:v=1:a=0[video]")
+
+    filter_complex = ";".join(filter_parts)
+
+    cmd = [
+        "ffmpeg", "-y",
+        *inputs,
+        "-i", str(audio_path),
+        "-filter_complex", filter_complex,
+        "-map", "[video]",
+        "-map", f"{n}:a",
+        "-c:v", "libx264",
+        "-preset", "fast",
+        "-crf", "23",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        "-pix_fmt", "yuv420p",
+        "-movflags", "+faststart",
+        "-shortest",
+        str(output_path),
+    ]
+
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    _, stderr = await proc.communicate()
+
+    if proc.returncode != 0:
+        raise RuntimeError(f"ffmpeg video failed: {stderr.decode()[-300:]}")
