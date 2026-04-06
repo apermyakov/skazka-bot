@@ -115,15 +115,24 @@ async def generate_fairytale(
         # Wait for TTS
         audio_chunks = await tts_task
 
-        # ── Step 5: Save + Concatenate audio ──
+        # ── Step 5: Save segments + measure durations for timecodes ──
         await status("🎵 Финальное сведение...")
         seg_files = []
+        seg_durations = []  # duration of each segment in seconds
+        seg_indices = []    # original segment index
+
         for i, audio in enumerate(audio_chunks):
             if audio is None:
                 continue
             seg_path = segments_dir / f"seg_{i:02d}.mp3"
             seg_path.write_bytes(audio)
             seg_files.append(seg_path)
+            seg_indices.append(i)
+
+        # Measure each segment duration for scene timecodes
+        for seg_path in seg_files:
+            dur = await get_duration(seg_path)
+            seg_durations.append(dur)
 
         dry_path = work_dir / "dry.mp3"
         await concat_segments(seg_files, dry_path)
@@ -161,17 +170,35 @@ async def generate_fairytale(
 
         logger.info("Fairy tale audio complete: '%s', %.1fs, %d illustrations", title, duration, len(illustration_paths))
 
-        # ── Step 8: Create MP4 video if illustrations exist ──
+        # ── Step 8: Create MP4 video with scene-synced timecodes ──
         video_path = None
         if illustration_paths:
             await status("🎬 Собираю видео...")
             mp4_path = work_dir / "fairytale.mp4"
+
+            # Calculate per-scene durations from segment timecodes
+            # Each scene from split_into_scenes covers a portion of segments
+            total_seg_dur = sum(seg_durations)
+            n_scenes = len(illustration_paths)
+            n_segs = len(seg_durations)
+
+            # Distribute segments evenly across scenes
+            segs_per_scene = max(1, n_segs // n_scenes)
+            scene_durations = []
+            for sc_idx in range(n_scenes):
+                start = sc_idx * segs_per_scene
+                end = (sc_idx + 1) * segs_per_scene if sc_idx < n_scenes - 1 else n_segs
+                scene_dur = sum(seg_durations[start:end])
+                scene_durations.append(scene_dur)
+
+            logger.info("Scene timecodes: %s (total: %.1fs)", scene_durations, sum(scene_durations))
+
             try:
-                await create_video(final_path, illustration_paths, mp4_path)
+                await create_video(final_path, illustration_paths, mp4_path, durations=scene_durations)
                 video_path = str(mp4_path)
                 logger.info("Video created: %s", video_path)
             except Exception as e:
-                logger.warning("Video creation failed: %s, delivering audio + images separately", e)
+                logger.warning("Video creation failed: %s, delivering audio only", e)
 
         # Cleanup temp files
         shutil.rmtree(segments_dir, ignore_errors=True)

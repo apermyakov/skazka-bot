@@ -18,11 +18,12 @@ IMAGE_MODEL = "google/gemini-3-pro-image-preview"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 STYLE_BLOCK = (
-    "Style: Children's book illustration, soft watercolor, warm gentle tones. "
-    "Dreamy, cozy atmosphere like classic fairy tale books. "
-    "No text, no letters, no words on the image. "
-    "Consistent color palette throughout the series. "
-    "Characters should look exactly the same across all illustrations."
+    "Generate a wide landscape (16:9) Pixar-style 3D cartoon illustration. "
+    "The character must be RECOGNIZABLE from the reference photo. "
+    "STRICTLY NO text, words, letters, signs, or writing anywhere. "
+    "Anatomically correct: exactly two arms, two hands per person. "
+    "Warm, magical lighting. Rich, vibrant colors. "
+    "Consistent style and color palette throughout the series."
 )
 
 SCENE_SPLIT_PROMPT = """\
@@ -184,11 +185,10 @@ async def generate_illustration(
         f"Visual description: {scene.get('description', '')}\n"
         f"{continuity}\n\n"
         f"Generate a single children's book illustration for this scene. "
-        f"IMPORTANT: If a reference photo of a child is provided, the main character MUST closely resemble that child — "
-        f"same face shape, same hair color and style, same eye color. "
-        f"The child and their parents must be able to recognize themselves in the illustration. "
-        f"Keep the likeness accurate while applying the watercolor illustration style. "
-        f"Do NOT change the child's gender, age, or distinctive features."
+        f"The child from the reference photo MUST be RECOGNIZABLE. "
+        f"Pixar-style 3D render — the child should look like themselves in a Pixar movie. "
+        f"Same face shape, hair color, hair style, eye color, skin tone. "
+        f"The child and their parents must immediately recognize them."
     )
 
     content = [{"type": "text", "text": prompt}]
