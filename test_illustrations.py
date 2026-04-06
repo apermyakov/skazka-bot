@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Test ONLY illustration generation — no LLM, no TTS, no ElevenLabs."""
+"""Test ONLY illustration generation — no LLM, no TTS, no ElevenLabs.
+
+Calls generate_illustration() directly with hardcoded scenes,
+bypassing split_into_scenes() entirely (zero LLM calls).
+
+Usage:
+    python test_illustrations.py              # without reference photo
+    python test_illustrations.py photo.jpg    # with reference photo
+"""
 
 import asyncio
 import os
@@ -8,26 +16,40 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Hardcoded screenplay — no need to call LLM
-TEST_SCREENPLAY = {
-    "title": "Котёнок Мурзик и звёздный фонарик",
-    "characters": [
-        {"id": "narrator", "name": "Рассказчик", "gender": "female", "age": "middle", "role": "narrator", "personality": "тёплый и добрый"},
-        {"id": "murzik", "name": "Мурзик", "gender": "male", "age": "child", "role": "main", "personality": "храбрый котёнок"},
-        {"id": "owl", "name": "Сова", "gender": "female", "age": "elderly", "role": "mentor", "personality": "мудрая"},
-    ],
-    "segments": [
-        {"character_id": "narrator", "text": "Жил-был котёнок Мурзик.", "emotion": "neutral", "pace": "slow"},
-        {"character_id": "murzik", "text": "Мне страшно в темноте!", "emotion": "scared", "pace": "normal"},
-    ],
-    "scenes": [],
+TITLE = "Котёнок Мурзик и звёздный фонарик"
+CHARACTERS_DESC = "Мурзик (храбрый котёнок), Сова (мудрая наставница)"
+
+CHARACTER_APPEARANCES = {
+    "Маша": "Девочка 5 лет, русые волосы с двумя хвостиками, голубые глаза, розовое платье",
+    "Мурзик": "Маленький серый котёнок с зелёными глазами и белым пятном на груди",
+    "Сова": "Большая мудрая сова с коричневыми перьями и очками на носу",
 }
+
+TEST_SCENES = [
+    {
+        "description": "Маша и Мурзик сидят у окна, за окном темнота",
+        "characters_present": ["Маша", "Мурзик"],
+        "setting": "детская комната",
+        "mood": "таинственный",
+    },
+    {
+        "description": "Мурзик находит светящийся фонарик на чердаке",
+        "characters_present": ["Мурзик"],
+        "setting": "чердак",
+        "mood": "волшебный",
+    },
+    {
+        "description": "Маша и Мурзик гуляют по ночному лесу с фонариком",
+        "characters_present": ["Маша", "Мурзик", "Сова"],
+        "setting": "ночной лес",
+        "mood": "волшебный",
+    },
+]
 
 
 async def main():
-    from engine.image_generator import generate_illustrations_batch
+    from engine.image_generator import generate_illustration
 
-    # Optional: pass a reference photo
     photo_b64 = None
     if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):
         import base64
@@ -36,40 +58,46 @@ async def main():
         print(f"Using reference photo: {sys.argv[1]}")
 
     t0 = time.time()
-
-    async def on_progress(msg):
-        elapsed = time.time() - t0
-        print(f"  [{elapsed:.1f}s] {msg}")
-
-    async def on_illustration_ready(idx, img_bytes):
-        elapsed = time.time() - t0
-        out_path = f"test_scene_{idx + 1}.png"
-        with open(out_path, "wb") as f:
-            f.write(img_bytes)
-        print(f"  [{elapsed:.1f}s] Scene {idx + 1}: {len(img_bytes):,}b -> {out_path}")
+    total = len(TEST_SCENES)
+    successful = 0
+    prev_desc = None
 
     print("=" * 50)
-    print("ILLUSTRATION-ONLY TEST")
+    print(f"ILLUSTRATION-ONLY TEST ({total} scenes)")
+    print(f"Model: {__import__('engine.image_generator', fromlist=['IMAGE_MODEL']).IMAGE_MODEL}")
     print("=" * 50)
 
-    results = await generate_illustrations_batch(
-        screenplay=TEST_SCREENPLAY,
-        reference_photo_b64=photo_b64,
-        on_progress=on_progress,
-        on_illustration_ready=on_illustration_ready,
-    )
+    for i, scene in enumerate(TEST_SCENES):
+        elapsed = time.time() - t0
+        print(f"\n  [{elapsed:.1f}s] Generating scene {i + 1}/{total}...")
 
-    successful = sum(1 for r in results if r is not None)
+        img_bytes = await generate_illustration(
+            scene=scene,
+            scene_index=i,
+            total_scenes=total,
+            reference_photo_b64=photo_b64,
+            previous_scene_desc=prev_desc,
+            fairy_tale_title=TITLE,
+            characters_desc=CHARACTERS_DESC,
+            character_appearances=CHARACTER_APPEARANCES,
+        )
+
+        elapsed = time.time() - t0
+        if img_bytes:
+            out_path = f"test_scene_{i + 1}.png"
+            with open(out_path, "wb") as f:
+                f.write(img_bytes)
+            print(f"  [{elapsed:.1f}s] Scene {i + 1}: {len(img_bytes):,}b -> {out_path}")
+            successful += 1
+        else:
+            print(f"  [{elapsed:.1f}s] Scene {i + 1}: FAILED")
+
+        prev_desc = scene.get("description", "")
+
     elapsed = time.time() - t0
-
-    print(f"\nResults: {successful}/{len(results)} illustrations")
-    print(f"Time: {elapsed:.1f}s")
-
-    if successful == 0:
-        print("FAILED — no illustrations generated")
-        sys.exit(1)
-    else:
-        print("OK")
+    print(f"\nResults: {successful}/{total} illustrations in {elapsed:.1f}s")
+    print("OK" if successful > 0 else "FAILED")
+    sys.exit(0 if successful > 0 else 1)
 
 
 if __name__ == "__main__":
