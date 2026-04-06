@@ -156,8 +156,8 @@ async def create_video(
     for i, (img, dur) in enumerate(zip(image_paths, durations)):
         inputs.extend(["-loop", "1", "-t", f"{dur:.2f}", "-framerate", "2", "-i", str(img)])
         filter_parts.append(
-            f"[{i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,"
-            f"pad=1920:1080:-1:-1:color=black,setsar=1,fps=2,format=yuv420p[v{i}]"
+            f"[{i}:v]scale=1920:1080:force_original_aspect_ratio=increase,"
+            f"crop=1920:1080,setsar=1,fps=2,format=yuv420p[v{i}]"
         )
 
     concat_inputs = "".join(f"[v{i}]" for i in range(n))
