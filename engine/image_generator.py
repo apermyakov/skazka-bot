@@ -234,6 +234,10 @@ async def _call_image_api(content: list[dict], scene_index: int, style_label: st
                     return None
 
                 message = data["choices"][0]["message"]
+                logger.info("Image API response keys for scene %d: %s, content type: %s, content preview: %s",
+                            scene_index, list(message.keys()),
+                            type(message.get("content")).__name__,
+                            str(message.get("content", ""))[:300])
 
                 images = message.get("images", [])
                 if not images:
