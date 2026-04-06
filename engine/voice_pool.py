@@ -48,8 +48,8 @@ VOICE_POOL: list[VoiceProfile] = [
 
 # Scoring tables
 _AGE_SCORE = {
-    ("child", "young"): 0.7, ("child", "middle"): 0.3,
-    ("young", "young"): 1.0, ("young", "middle"): 0.6,
+    ("child", "child"): 1.0, ("child", "young"): 0.8, ("child", "middle"): 0.2, ("child", "elderly"): 0.0,
+    ("young", "young"): 1.0, ("young", "child"): 0.7, ("young", "middle"): 0.6,
     ("middle", "middle"): 1.0, ("middle", "young"): 0.5,
     ("elderly", "elderly"): 1.0, ("elderly", "middle"): 0.5,
 }
@@ -61,6 +61,7 @@ _ROLE_TONE_SCORE = {
     ("wise", "authoritative"): 0.9, ("wise", "raspy"): 0.8, ("wise", "soft"): 0.7, ("wise", "warm"): 0.7,
     ("comic", "bright"): 1.0, ("comic", "raspy"): 0.7,
     ("magical", "soft"): 1.0, ("magical", "warm"): 0.8, ("magical", "bright"): 0.6,
+    ("animal", "warm"): 1.0, ("animal", "bright"): 0.9, ("animal", "raspy"): 0.8, ("animal", "soft"): 0.7,
 }
 
 
@@ -82,6 +83,14 @@ def pick_voice(
         tone_s = _ROLE_TONE_SCORE.get((role, v.tone), 0.3)
         role_bonus = 0.3 if role in v.best_for else 0.0
         score = age_s * 0.3 + tone_s * 0.5 + role_bonus * 0.2
+
+        # Children should never get deep/authoritative voices
+        if age == "child" and v.tone in ("deep", "authoritative"):
+            score *= 0.2
+
+        # Prefer bright/soft tones for children
+        if age == "child" and v.tone in ("bright", "soft"):
+            score *= 1.3
 
         if v.voice_id in used_ids:
             score *= 0.5

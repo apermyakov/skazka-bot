@@ -53,6 +53,9 @@ SCENE_SPLIT_PROMPT = """\
 
 Верни ТОЛЬКО JSON без markdown:
 {{
+  "character_appearances": {{
+    "имя_персонажа": "точное описание внешности: цвет шерсти/волос, глаз, одежды, отличительные черты"
+  }},
   "scenes": [
     {{
       "scene_index": 0,
@@ -70,7 +73,9 @@ SCENE_SPLIT_PROMPT = """\
 2. Первая сцена — начало, последняя — счастливый финал
 3. Описание — КОРОТКО, 1-2 предложения на сцену
 4. Главный герой-ребёнок присутствует в каждой сцене
-5. Весь JSON должен уместиться в 500 слов
+5. character_appearances ОБЯЗАТЕЛЕН — опиши внешность КАЖДОГО персонажа (кроме рассказчика)
+6. Если в тексте указан цвет (серый кот, рыжая лиса) — ОБЯЗАТЕЛЬНО укажи этот цвет
+7. Весь JSON должен уместиться в 500 слов
 """
 
 
@@ -166,12 +171,13 @@ async def split_into_scenes(screenplay: dict) -> list[dict]:
 
         result = json.loads(cleaned[start:end])
     scenes = result.get("scenes", [])
+    character_appearances = result.get("character_appearances", {})
 
     if not scenes:
         raise ValueError("No scenes generated")
 
-    logger.info("Split into %d scenes for illustration", len(scenes))
-    return scenes
+    logger.info("Split into %d scenes for illustration, appearances: %s", len(scenes), character_appearances)
+    return scenes, character_appearances
 
 
 async def _call_image_api(content: list[dict], scene_index: int, style_label: str) -> bytes | None:
@@ -253,6 +259,7 @@ def _build_scene_prompt(
     total_scenes: int,
     fairy_tale_title: str,
     characters_desc: str,
+    character_appearances: dict[str, str],
     previous_scene_desc: str | None,
     style_block: str,
     style_suffix: str,
@@ -262,6 +269,19 @@ def _build_scene_prompt(
     if previous_scene_desc:
         continuity = f"\nPrevious scene showed: {previous_scene_desc}. This scene continues the same story."
 
+    # Build appearance block for characters in this scene
+    appearance_lines = []
+    for char_name in scene.get("characters_present", []):
+        desc = character_appearances.get(char_name, "")
+        if desc:
+            appearance_lines.append(f"  - {char_name}: {desc}")
+    appearance_block = ""
+    if appearance_lines:
+        appearance_block = (
+            "\n\nCHARACTER APPEARANCES (MUST match exactly in every scene):\n"
+            + "\n".join(appearance_lines)
+        )
+
     return (
         f"{style_block}\n\n"
         f"Fairy tale: '{fairy_tale_title}'\n"
@@ -270,10 +290,12 @@ def _build_scene_prompt(
         f"Setting: {scene.get('setting', 'forest')}\n"
         f"Mood: {scene.get('mood', 'magical')}\n"
         f"Visual description: {scene.get('description', '')}\n"
+        f"{appearance_block}"
         f"{continuity}\n\n"
         f"Generate a single children's book illustration for this scene. "
         f"IMPORTANT: Each character appears EXACTLY ONCE. Do NOT duplicate any character or animal. "
         f"Characters in this scene: {', '.join(scene.get('characters_present', []))} — draw each one ONLY ONCE. "
+        f"CRITICAL: Each character's appearance (fur color, hair color, clothing) must be IDENTICAL across all scenes. "
         f"{style_suffix}"
     )
 
@@ -286,11 +308,9 @@ async def generate_illustration(
     previous_scene_desc: str | None,
     fairy_tale_title: str,
     characters_desc: str,
-) -> tuple[bytes | None, bytes | None]:
-    """Generate two illustration variants (Pixar + kids drawing) in parallel.
-
-    Returns (pixar_bytes, kids_drawing_bytes).
-    """
+    character_appearances: dict[str, str] | None = None,
+) -> bytes | None:
+    """Generate one Pixar-style illustration."""
     photo_content = []
     if reference_photo_b64:
         photo_url = reference_photo_b64
@@ -307,48 +327,33 @@ async def generate_illustration(
         "The child and their parents must immediately recognize them."
     ) if reference_photo_b64 else ""
 
-    # Pixar prompt
-    pixar_prompt = _build_scene_prompt(
+    prompt = _build_scene_prompt(
         scene, scene_index, total_scenes, fairy_tale_title, characters_desc,
+        character_appearances or {},
         previous_scene_desc, STYLE_PIXAR,
         f"Pixar-style 3D render. {face_suffix}",
     )
-    pixar_content = [{"type": "text", "text": pixar_prompt}] + photo_content
+    content = [{"type": "text", "text": prompt}] + photo_content
 
-    # Kids drawing prompt
-    kids_prompt = _build_scene_prompt(
-        scene, scene_index, total_scenes, fairy_tale_title, characters_desc,
-        previous_scene_desc, STYLE_KIDS_DRAWING,
-        f"Professional children's book watercolor illustration. {face_suffix}",
-    )
-    kids_content = [{"type": "text", "text": kids_prompt}] + photo_content
-
-    # Generate both in parallel
-    pixar_task = asyncio.create_task(_call_image_api(pixar_content, scene_index, "pixar"))
-    kids_task = asyncio.create_task(_call_image_api(kids_content, scene_index, "watercolor"))
-
-    pixar_bytes = await pixar_task
-    kids_bytes = await kids_task
-
-    return pixar_bytes, kids_bytes
+    return await _call_image_api(content, scene_index, "pixar")
 
 
 async def generate_illustrations_batch(
     screenplay: dict,
     reference_photo_b64: str | None = None,
     on_progress=None,
-    on_illustration_ready: Callable[[int, bytes, str], Awaitable[None]] | None = None,
+    on_illustration_ready: Callable[[int, bytes], Awaitable[None]] | None = None,
 ) -> list[bytes]:
-    """Generate all illustrations for a fairy tale (two styles per scene).
+    """Generate all Pixar-style illustrations for a fairy tale.
 
     Args:
         on_illustration_ready: Callback fired for each illustration as it's generated.
-            Receives (scene_index, image_bytes, style_label).
+            Receives (scene_index, image_bytes).
 
-    Returns list of Pixar PNG bytes (may contain None for failed scenes).
+    Returns list of PNG bytes (may contain None for failed scenes).
     """
     # Step 1: Split into scenes
-    scenes = await split_into_scenes(screenplay)
+    scenes, character_appearances = await split_into_scenes(screenplay)
 
     title = screenplay["title"]
     characters_desc = ", ".join(
@@ -357,7 +362,7 @@ async def generate_illustrations_batch(
         if c["id"] != "narrator"
     )
 
-    # Step 2: Generate illustrations sequentially per scene (two styles in parallel)
+    # Step 2: Generate illustrations sequentially (for style consistency)
     results = []
     prev_desc = None
 
@@ -367,7 +372,7 @@ async def generate_illustrations_batch(
             if asyncio.iscoroutine(result):
                 await result
 
-        pixar_bytes, kids_bytes = await generate_illustration(
+        img_bytes = await generate_illustration(
             scene=scene,
             scene_index=i,
             total_scenes=len(scenes),
@@ -375,31 +380,23 @@ async def generate_illustrations_batch(
             previous_scene_desc=prev_desc,
             fairy_tale_title=title,
             characters_desc=characters_desc,
+            character_appearances=character_appearances,
         )
 
-        # Use pixar as the primary result (for video)
-        results.append(pixar_bytes)
+        results.append(img_bytes)
         prev_desc = scene.get("description", "")
 
         logger.info(
-            "Illustration %d/%d: pixar=%s, watercolor=%s",
+            "Illustration %d/%d: %s",
             i + 1, len(scenes),
-            f"{len(pixar_bytes):,}b" if pixar_bytes else "FAILED",
-            f"{len(kids_bytes):,}b" if kids_bytes else "FAILED",
+            f"{len(img_bytes):,}b" if img_bytes else "FAILED",
         )
 
-        # Deliver both styles immediately
-        if on_illustration_ready:
-            if pixar_bytes:
-                try:
-                    await on_illustration_ready(i, pixar_bytes, "pixar")
-                except Exception as e:
-                    logger.warning("on_illustration_ready callback failed for scene %d pixar: %s", i, e)
-            if kids_bytes:
-                try:
-                    await on_illustration_ready(i, kids_bytes, "watercolor")
-                except Exception as e:
-                    logger.warning("on_illustration_ready callback failed for scene %d watercolor: %s", i, e)
+        if img_bytes and on_illustration_ready:
+            try:
+                await on_illustration_ready(i, img_bytes)
+            except Exception as e:
+                logger.warning("on_illustration_ready callback failed for scene %d: %s", i, e)
 
     successful = sum(1 for r in results if r is not None)
     logger.info("Illustrations complete: %d/%d successful", successful, len(results))

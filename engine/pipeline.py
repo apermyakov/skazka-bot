@@ -25,7 +25,7 @@ async def generate_fairytale(
     reference_photo_b64: str | None = None,
     on_status: Callable[[str], Awaitable[None]] | None = None,
     on_audio_ready: Callable[[dict], Awaitable[None]] | None = None,
-    on_illustration_ready: Callable[[int, str, str], Awaitable[None]] | None = None,
+    on_illustration_ready: Callable[[int, str], Awaitable[None]] | None = None,
 ) -> dict:
     """Generate a complete fairy tale: MP3 audio + illustrations.
 
@@ -112,15 +112,14 @@ async def generate_fairytale(
         scene_durations_list: list[float] = []
         audio_ready_event = asyncio.Event()
 
-        async def _on_img_ready(idx: int, img_bytes: bytes, style: str):
-            img_path = illustrations_dir / f"scene_{idx + 1}_{style}.png"
+        async def _on_img_ready(idx: int, img_bytes: bytes):
+            img_path = illustrations_dir / f"scene_{idx + 1}.png"
             img_path.write_bytes(img_bytes)
-            if style == "pixar":
-                illustration_paths.append(str(img_path))
+            illustration_paths.append(str(img_path))
             # Wait until MP3 has been sent before delivering illustrations
             await audio_ready_event.wait()
             if on_illustration_ready:
-                await on_illustration_ready(idx, str(img_path), style)
+                await on_illustration_ready(idx, str(img_path))
 
         img_task = asyncio.create_task(
             generate_illustrations_batch(
