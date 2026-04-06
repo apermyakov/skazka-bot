@@ -23,7 +23,6 @@ async def _call_llm(system: str, user: str, max_retries: int = 3,
     """Call OpenRouter API and return the assistant's text response."""
     from db.config_manager import cfg
     model = await cfg.get("model.llm", settings.llm_model)
-    logger.info("LLM using model: %s (from config cache: %d keys)", model, len(cfg._cache))
     temp = temperature if temperature is not None else await cfg.get("llm.screenplay_temperature", 0.8)
     tokens = max_tokens if max_tokens is not None else await cfg.get("llm.screenplay_max_tokens", 8000)
 
