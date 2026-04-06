@@ -15,7 +15,7 @@ from bot.config import settings
 
 logger = logging.getLogger(__name__)
 
-IMAGE_MODEL = "google/gemini-2.5-flash-image"
+IMAGE_MODEL = "google/gemini-3.1-flash-image-preview"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 STYLE_PIXAR = (
