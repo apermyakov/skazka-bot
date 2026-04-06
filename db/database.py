@@ -203,13 +203,23 @@ async def create_story(order_id: str = None, user_id: int = None, context: str =
         return row["id"] if row else None
 
 
+_STORY_COLUMNS = {
+    "order_id", "title", "context", "was_voice", "screenplay_json", "ambient",
+    "duration_sec", "segments_count", "illustrations_count", "has_video",
+    "has_photo", "photo_count", "feedback", "status", "error_message", "completed_at",
+}
+
+
 async def update_story(story_id: int, **fields):
     if not _pool or not story_id or not fields:
         return
-    # Build SET clause dynamically
+    # Whitelist column names to prevent SQL injection
+    safe_fields = {k: v for k, v in fields.items() if k in _STORY_COLUMNS}
+    if not safe_fields:
+        return
     set_parts = []
     values = []
-    for i, (key, val) in enumerate(fields.items(), 1):
+    for i, (key, val) in enumerate(safe_fields.items(), 1):
         set_parts.append(f"{key} = ${i}")
         values.append(val)
     values.append(story_id)

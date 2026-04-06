@@ -89,11 +89,11 @@ async def transcribe_voice(ogg_data: bytes) -> str:
             "temperature": transcribe_temp,
         }
 
+        from engine.http_session import get_session
         t0 = time.time()
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
+        session = get_session()
+        async with session.post(
                 OPENROUTER_URL, json=payload, headers=headers,
-                timeout=aiohttp.ClientTimeout(total=30),
             ) as resp:
                 duration_ms = int((time.time() - t0) * 1000)
                 if resp.status != 200:

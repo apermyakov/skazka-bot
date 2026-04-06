@@ -40,11 +40,13 @@ async def _call_llm(system: str, user: str, max_retries: int = 3,
         "max_tokens": tokens,
     }
 
+    from engine.http_session import get_session
+
     for attempt in range(1, max_retries + 1):
         t0 = time.time()
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(OPENROUTER_URL, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=120)) as resp:
+            session = get_session()
+            async with session.post(OPENROUTER_URL, json=payload, headers=headers) as resp:
                     duration_ms = int((time.time() - t0) * 1000)
                     if resp.status != 200:
                         body = await resp.text()

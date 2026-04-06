@@ -130,8 +130,9 @@ async def split_into_scenes(screenplay: dict, story_id: int = None) -> list[dict
             await asyncio.sleep(3)  # wait between retries
 
         t0 = time.time()
-        async with aiohttp.ClientSession() as session:
-            async with session.post(OPENROUTER_URL, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=120)) as resp:
+        from engine.http_session import get_session
+        session = get_session()
+        async with session.post(OPENROUTER_URL, json=payload, headers=headers) as resp:
                 raw = await resp.text()
                 duration_ms = int((time.time() - t0) * 1000)
                 logger.info("Scene split HTTP %d (attempt %d), body length: %d", resp.status, attempt, len(raw))
@@ -238,11 +239,11 @@ async def _call_image_api(content: list[dict], scene_index: int, style_label: st
 
     try:
         t0 = time.time()
+        from engine.http_session import get_session
         logger.info("Generating illustration %d [%s]", scene_index, style_label)
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
+        session = get_session()
+        async with session.post(
                 OPENROUTER_URL, json=payload, headers=headers,
-                timeout=aiohttp.ClientTimeout(total=120),
             ) as resp:
                 if resp.status != 200:
                     body = await resp.text()

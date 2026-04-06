@@ -277,22 +277,28 @@ async def on_generate_ask_photo(callback: types.CallbackQuery, state: FSMContext
 # ── 8a. Receive photo → collect into list ──
 @router.message(CreateFairyTale.waiting_photo, F.photo)
 async def on_photo_received(message: types.Message, state: FSMContext, bot: Bot):
-    # Download the highest resolution photo
+    # Download the highest resolution photo and save to disk (not memory)
     photo = message.photo[-1]  # Last = largest
     file = await bot.get_file(photo.file_id)
     buf = BytesIO()
     await bot.download_file(file.file_path, buf)
-    photo_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    photo_bytes = buf.getvalue()
+
+    # Save to temp file on disk
+    import uuid
+    photos_dir = settings.media_dir / "_photos"
+    photos_dir.mkdir(parents=True, exist_ok=True)
+    photo_path = photos_dir / f"{uuid.uuid4().hex}.jpg"
+    photo_path.write_bytes(photo_bytes)
 
     data = await state.get_data()
-    photos = data.get("reference_photos", [])
-    photos.append(photo_b64)
-    await state.update_data(reference_photos=photos)
+    photo_paths = data.get("reference_photo_paths", [])
+    photo_paths.append(str(photo_path))
+    await state.update_data(reference_photo_paths=photo_paths)
 
-    count = len(photos)
+    count = len(photo_paths)
     if count >= 3:
         await message.answer(f"📸 Отлично, {count} фото! Начинаю генерацию.")
-        await state.update_data(reference_photo_b64=photos[0])
         await _start_generation(message, state)
     else:
         await message.answer(
@@ -304,10 +310,6 @@ async def on_photo_received(message: types.Message, state: FSMContext, bot: Bot)
 # ── 8b. Photos done → start generation ──
 @router.callback_query(F.data == "photos_done")
 async def on_photos_done(callback: types.CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    photos = data.get("reference_photos", [])
-    if photos:
-        await state.update_data(reference_photo_b64=photos[0])
     await callback.answer()
     await _start_generation(callback.message, state)
 
@@ -326,9 +328,20 @@ async def _start_generation(message: types.Message, state: FSMContext):
     data = await state.get_data()
     context = data["context"]
     screenplay = data.get("screenplay_json")
-    photo_b64 = data.get("reference_photo_b64")
-    reference_photos = data.get("reference_photos", [photo_b64] if photo_b64 else [])
     story_id = data.get("db_story_id")
+
+    # Load photos from disk paths (not base64 in memory)
+    photo_paths = data.get("reference_photo_paths", [])
+    reference_photos = []
+    photo_b64 = None
+    for p in photo_paths:
+        from pathlib import Path
+        pp = Path(p)
+        if pp.exists():
+            b64 = base64.b64encode(pp.read_bytes()).decode("ascii")
+            reference_photos.append(b64)
+            if photo_b64 is None:
+                photo_b64 = b64
 
     # Update story with photo info
     if story_id:

@@ -54,7 +54,14 @@ async def main():
     dp.include_router(create.router)
 
     logger.info("Bot started. Polling...")
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        from db.database import close_db
+        from engine.http_session import close_session
+        await close_session()
+        await close_db()
+        logger.info("Shutdown complete.")
 
 
 if __name__ == "__main__":

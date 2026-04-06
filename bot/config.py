@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     # LLM (OpenRouter → Gemini)
     openrouter_api_key: str
-    llm_model: str = "google/gemini-2.5-flash"
+    llm_model: str = "google/gemini-2.5-flash-preview-04-17"
 
     # ElevenLabs TTS
     elevenlabs_api_key: str

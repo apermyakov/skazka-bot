@@ -231,14 +231,24 @@ async def generate_fairytale(
             )
 
             if has_segment_ranges:
+                valid_ranges = True
                 for sc_idx in range(n_scenes):
-                    s_start = scene_data[sc_idx].get("segment_start", 0)
-                    s_end = scene_data[sc_idx].get("segment_end", n_segs)
-                    s_start = max(0, min(s_start, n_segs))
-                    s_end = max(s_start, min(s_end, n_segs))
-                    scene_dur = sum(seg_durations[s_start:s_end]) if s_start < s_end else seg_durations[0]
+                    s_start = int(scene_data[sc_idx].get("segment_start", 0))
+                    s_end = int(scene_data[sc_idx].get("segment_end", n_segs))
+                    # Validate: must be within bounds and non-empty
+                    if not (0 <= s_start < s_end <= n_segs):
+                        logger.warning("Invalid segment range for scene %d: [%d, %d) (n_segs=%d)",
+                                       sc_idx, s_start, s_end, n_segs)
+                        valid_ranges = False
+                        break
+                    scene_dur = sum(seg_durations[s_start:s_end])
                     scene_durations_list.append(scene_dur)
-                logger.info("Using LLM segment ranges for scene timecodes")
+
+                if not valid_ranges:
+                    scene_durations_list.clear()
+                    has_segment_ranges = False
+                else:
+                    logger.info("Using LLM segment ranges for scene timecodes")
             else:
                 # Fallback: distribute evenly
                 segs_per_scene = max(1, n_segs // n_scenes)
