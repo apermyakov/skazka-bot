@@ -43,7 +43,12 @@ class ConfigManager:
                 new_cache = {}
                 for row in rows:
                     raw = row["value"]
-                    # asyncpg returns JSONB as Python objects already
+                    # asyncpg returns JSONB strings with quotes — parse them
+                    if isinstance(raw, str):
+                        try:
+                            raw = json.loads(raw)
+                        except (json.JSONDecodeError, TypeError):
+                            pass
                     new_cache[row["key"]] = raw
                 self._cache = new_cache
                 self._loaded_at = time.time()
