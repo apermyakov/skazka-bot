@@ -69,7 +69,7 @@ SCREENWRITER_PROMPT = """\
 4. Язык — живой, детский русский
 5. emotion: neutral, cheerful, excited, nervous, sad, angry, whisper, soft, mysterious
 6. pace: slow, normal, fast
-7. ambient: forest, cave, stream, night, sea, village, castle, sky
+7. ambient: forest, cave, stream, night, sea, ocean, rain, storm, fire, fireplace, wind, birds, meadow, garden, village, city, market, castle, dungeon, magic, sky, space, snow, winter
 8. role для персонажей: narrator, hero, villain, wise, comic, magical
 9. gender: male, female
 10. age: child, young, middle, elderly
@@ -96,14 +96,30 @@ PACE_TO_TAGS = {
 }
 
 AMBIENT_MAP = {
-    "forest":  "forest_ambience.mp3",
-    "cave":    "cave_ambience.mp3",
-    "stream":  "stream_water.mp3",
-    "night":   "night_forest.mp3",
-    "sea":     "forest_ambience.mp3",
-    "village": "forest_ambience.mp3",
-    "castle":  "cave_ambience.mp3",
-    "sky":     "forest_ambience.mp3",
+    "forest":      "forest_ambience.mp3",
+    "cave":        "cave_ambience.mp3",
+    "stream":      "stream_water.mp3",
+    "night":       "night_forest.mp3",
+    "sea":         "ocean_waves.mp3",
+    "ocean":       "ocean_waves.mp3",
+    "rain":        "rain_storm.mp3",
+    "storm":       "thunderstorm.mp3",
+    "fire":        "fireplace.mp3",
+    "fireplace":   "fireplace.mp3",
+    "wind":        "wind_blowing.mp3",
+    "birds":       "birds_meadow.mp3",
+    "meadow":      "birds_meadow.mp3",
+    "garden":      "garden_insects.mp3",
+    "village":     "birds_meadow.mp3",
+    "city":        "city_market.mp3",
+    "market":      "city_market.mp3",
+    "castle":      "castle_echo.mp3",
+    "dungeon":     "castle_echo.mp3",
+    "magic":       "magic_sparkle.mp3",
+    "sky":         "wind_blowing.mp3",
+    "space":       "space_ambient.mp3",
+    "snow":        "snow_wind.mp3",
+    "winter":      "snow_wind.mp3",
 }
 
 
