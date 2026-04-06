@@ -43,7 +43,7 @@ STYLE_KIDS_DRAWING = (
 
 SCENE_SPLIT_PROMPT = """\
 Ты — художественный редактор детской книги. Дан сценарий аудиосказки.
-Раздели его на 4-5 ключевых сцен для иллюстраций.
+Раздели его на 7-8 ключевых сцен для иллюстраций.
 
 Сценарий:
 Название: {title}
@@ -54,33 +54,31 @@ SCENE_SPLIT_PROMPT = """\
 Верни ТОЛЬКО JSON без markdown:
 {{
   "character_appearances": {{
-    "имя_персонажа": "точное описание внешности: цвет шерсти/волос, глаз, одежды, отличительные черты"
+    "имя_персонажа": "внешность: цвет волос/шерсти, глаз, одежда"
   }},
   "scenes": [
     {{
       "scene_index": 0,
-      "title": "Короткое название сцены",
-      "description": "Краткое визуальное описание сцены. Максимум 1-2 предложения.",
-      "characters_present": ["имя1", "имя2"],
-      "setting": "лес / пещера / поляна / дом / небо",
-      "mood": "радостный / таинственный / грустный / волшебный"
+      "description": "Что происходит визуально (макс 10 слов)",
+      "characters_present": ["имя1"],
+      "setting": "лес",
+      "mood": "радостный"
     }}
   ]
 }}
 
 ПРАВИЛА:
-1. Ровно 4 сцены (не больше!)
+1. Ровно 7-8 сцен
 2. Первая сцена — начало, последняя — счастливый финал
-3. Описание — КОРОТКО, 1-2 предложения на сцену
+3. Описание сцены — МАКСИМУМ 10 слов
 4. Главный герой-ребёнок присутствует в каждой сцене
 5. character_appearances ОБЯЗАТЕЛЕН — опиши внешность КАЖДОГО персонажа (кроме рассказчика)
 6. Если в тексте указан цвет (серый кот, рыжая лиса) — ОБЯЗАТЕЛЬНО укажи этот цвет
-7. Весь JSON должен уместиться в 500 слов
 """
 
 
 async def split_into_scenes(screenplay: dict) -> list[dict]:
-    """Split screenplay into 4-5 key visual scenes for illustration."""
+    """Split screenplay into 7-8 key visual scenes for illustration."""
     title = screenplay["title"]
     characters = ", ".join(c["name"] for c in screenplay["characters"] if c["id"] != "narrator")
 
@@ -111,7 +109,7 @@ async def split_into_scenes(screenplay: dict) -> list[dict]:
             {"role": "user", "content": prompt},
         ],
         "temperature": 0.5,
-        "max_tokens": 4000,
+        "max_tokens": 8000,
     }
 
     for attempt in range(1, 4):
@@ -166,9 +164,18 @@ async def split_into_scenes(screenplay: dict) -> list[dict]:
 
             try:
                 result = json.loads(cleaned[start:end])
-            except json.JSONDecodeError as e:
-                logger.warning("Invalid JSON in scene split (attempt %d): %s", attempt, e)
-                continue
+            except json.JSONDecodeError:
+                # Try to repair truncated JSON by closing open brackets
+                fragment = cleaned[start:]
+                open_braces = fragment.count("{") - fragment.count("}")
+                open_brackets = fragment.count("[") - fragment.count("]")
+                repaired = fragment + "]" * open_brackets + "}" * open_braces
+                try:
+                    result = json.loads(repaired)
+                    logger.info("Repaired truncated JSON (attempt %d)", attempt)
+                except json.JSONDecodeError as e:
+                    logger.warning("Invalid JSON in scene split (attempt %d): %s", attempt, e)
+                    continue
 
         scenes = result.get("scenes", [])
         character_appearances = result.get("character_appearances", {})

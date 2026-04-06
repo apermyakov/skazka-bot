@@ -32,9 +32,9 @@ async def main():
         events.append((elapsed(), "audio_ready", info["title"]))
         print(f"  [{elapsed()}] AUDIO READY: {info['title']}, {info['duration']:.1f}s, file={info['file_path']}")
 
-    async def on_illustration_ready(idx, path, style):
-        events.append((elapsed(), "illustration", f"scene_{idx + 1}_{style}"))
-        print(f"  [{elapsed()}] ILLUSTRATION: scene {idx + 1} [{style}] -> {path}")
+    async def on_illustration_ready(idx, path):
+        events.append((elapsed(), "illustration", f"scene_{idx + 1}"))
+        print(f"  [{elapsed()}] ILLUSTRATION: scene {idx + 1} -> {path}")
 
     print("=" * 60)
     print("CALLBACK ORDER TEST")
@@ -99,15 +99,8 @@ async def main():
     else:
         checks.append(("Audio sent BEFORE illustrations", False))
 
-    # 4. Both styles present
-    styles = set(e[2].split("_")[-1] for _, e in illustration_events)
-    checks.append(("Pixar style present", "pixar" in styles))
-    checks.append(("Watercolor style present", "watercolor" in styles))
-
-    # 5. Paired: same number of pixar and watercolor
-    pixar_count = sum(1 for _, e in illustration_events if "pixar" in e[2])
-    watercolor_count = sum(1 for _, e in illustration_events if "watercolor" in e[2])
-    checks.append((f"Pixar count ({pixar_count}) == Watercolor count ({watercolor_count})", pixar_count == watercolor_count))
+    # 4. Enough illustrations generated (expect 4+)
+    checks.append((f"Illustrations count ({len(illustration_events)}) >= 4", len(illustration_events) >= 4))
 
     # 6. File checks
     checks.append(("MP3 exists", os.path.exists(result["file_path"])))

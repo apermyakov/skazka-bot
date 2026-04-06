@@ -60,7 +60,7 @@ async def run_test(topic_info, index):
         print(f"  [{index}] {safe}")
 
     try:
-        result = await generate_fairytale(context=context, on_progress=progress)
+        result = await generate_fairytale(context=context, on_status=progress)
 
         filepath = result["file_path"]
         duration = result["duration"]
