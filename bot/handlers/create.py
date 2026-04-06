@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
-"""Fairy tale flow: input → confirm → compose story → review/edit → generate audio → deliver."""
+"""Fairy tale flow: input → confirm → story → review → photo → generate audio+images → deliver."""
 
+import base64
 import logging
 import re
 from io import BytesIO
 
 from aiogram import Router, types, F, Bot
 from aiogram.fsm.context import FSMContext
-from aiogram.types import FSInputFile
+from aiogram.types import FSInputFile, InputMediaPhoto
 
 from bot.states.create import CreateFairyTale
-from bot.keyboards.inline import confirm_input, review_story, feedback, main_menu
+from bot.keyboards.inline import confirm_input, review_story, skip_photo, feedback, main_menu
 from engine.pipeline import generate_fairytale
 from engine.llm_client import generate_screenplay
 from engine.transcribe import transcribe_voice
@@ -114,8 +115,7 @@ async def on_input(message: types.Message, state: FSMContext, bot: Bot):
         label = "📝 <b>Ваш запрос:</b>"
 
     await message.answer(
-        f"{label}\n\n<i>{text[:500]}</i>\n\n"
-        f"Всё верно?",
+        f"{label}\n\n<i>{text[:500]}</i>\n\nВсё верно?",
         reply_markup=confirm_input(),
         parse_mode="HTML",
     )
@@ -157,7 +157,7 @@ async def on_compose(callback: types.CallbackQuery, state: FSMContext):
 async def on_edit(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer(
         "✏️ Что изменить? Напишите текстом или голосом, например:\n\n"
-        "<i>«Сделай медведя добрее» или «Добавь дракона» или «Пусть в конце они подружатся»</i>",
+        "<i>«Сделай медведя добрее» или «Добавь дракона»</i>",
         parse_mode="HTML",
     )
     await state.set_state(CreateFairyTale.waiting_edits)
@@ -171,33 +171,28 @@ async def on_edits_received(message: types.Message, state: FSMContext, bot: Bot)
         return
 
     data = await state.get_data()
-    original_context = data.get("context", "")
-    new_context = f"{original_context}\n\nИзменения: {edit_text}"
+    new_context = f"{data.get('context', '')}\n\nИзменения: {edit_text}"
     await state.update_data(context=new_context)
 
     status = await message.answer("✏️ Переписываю сказку с учётом правок...")
-
     try:
         screenplay = await generate_screenplay(new_context)
         await status.delete()
         await _show_story(message, state, screenplay)
     except Exception as e:
         logger.error("Edit failed: %s", e, exc_info=True)
-        await status.edit_text(f"😔 Не удалось переписать: {str(e)[:200]}", reply_markup=main_menu())
+        await status.edit_text(f"😔 Ошибка: {str(e)[:200]}", reply_markup=main_menu())
         await state.clear()
 
 
-# ── 6. Regenerate from scratch ──
+# ── 6. Regenerate ──
 @router.callback_query(F.data == "regenerate_story")
 async def on_regenerate(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    context = data.get("context", "")
-
     status = await callback.message.answer("🔄 Сочиняю новую версию...")
     await callback.answer()
-
     try:
-        screenplay = await generate_screenplay(context)
+        screenplay = await generate_screenplay(data.get("context", ""))
         await status.delete()
         await _show_story(callback.message, state, screenplay)
     except Exception as e:
@@ -205,16 +200,52 @@ async def on_regenerate(callback: types.CallbackQuery, state: FSMContext):
         await status.edit_text(f"😔 Ошибка: {str(e)[:200]}", reply_markup=main_menu())
 
 
-# ── 7. Generate audio ──
+# ── 7. "Озвучить" → ask for photo ──
 @router.callback_query(F.data == "generate")
-async def on_generate(callback: types.CallbackQuery, state: FSMContext):
+async def on_generate_ask_photo(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.answer(
+        "🖼 <b>Хотите добавить иллюстрации?</b>\n\n"
+        "Отправьте фото ребёнка — и он станет главным героем на картинках к сказке!\n\n"
+        "Или нажмите кнопку ниже, чтобы получить сказку без иллюстраций.",
+        reply_markup=skip_photo(),
+        parse_mode="HTML",
+    )
+    await state.set_state(CreateFairyTale.waiting_photo)
+    await callback.answer()
+
+
+# ── 8a. Receive photo → start generation ──
+@router.message(CreateFairyTale.waiting_photo, F.photo)
+async def on_photo_received(message: types.Message, state: FSMContext, bot: Bot):
+    # Download the highest resolution photo
+    photo = message.photo[-1]  # Last = largest
+    file = await bot.get_file(photo.file_id)
+    buf = BytesIO()
+    await bot.download_file(file.file_path, buf)
+    photo_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+
+    await state.update_data(reference_photo_b64=photo_b64)
+    await message.answer("📸 Фото получено! Ребёнок будет на иллюстрациях.")
+    await _start_generation(message, state)
+
+
+# ── 8b. Skip photo → start generation without illustrations ──
+@router.callback_query(F.data == "skip_photo")
+async def on_skip_photo(callback: types.CallbackQuery, state: FSMContext):
+    await state.update_data(reference_photo_b64=None)
+    await callback.answer()
+    await _start_generation(callback.message, state)
+
+
+async def _start_generation(message: types.Message, state: FSMContext):
+    """Run the full pipeline: audio + illustrations."""
     await state.set_state(CreateFairyTale.generating)
     data = await state.get_data()
     context = data["context"]
     screenplay = data.get("screenplay_json")
+    photo_b64 = data.get("reference_photo_b64")
 
-    status_msg = await callback.message.answer("🎙 Озвучиваю сказку...")
-    await callback.answer()
+    status_msg = await message.answer("🎙 Озвучиваю и рисую сказку...")
 
     async def on_status(msg: str):
         try:
@@ -226,9 +257,11 @@ async def on_generate(callback: types.CallbackQuery, state: FSMContext):
         result = await generate_fairytale(
             context=context,
             screenplay=screenplay,
+            reference_photo_b64=photo_b64,
             on_status=on_status,
         )
 
+        # Send audio
         audio_file = FSInputFile(result["file_path"], filename=f"{result['title']}.mp3")
         dur_min = int(result["duration"]) // 60
         dur_sec = int(result["duration"]) % 60
@@ -240,26 +273,40 @@ async def on_generate(callback: types.CallbackQuery, state: FSMContext):
             parse_mode="HTML",
         )
 
-        await callback.message.answer_audio(
+        await message.answer_audio(
             audio=audio_file,
             title=result["title"],
             performer="Сказка на ночь",
             caption=f"🌙 {result['title']}",
         )
 
-        await callback.message.answer("Как вам сказка?", reply_markup=feedback())
+        # Send illustrations as album
+        illustrations = result.get("illustrations", [])
+        if illustrations:
+            media_group = []
+            for i, img_path in enumerate(illustrations):
+                caption = f"Сцена {i + 1}" if i > 0 else f"🎨 Иллюстрации к сказке «{result['title']}»"
+                media_group.append(InputMediaPhoto(
+                    media=FSInputFile(img_path),
+                    caption=caption if i == 0 else None,
+                ))
+
+            if media_group:
+                await message.answer_media_group(media=media_group)
+
+        await message.answer("Как вам сказка?", reply_markup=feedback())
 
     except Exception as e:
         logger.error("Generation failed: %s", e, exc_info=True)
         await status_msg.edit_text(
-            f"😔 Не удалось озвучить: {str(e)[:200]}\nПопробуйте ещё раз!",
+            f"😔 Не удалось создать сказку: {str(e)[:200]}\nПопробуйте ещё раз!",
             reply_markup=main_menu(),
         )
 
     await state.clear()
 
 
-# ── 8. Feedback ──
+# ── 9. Feedback ──
 @router.callback_query(F.data.startswith("fb_"))
 async def on_feedback(callback: types.CallbackQuery):
     fb_type = callback.data.replace("fb_", "")

@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Full fairy tale generation pipeline: topic → MP3."""
+"""Full fairy tale generation pipeline: topic → MP3 + illustrations."""
 
 import asyncio
 import logging
 import shutil
-import time
 import uuid
 from pathlib import Path
 from typing import Callable, Awaitable
@@ -15,6 +14,7 @@ from engine.voice_pool import pick_voice, VoiceProfile
 from engine.story_parser import build_tagged_text, AMBIENT_MAP
 from engine.tts_client import synthesize_batch
 from engine.audio_mixer import mix_with_ambient, concat_segments, get_duration
+from engine.image_generator import generate_illustrations_batch
 
 logger = logging.getLogger(__name__)
 
@@ -22,22 +22,26 @@ logger = logging.getLogger(__name__)
 async def generate_fairytale(
     context: str,
     screenplay: dict | None = None,
+    reference_photo_b64: str | None = None,
     on_status: Callable[[str], Awaitable[None]] | None = None,
 ) -> dict:
-    """Generate a complete fairy tale MP3.
+    """Generate a complete fairy tale: MP3 audio + illustrations.
 
     Args:
-        context: User's topic + child info (used if screenplay is None).
-        screenplay: Pre-generated screenplay dict. If None, generates new one.
-        on_status: Callback for short status updates.
+        context: User's topic + child info.
+        screenplay: Pre-generated screenplay dict.
+        reference_photo_b64: Base64-encoded child photo for illustrations.
+        on_status: Callback for status updates.
 
     Returns:
-        Dict with: title, file_path, duration, segments_count, script.
+        Dict with: title, file_path, duration, segments_count, script, illustrations.
     """
     order_id = uuid.uuid4().hex[:12]
     work_dir = settings.media_dir / order_id
     segments_dir = work_dir / "segments"
+    illustrations_dir = work_dir / "illustrations"
     segments_dir.mkdir(parents=True, exist_ok=True)
+    illustrations_dir.mkdir(parents=True, exist_ok=True)
     final_path = work_dir / "final.mp3"
 
     async def status(msg: str):
@@ -90,15 +94,28 @@ async def generate_fairytale(
                 "style": voice.default_style,
             })
 
-        # ── Step 4: Synthesize speech ──
+        # ── Step 4: TTS + Illustrations in parallel ──
         await status("🎙 Озвучиваю сказку...")
 
-        audio_chunks = await synthesize_batch(
-            tts_requests,
-            max_concurrent=settings.max_concurrent_tts,
+        # Start TTS
+        tts_task = asyncio.create_task(
+            synthesize_batch(tts_requests, max_concurrent=settings.max_concurrent_tts)
         )
 
-        # ── Step 5: Save + Concatenate ──
+        # Start illustrations (if photo provided or generate without face)
+        illustration_paths: list[str] = []
+        img_task = asyncio.create_task(
+            generate_illustrations_batch(
+                screenplay=screenplay,
+                reference_photo_b64=reference_photo_b64,
+                on_progress=status,
+            )
+        )
+
+        # Wait for TTS
+        audio_chunks = await tts_task
+
+        # ── Step 5: Save + Concatenate audio ──
         await status("🎵 Финальное сведение...")
         seg_files = []
         for i, audio in enumerate(audio_chunks):
@@ -129,11 +146,22 @@ async def generate_fairytale(
             shutil.copy2(dry_path, final_path)
 
         duration = await get_duration(final_path)
-        file_size = final_path.stat().st_size
 
-        logger.info("Fairy tale complete: '%s', %.1fs, %d bytes", title, duration, file_size)
+        # ── Step 7: Wait for illustrations ──
+        try:
+            img_results = await img_task
+            for i, img_bytes in enumerate(img_results):
+                if img_bytes:
+                    img_path = illustrations_dir / f"scene_{i + 1}.png"
+                    img_path.write_bytes(img_bytes)
+                    illustration_paths.append(str(img_path))
+            logger.info("Illustrations: %d/%d saved", len(illustration_paths), len(img_results))
+        except Exception as e:
+            logger.warning("Illustrations failed: %s, continuing without them", e)
 
-        # Cleanup
+        logger.info("Fairy tale complete: '%s', %.1fs, %d illustrations", title, duration, len(illustration_paths))
+
+        # Cleanup temp files
         shutil.rmtree(segments_dir, ignore_errors=True)
         dry_path.unlink(missing_ok=True)
 
@@ -144,6 +172,7 @@ async def generate_fairytale(
             "segments_count": len(seg_files),
             "order_id": order_id,
             "script": screenplay,
+            "illustrations": illustration_paths,
         }
 
     except Exception as e:

@@ -29,6 +29,12 @@ def confirm_generate(topic: str) -> InlineKeyboardMarkup:
     return review_story()
 
 
+def skip_photo() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⏭ Без иллюстраций", callback_data="skip_photo")],
+    ])
+
+
 def feedback() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [

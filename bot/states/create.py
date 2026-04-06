@@ -9,4 +9,5 @@ class CreateFairyTale(StatesGroup):
     confirming_input = State()    # User confirms before screenplay generation
     reviewing_story = State()     # User reviews story text
     waiting_edits = State()       # User sends edits
-    generating = State()          # Audio generation in progress
+    waiting_photo = State()       # User sends child photo for illustrations
+    generating = State()          # Audio + illustration generation in progress
