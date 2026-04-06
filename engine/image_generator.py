@@ -114,7 +114,6 @@ async def split_into_scenes(screenplay: dict) -> list[dict]:
         "max_tokens": 4000,
     }
 
-    import time as _time
     for attempt in range(1, 4):
         if attempt > 1:
             await asyncio.sleep(3)  # wait between retries
@@ -141,40 +140,46 @@ async def split_into_scenes(screenplay: dict) -> list[dict]:
             logger.warning("Empty scene split content (attempt %d)", attempt)
             continue
 
+        # Parse JSON — strip markdown fences and find the JSON object
+        cleaned = re.sub(r"```(?:json)?\s*", "", text)
+        cleaned = re.sub(r"```\s*$", "", cleaned).strip()
+
+        try:
+            result = json.loads(cleaned)
+        except json.JSONDecodeError:
+            # Find JSON object by matching braces
+            start = cleaned.find("{")
+            if start == -1:
+                logger.warning("No JSON object in scene split response (attempt %d): %s", attempt, cleaned[:200])
+                continue
+
+            depth = 0
+            end = len(cleaned)
+            for i in range(start, len(cleaned)):
+                if cleaned[i] == "{":
+                    depth += 1
+                elif cleaned[i] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        end = i + 1
+                        break
+
+            try:
+                result = json.loads(cleaned[start:end])
+            except json.JSONDecodeError as e:
+                logger.warning("Invalid JSON in scene split (attempt %d): %s", attempt, e)
+                continue
+
+        scenes = result.get("scenes", [])
+        character_appearances = result.get("character_appearances", {})
+
+        if not scenes:
+            logger.warning("No scenes in parsed result (attempt %d)", attempt)
+            continue
+
         break
     else:
         raise RuntimeError("Scene split failed after 3 attempts")
-
-    # Parse JSON — strip markdown fences and find the JSON object
-    cleaned = re.sub(r"```(?:json)?\s*", "", text)
-    cleaned = re.sub(r"```\s*$", "", cleaned).strip()
-
-    # Try direct parse first
-    try:
-        result = json.loads(cleaned)
-    except json.JSONDecodeError:
-        # Find JSON object by matching braces
-        start = cleaned.find("{")
-        if start == -1:
-            raise ValueError(f"No JSON object in scene split response: {cleaned[:200]}")
-
-        depth = 0
-        end = len(cleaned)
-        for i in range(start, len(cleaned)):
-            if cleaned[i] == "{":
-                depth += 1
-            elif cleaned[i] == "}":
-                depth -= 1
-                if depth == 0:
-                    end = i + 1
-                    break
-
-        result = json.loads(cleaned[start:end])
-    scenes = result.get("scenes", [])
-    character_appearances = result.get("character_appearances", {})
-
-    if not scenes:
-        raise ValueError("No scenes generated")
 
     logger.info("Split into %d scenes for illustration, appearances: %s", len(scenes), character_appearances)
     return scenes, character_appearances
