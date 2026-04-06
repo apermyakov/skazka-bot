@@ -66,17 +66,52 @@ async def mix_with_ambient(
         raise RuntimeError(f"ffmpeg mix failed: {stderr.decode()[-200:]}")
 
 
+async def _generate_silence(output_path: str | Path, duration: float = 1.0) -> None:
+    """Generate a silent MP3 file of given duration."""
+    proc = await asyncio.create_subprocess_exec(
+        "ffmpeg", "-y",
+        "-f", "lavfi", "-i", f"anullsrc=r=44100:cl=mono",
+        "-t", f"{duration:.2f}",
+        "-c:a", "libmp3lame", "-b:a", "128k",
+        str(output_path),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    await proc.communicate()
+
+
 async def concat_segments(
     segment_files: list[str | Path],
     output_path: str | Path,
+    character_ids: list[str] | None = None,
 ) -> None:
-    """Concatenate multiple MP3 files into one."""
+    """Concatenate MP3 files with pauses between them.
+
+    Inserts 1.0s silence between segments of the same speaker,
+    and 1.5s silence when the speaker changes (dialog transition).
+    """
     workdir = Path(segment_files[0]).parent
+
+    # Generate silence files
+    short_pause = workdir / "_pause_short.mp3"
+    long_pause = workdir / "_pause_long.mp3"
+    await _generate_silence(short_pause, 0.7)
+    await _generate_silence(long_pause, 1.3)
+
     filelist = workdir / "filelist.txt"
 
     with open(filelist, "w") as f:
-        for sf in segment_files:
+        for i, sf in enumerate(segment_files):
             f.write(f"file '{os.path.abspath(sf)}'\n")
+
+            # Add pause between segments (not after the last one)
+            if i < len(segment_files) - 1:
+                if character_ids and i + 1 < len(character_ids) and character_ids[i] != character_ids[i + 1]:
+                    # Speaker changes → longer pause
+                    f.write(f"file '{os.path.abspath(long_pause)}'\n")
+                else:
+                    # Same speaker → shorter pause
+                    f.write(f"file '{os.path.abspath(short_pause)}'\n")
 
     proc = await asyncio.create_subprocess_exec(
         "ffmpeg", "-y",

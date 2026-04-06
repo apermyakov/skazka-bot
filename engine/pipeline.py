@@ -121,6 +121,8 @@ async def generate_fairytale(
         seg_durations = []  # duration of each segment in seconds
         seg_indices = []    # original segment index
 
+        seg_char_ids = []  # character_id for each saved segment (for pause logic)
+
         for i, audio in enumerate(audio_chunks):
             if audio is None:
                 continue
@@ -128,6 +130,7 @@ async def generate_fairytale(
             seg_path.write_bytes(audio)
             seg_files.append(seg_path)
             seg_indices.append(i)
+            seg_char_ids.append(segments[i]["character_id"])
 
         # Measure each segment duration for scene timecodes
         for seg_path in seg_files:
@@ -135,7 +138,7 @@ async def generate_fairytale(
             seg_durations.append(dur)
 
         dry_path = work_dir / "dry.mp3"
-        await concat_segments(seg_files, dry_path)
+        await concat_segments(seg_files, dry_path, character_ids=seg_char_ids)
 
         # ── Step 6: Overlay ambient ──
         assets_dir = Path(__file__).parent.parent / "assets" / "ambient_sounds"
