@@ -191,8 +191,9 @@ async def generate_fairytale(
         audio_ready_event.set()
 
         # ── Step 7: Wait for illustrations ──
+        result_scenes = []
         try:
-            img_results = await img_task
+            img_results, result_scenes = await img_task
             logger.info("Illustrations: %d/%d saved", len(illustration_paths), len(img_results))
         except Exception as e:
             logger.warning("Illustrations failed: %s, continuing without them", e, exc_info=True)
@@ -208,13 +209,33 @@ async def generate_fairytale(
             # Calculate per-scene durations from segment timecodes
             n_scenes = len(illustration_paths)
             n_segs = len(seg_durations)
-            segs_per_scene = max(1, n_segs // n_scenes)
 
-            for sc_idx in range(n_scenes):
-                start = sc_idx * segs_per_scene
-                end = (sc_idx + 1) * segs_per_scene if sc_idx < n_scenes - 1 else n_segs
-                scene_dur = sum(seg_durations[start:end])
-                scene_durations_list.append(scene_dur)
+            # Try to use segment_start/segment_end from scene split
+            scene_data = result_scenes
+            has_segment_ranges = (
+                scene_data
+                and len(scene_data) >= n_scenes
+                and all("segment_start" in s and "segment_end" in s for s in scene_data[:n_scenes])
+            )
+
+            if has_segment_ranges:
+                for sc_idx in range(n_scenes):
+                    s_start = scene_data[sc_idx].get("segment_start", 0)
+                    s_end = scene_data[sc_idx].get("segment_end", n_segs)
+                    s_start = max(0, min(s_start, n_segs))
+                    s_end = max(s_start, min(s_end, n_segs))
+                    scene_dur = sum(seg_durations[s_start:s_end]) if s_start < s_end else seg_durations[0]
+                    scene_durations_list.append(scene_dur)
+                logger.info("Using LLM segment ranges for scene timecodes")
+            else:
+                # Fallback: distribute evenly
+                segs_per_scene = max(1, n_segs // n_scenes)
+                for sc_idx in range(n_scenes):
+                    start = sc_idx * segs_per_scene
+                    end = (sc_idx + 1) * segs_per_scene if sc_idx < n_scenes - 1 else n_segs
+                    scene_dur = sum(seg_durations[start:end])
+                    scene_durations_list.append(scene_dur)
+                logger.info("Using even distribution for scene timecodes (no segment ranges)")
 
             logger.info("Scene timecodes: %s (total: %.1fs)", scene_durations_list, sum(scene_durations_list))
 

@@ -43,7 +43,8 @@ STYLE_KIDS_DRAWING = (
 
 SCENE_SPLIT_PROMPT = """\
 Ты — художественный редактор детской книги. Дан сценарий аудиосказки.
-Раздели его на 7-8 ключевых сцен для иллюстраций.
+Каждая строка текста пронумерована [0], [1], [2]... — это номера сегментов.
+Раздели сценарий на 7-8 ключевых сцен для иллюстраций.
 
 Сценарий:
 Название: {title}
@@ -59,6 +60,8 @@ SCENE_SPLIT_PROMPT = """\
   "scenes": [
     {{
       "scene_index": 0,
+      "segment_start": 0,
+      "segment_end": 3,
       "description": "Что происходит визуально (макс 10 слов)",
       "characters_present": ["имя1"],
       "setting": "лес",
@@ -69,11 +72,13 @@ SCENE_SPLIT_PROMPT = """\
 
 ПРАВИЛА:
 1. Ровно 7-8 сцен
-2. Первая сцена — начало, последняя — счастливый финал
-3. Описание сцены — МАКСИМУМ 10 слов
-4. Главный герой-ребёнок присутствует в каждой сцене
-5. character_appearances ОБЯЗАТЕЛЕН — опиши внешность КАЖДОГО персонажа (кроме рассказчика)
-6. Если в тексте указан цвет (серый кот, рыжая лиса) — ОБЯЗАТЕЛЬНО укажи этот цвет
+2. segment_start и segment_end — диапазон номеров сегментов для этой сцены (segment_end НЕ включается)
+3. Сцены должны покрывать ВСЕ сегменты без пропусков и пересечений
+4. Первая сцена — начало, последняя — счастливый финал
+5. Описание сцены — МАКСИМУМ 10 слов
+6. Главный герой-ребёнок присутствует в каждой сцене
+7. character_appearances ОБЯЗАТЕЛЕН — опиши внешность КАЖДОГО персонажа (кроме рассказчика)
+8. Если в тексте указан цвет (серый кот, рыжая лиса) — ОБЯЗАТЕЛЬНО укажи этот цвет
 """
 
 
@@ -82,14 +87,14 @@ async def split_into_scenes(screenplay: dict) -> list[dict]:
     title = screenplay["title"]
     characters = ", ".join(c["name"] for c in screenplay["characters"] if c["id"] != "narrator")
 
-    # Build clean story text
+    # Build numbered story text (segment indices for scene mapping)
     story_lines = []
-    for seg in screenplay["segments"]:
+    for idx, seg in enumerate(screenplay["segments"]):
         raw = seg["text"]
         clean = re.sub(r'\[[\w\s]+\]', '', raw).strip()
         clean = re.sub(r'\s{2,}', ' ', clean)
         if clean:
-            story_lines.append(clean)
+            story_lines.append(f"[{idx}] {clean}")
     story_text = "\n".join(story_lines)
 
     prompt = SCENE_SPLIT_PROMPT.format(
@@ -517,4 +522,4 @@ async def generate_illustrations_batch(
     successful = sum(1 for r in results if r is not None)
     logger.info("Illustrations complete: %d/%d successful", successful, len(results))
 
-    return results
+    return results, scenes
