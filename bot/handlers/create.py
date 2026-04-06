@@ -205,7 +205,9 @@ async def on_regenerate(callback: types.CallbackQuery, state: FSMContext):
 async def on_generate_ask_photo(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer(
         "🖼 <b>Хотите добавить иллюстрации?</b>\n\n"
-        "Отправьте фото ребёнка — и он станет главным героем на картинках к сказке!\n\n"
+        "Отправьте фото ребёнка <b>в полный рост</b> (одного, крупным планом) — "
+        "и он станет главным героем на картинках к сказке!\n\n"
+        "📌 Лучше всего подойдёт фото, где ребёнок один, без других людей.\n\n"
         "Или нажмите кнопку ниже, чтобы получить сказку без иллюстраций.",
         reply_markup=skip_photo(),
         parse_mode="HTML",

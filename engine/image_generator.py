@@ -15,7 +15,7 @@ from bot.config import settings
 
 logger = logging.getLogger(__name__)
 
-IMAGE_MODEL = "google/gemini-2.5-flash-image"
+IMAGE_MODEL = "google/gemini-3.1-flash-image-preview"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 STYLE_PIXAR = (
@@ -317,85 +317,80 @@ def _build_scene_prompt(
     )
 
 
-async def _generate_with_flux_kontext(
-    scene: dict,
-    scene_index: int,
-    total_scenes: int,
-    reference_photo_b64: str,
-    fairy_tale_title: str,
-    characters_desc: str,
-    character_appearances: dict[str, str] | None = None,
+async def _face_swap_replicate(
+    illustration_bytes: bytes,
+    face_photo_b64: str,
 ) -> bytes | None:
-    """Generate illustration via FLUX Kontext (preserves face from reference photo)."""
-    import os
-    os.environ.setdefault("FAL_KEY", settings.fal_key)
+    """Swap the face from the photo onto the illustration via Replicate."""
+    token = settings.replicate_api_token
+    if not token:
+        return illustration_bytes  # no token → return as-is
 
-    # Build appearance info
-    appearance_lines = []
-    for char_name in scene.get("characters_present", []):
-        desc = (character_appearances or {}).get(char_name, "")
-        if desc:
-            appearance_lines.append(f"{char_name}: {desc}")
-    appearance_info = "; ".join(appearance_lines) if appearance_lines else ""
+    illustration_b64 = base64.b64encode(illustration_bytes).decode()
 
-    prompt = (
-        f"Transform this photo into a beautiful Pixar-style 3D cartoon illustration. "
-        f"Scene from fairy tale '{fairy_tale_title}': {scene.get('description', '')}. "
-        f"Setting: {scene.get('setting', 'magical forest')}. Mood: {scene.get('mood', 'magical')}. "
-        f"The child from the photo must be the main character — keep their face recognizable. "
-        f"If there are multiple people in the photo, focus ONLY on the child. "
-        f"Pixar-style 3D render, warm magical lighting, rich vibrant colors. "
-        f"Wide landscape 16:9 composition. "
-        f"STRICTLY NO text, words, or letters anywhere in the image."
-    )
-    if appearance_info:
-        prompt += f" Characters: {appearance_info}."
+    face_url = face_photo_b64
+    if not face_url.startswith("data:"):
+        face_url = f"data:image/jpeg;base64,{face_photo_b64}"
 
-    photo_url = reference_photo_b64
-    if not photo_url.startswith("data:"):
-        photo_url = f"data:image/jpeg;base64,{photo_url}"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
     try:
-        import fal_client
-        logger.info("Generating illustration %d via FLUX Kontext", scene_index)
-
-        result = await asyncio.to_thread(
-            fal_client.subscribe,
-            "fal-ai/flux-kontext/dev",
-            arguments={
-                "prompt": prompt,
-                "image_url": photo_url,
-                "num_inference_steps": 28,
-                "guidance_scale": 3.5,
-                "output_format": "png",
-            },
-        )
-
-        images = result.get("images", [])
-        if not images:
-            logger.warning("FLUX Kontext returned no images for scene %d", scene_index)
-            return None
-
-        img_url = images[0].get("url", "")
-        if not img_url:
-            logger.warning("FLUX Kontext returned empty URL for scene %d", scene_index)
-            return None
-
-        # Download the image
         async with aiohttp.ClientSession() as session:
-            async with session.get(img_url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
-                if resp.status == 200:
-                    img_bytes = await resp.read()
-                    logger.info("FLUX Kontext illustration %d: %d bytes", scene_index, len(img_bytes))
-                    return img_bytes
-                else:
-                    logger.warning("Failed to download FLUX image for scene %d: HTTP %d", scene_index, resp.status)
-                    return None
+            # Get model version
+            async with session.get(
+                "https://api.replicate.com/v1/models/codeplugtech/face-swap",
+                headers=headers, timeout=aiohttp.ClientTimeout(total=15),
+            ) as r:
+                model = await r.json()
+                version = model["latest_version"]["id"]
+
+            # Create prediction
+            payload = {
+                "version": version,
+                "input": {
+                    "input_image": f"data:image/png;base64,{illustration_b64}",
+                    "swap_image": face_url,
+                },
+            }
+            async with session.post(
+                "https://api.replicate.com/v1/predictions",
+                headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=15),
+            ) as r:
+                pred = await r.json()
+                pred_id = pred.get("id")
+                if not pred_id:
+                    logger.warning("Replicate face swap failed to start: %s", pred)
+                    return illustration_bytes
+
+            # Poll for result (max ~60s)
+            for _ in range(30):
+                await asyncio.sleep(2)
+                async with session.get(
+                    f"https://api.replicate.com/v1/predictions/{pred_id}",
+                    headers=headers, timeout=aiohttp.ClientTimeout(total=10),
+                ) as r:
+                    d = await r.json()
+                    st = d.get("status")
+                    if st == "succeeded":
+                        output = d.get("output")
+                        img_url = output if isinstance(output, str) else (output[0] if isinstance(output, list) else None)
+                        if img_url:
+                            async with session.get(img_url, timeout=aiohttp.ClientTimeout(total=30)) as img_r:
+                                if img_r.status == 200:
+                                    result_bytes = await img_r.read()
+                                    logger.info("Face swap complete: %d bytes", len(result_bytes))
+                                    return result_bytes
+                        return illustration_bytes
+                    elif st == "failed":
+                        logger.warning("Replicate face swap failed: %s", d.get("error"))
+                        return illustration_bytes
+
+            logger.warning("Replicate face swap timed out")
+            return illustration_bytes
 
     except Exception as e:
-        import traceback
-        logger.error("FLUX Kontext error for scene %d: %s\n%s", scene_index, e, traceback.format_exc())
-        return None
+        logger.warning("Face swap error: %s", e)
+        return illustration_bytes
 
 
 async def generate_illustration(
@@ -408,16 +403,9 @@ async def generate_illustration(
     characters_desc: str,
     character_appearances: dict[str, str] | None = None,
 ) -> bytes | None:
-    """Generate one illustration. Uses FLUX Kontext when photo provided, Gemini otherwise."""
+    """Generate one Pixar-style illustration via Gemini, then face swap if photo provided."""
 
-    # If we have a reference photo AND fal.ai key → use FLUX Kontext for face preservation
-    if reference_photo_b64 and settings.fal_key:
-        return await _generate_with_flux_kontext(
-            scene, scene_index, total_scenes, reference_photo_b64,
-            fairy_tale_title, characters_desc, character_appearances,
-        )
-
-    # Fallback: Gemini Flash Image (no face preservation)
+    # Step 1: Generate scene with Gemini (always, with or without photo for style hints)
     photo_content = []
     if reference_photo_b64:
         photo_url = reference_photo_b64
@@ -429,14 +417,8 @@ async def generate_illustration(
         }]
 
     face_suffix = (
-        "CRITICAL REQUIREMENT: The reference photo may contain multiple people (parents, siblings). "
-        "Identify the CHILD in the photo — use ONLY the child's appearance for the main character. "
-        "Ignore adults in the photo. "
-        "Preserve the child's face EXACTLY: face shape, face proportions, "
-        "hair color, hair style, hair length, eye color, eye shape, skin tone, "
-        "nose shape, and overall facial features. "
-        "The result must be immediately recognizable as the same child. "
-        "Study the reference photo carefully before generating."
+        "The main child character should roughly match the child in the reference photo: "
+        "similar hair color, hair style, eye color, and clothing style."
     ) if reference_photo_b64 else ""
 
     prompt = _build_scene_prompt(
@@ -447,7 +429,14 @@ async def generate_illustration(
     )
     content = [{"type": "text", "text": prompt}] + photo_content
 
-    return await _call_image_api(content, scene_index, "pixar")
+    img_bytes = await _call_image_api(content, scene_index, "pixar")
+
+    # Step 2: Face swap if we have a photo and Replicate token
+    if img_bytes and reference_photo_b64 and settings.replicate_api_token:
+        logger.info("Running face swap for scene %d", scene_index)
+        img_bytes = await _face_swap_replicate(img_bytes, reference_photo_b64)
+
+    return img_bytes
 
 
 async def generate_illustrations_batch(

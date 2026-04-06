@@ -27,8 +27,11 @@ class Settings(BaseSettings):
     # Groq (for Whisper transcription)
     groq_api_key: str = ""
 
-    # Fal.ai (FLUX Kontext for face-preserving illustrations)
+    # Fal.ai (FLUX Kontext, reserved)
     fal_key: str = ""
+
+    # Replicate (face swap for illustrations)
+    replicate_api_token: str = ""
 
     # Redis
     redis_url: str = "redis://localhost:6379"
