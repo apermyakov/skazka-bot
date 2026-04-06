@@ -35,7 +35,7 @@ class Settings(BaseSettings):
 
     # Media
     media_dir: Path = Path("./media")
-    max_concurrent_tts: int = 3
+    max_concurrent_tts: int = 10
     segment_char_limit: int = 250
 
     class Config:

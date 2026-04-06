@@ -39,7 +39,7 @@ Telegram (aiogram3) → LLM сценарий → Voice assignment → ElevenLabs
 
 - ElevenLabs v3: max 3000 символов/запрос, мы шлём по ~250 символов (1 сегмент = 1 голос, лимит `segment_char_limit=250`)
 - Gemini 2.5 Flash Image: ~10-15 сек на картинку
-- MAX_CONCURRENT_TTS=3 (по умолчанию в config)
+- MAX_CONCURRENT_TTS=10 (Pro план ElevenLabs)
 - Сказка = ~20 сегментов, ~2700 символов, ~3 мин аудио, 7-8 иллюстраций
 - Общее время генерации: ~3-5 мин (TTS ~30с, картинки ~100с, видео ~40с)
 
