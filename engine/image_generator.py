@@ -334,9 +334,12 @@ async def generate_illustration(
         }]
 
     face_suffix = (
-        "The child from the reference photo MUST be RECOGNIZABLE. "
-        "Same face shape, hair color, hair style, eye color, skin tone. "
-        "The child and their parents must immediately recognize them."
+        "CRITICAL REQUIREMENT: The child in this illustration MUST closely match "
+        "the reference photo. Preserve EXACTLY: face shape, face proportions, "
+        "hair color, hair style, hair length, eye color, eye shape, skin tone, "
+        "nose shape, and overall facial features. "
+        "The result must be immediately recognizable as the same child. "
+        "Study the reference photo carefully before generating."
     ) if reference_photo_b64 else ""
 
     prompt = _build_scene_prompt(
