@@ -110,12 +110,15 @@ async def generate_fairytale(
         # Start illustrations (if photo provided or generate without face)
         illustration_paths: list[str] = []
         scene_durations_list: list[float] = []
+        audio_ready_event = asyncio.Event()
 
         async def _on_img_ready(idx: int, img_bytes: bytes, style: str):
             img_path = illustrations_dir / f"scene_{idx + 1}_{style}.png"
             img_path.write_bytes(img_bytes)
             if style == "pixar":
                 illustration_paths.append(str(img_path))
+            # Wait until MP3 has been sent before delivering illustrations
+            await audio_ready_event.wait()
             if on_illustration_ready:
                 await on_illustration_ready(idx, str(img_path), style)
 
@@ -183,6 +186,7 @@ async def generate_fairytale(
                 "duration": duration,
                 "segments_count": len(seg_files),
             })
+        audio_ready_event.set()
 
         # ── Step 7: Wait for illustrations ──
         try:
