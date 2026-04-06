@@ -355,7 +355,11 @@ async def _start_generation(message: types.Message, state: FSMContext):
     sticker_id = await cfg.get("ui.sticker_generation",
                                 "CAACAgEAAxUAAWnUJVEkOcUGvclrW1NRjLNvU-L_AAJwBAAChoMgREmYf7NqHL4KOwQ")
     await message.answer_sticker(sticker_id)
-    status_msg = await message.answer("🎙 Озвучиваю и рисую сказку...")
+    status_msg = await message.answer(
+        "🎙 <b>Создаю сказку...</b>\n\n"
+        "⏳ Озвучиваю текст...",
+        parse_mode="HTML",
+    )
 
     async def on_status(msg: str):
         try:
@@ -363,29 +367,18 @@ async def _start_generation(message: types.Message, state: FSMContext):
         except Exception:
             pass
 
-    audio_sent = False
-
     async def on_audio_ready(audio_info: dict):
-        nonlocal audio_sent
         dur_min = int(audio_info["duration"]) // 60
         dur_sec = int(audio_info["duration"]) % 60
-
-        await status_msg.edit_text(
-            f"✅ <b>Аудио готово!</b>\n\n"
-            f"📖 <b>{audio_info['title']}</b>\n"
-            f"⏱ {dur_min}:{dur_sec:02d}\n\n"
-            f"🎨 Рисую иллюстрации и собираю видео...",
-            parse_mode="HTML",
-        )
-
-        audio_file = FSInputFile(audio_info["file_path"], filename=f"{audio_info['title']}.mp3")
-        await message.answer_audio(
-            audio=audio_file,
-            title=audio_info["title"],
-            performer=await cfg.get("ui.audio_performer", "Сказка на ночь"),
-            caption="🎧 Включайте — видеосказка скоро будет готова!",
-        )
-        audio_sent = True
+        try:
+            await status_msg.edit_text(
+                f"🎙 <b>Создаю сказку...</b>\n\n"
+                f"✅ Озвучка готова — {dur_min}:{dur_sec:02d}\n"
+                f"🎨 Рисую иллюстрации...",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
 
         # Save audio to DB
         if story_id:
@@ -432,31 +425,40 @@ async def _start_generation(message: types.Message, state: FSMContext):
                     fire(save_media_file(story_id, file_type="illustration", file_path=img_path,
                                          file_size=isize, scene_index=idx, mime_type="image/png"))
 
-        # Update status
-        try:
-            await status_msg.edit_text("✅ <b>Сказка готова!</b>", parse_mode="HTML")
-        except Exception:
-            pass
+        # Send only MP4 video
+        video_path = result.get("video_path")
+        if video_path:
+            dur_min = int(result["duration"]) // 60
+            dur_sec = int(result["duration"]) % 60
+            try:
+                await status_msg.edit_text(
+                    f"✅ <b>Сказка готова!</b>\n\n"
+                    f"📖 <b>{result['title']}</b>\n"
+                    f"⏱ {dur_min}:{dur_sec:02d}",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
 
-        # Fallback: send MP3 if callback didn't fire
-        if not audio_sent:
+            video_file = FSInputFile(video_path, filename=f"{result['title']}.mp4")
+            await message.answer_video(
+                video=video_file,
+                caption=f"🎬 «{result['title']}»",
+                duration=int(result["duration"]),
+                width=1920,
+                height=1080,
+            )
+        else:
+            # Fallback: no video — send MP3
+            try:
+                await status_msg.edit_text("✅ <b>Сказка готова!</b>", parse_mode="HTML")
+            except Exception:
+                pass
             audio_file = FSInputFile(result["file_path"], filename=f"{result['title']}.mp3")
             await message.answer_audio(
                 audio=audio_file,
                 title=result["title"],
                 performer=await cfg.get("ui.audio_performer", "Сказка на ночь"),
-            )
-
-        # Send MP4 video at the end
-        video_path = result.get("video_path")
-        if video_path:
-            video_file = FSInputFile(video_path, filename=f"{result['title']}.mp4")
-            await message.answer_video(
-                video=video_file,
-                caption=f"🎬 Полная видеосказка «{result['title']}»",
-                duration=int(result["duration"]),
-                width=1920,
-                height=1080,
             )
 
         await message.answer("Как вам сказка?", reply_markup=feedback())
