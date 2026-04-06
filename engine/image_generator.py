@@ -22,6 +22,8 @@ STYLE_BLOCK = (
     "The character must be RECOGNIZABLE from the reference photo. "
     "STRICTLY NO text, words, letters, signs, or writing anywhere. "
     "Anatomically correct: exactly two arms, two hands per person. "
+    "Each animal has exactly ONE head, ONE body, and the correct number of legs for its species. "
+    "NEVER duplicate or merge animals — if the scene has one cat, draw exactly ONE cat. "
     "Warm, magical lighting. Rich, vibrant colors. "
     "Consistent style and color palette throughout the series."
 )
@@ -185,6 +187,8 @@ async def generate_illustration(
         f"Visual description: {scene.get('description', '')}\n"
         f"{continuity}\n\n"
         f"Generate a single children's book illustration for this scene. "
+        f"IMPORTANT: Each character appears EXACTLY ONCE. Do NOT duplicate any character or animal. "
+        f"Characters in this scene: {', '.join(scene.get('characters_present', []))} — draw each one ONLY ONCE. "
         f"The child from the reference photo MUST be RECOGNIZABLE. "
         f"Pixar-style 3D render — the child should look like themselves in a Pixar movie. "
         f"Same face shape, hair color, hair style, eye color, skin tone. "
