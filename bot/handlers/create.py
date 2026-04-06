@@ -273,22 +273,42 @@ async def _start_generation(message: types.Message, state: FSMContext):
             parse_mode="HTML",
         )
 
-        # Send MP4 video if available, otherwise audio + images
+        # 1. Send MP3 immediately
+        audio_file = FSInputFile(result["file_path"], filename=f"{result['title']}.mp3")
+        await message.answer_audio(
+            audio=audio_file,
+            title=result["title"],
+            performer="Сказка на ночь",
+            caption=f"🎧 Включайте — иллюстрации придут в нужный момент!",
+        )
+
+        # 2. Send illustrations timed to scene start
+        illustrations = result.get("illustrations", [])
+        timecodes = result.get("scene_start_times", [])
+
+        if illustrations and timecodes and len(timecodes) == len(illustrations):
+            import asyncio
+            for i, (img_path, start_time) in enumerate(zip(illustrations, timecodes)):
+                # Wait until this scene starts in the audio
+                if i == 0:
+                    await asyncio.sleep(max(0, start_time))
+                else:
+                    delay = timecodes[i] - timecodes[i - 1]
+                    await asyncio.sleep(max(0, delay))
+
+                await message.answer_photo(
+                    photo=FSInputFile(img_path),
+                    caption=f"🎨 Сцена {i + 1}",
+                )
+
+        # 3. Send MP4 video at the end
         video_path = result.get("video_path")
         if video_path:
             video_file = FSInputFile(video_path, filename=f"{result['title']}.mp4")
             await message.answer_video(
                 video=video_file,
-                caption=f"🌙 {result['title']}",
+                caption=f"🎬 Полная видеосказка «{result['title']}»",
                 duration=int(result["duration"]),
-            )
-        else:
-            audio_file = FSInputFile(result["file_path"], filename=f"{result['title']}.mp3")
-            await message.answer_audio(
-                audio=audio_file,
-                title=result["title"],
-                performer="Сказка на ночь",
-                caption=f"🌙 {result['title']}",
             )
 
         await message.answer("Как вам сказка?", reply_markup=feedback())

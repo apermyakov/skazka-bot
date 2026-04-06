@@ -104,6 +104,7 @@ async def generate_fairytale(
 
         # Start illustrations (if photo provided or generate without face)
         illustration_paths: list[str] = []
+        scene_durations_list: list[float] = []
         img_task = asyncio.create_task(
             generate_illustrations_batch(
                 screenplay=screenplay,
@@ -180,24 +181,20 @@ async def generate_fairytale(
             mp4_path = work_dir / "fairytale.mp4"
 
             # Calculate per-scene durations from segment timecodes
-            # Each scene from split_into_scenes covers a portion of segments
-            total_seg_dur = sum(seg_durations)
             n_scenes = len(illustration_paths)
             n_segs = len(seg_durations)
-
-            # Distribute segments evenly across scenes
             segs_per_scene = max(1, n_segs // n_scenes)
-            scene_durations = []
+
             for sc_idx in range(n_scenes):
                 start = sc_idx * segs_per_scene
                 end = (sc_idx + 1) * segs_per_scene if sc_idx < n_scenes - 1 else n_segs
                 scene_dur = sum(seg_durations[start:end])
-                scene_durations.append(scene_dur)
+                scene_durations_list.append(scene_dur)
 
-            logger.info("Scene timecodes: %s (total: %.1fs)", scene_durations, sum(scene_durations))
+            logger.info("Scene timecodes: %s (total: %.1fs)", scene_durations_list, sum(scene_durations_list))
 
             try:
-                await create_video(final_path, illustration_paths, mp4_path, durations=scene_durations)
+                await create_video(final_path, illustration_paths, mp4_path, durations=scene_durations_list or None)
                 video_path = str(mp4_path)
                 logger.info("Video created: %s", video_path)
             except Exception as e:
@@ -206,6 +203,14 @@ async def generate_fairytale(
         # Cleanup temp files
         shutil.rmtree(segments_dir, ignore_errors=True)
         dry_path.unlink(missing_ok=True)
+
+        # Build scene start times (cumulative) for timed delivery
+        scene_start_times = []
+        if illustration_paths and scene_durations_list:
+            cumulative = 0.0
+            for sd in scene_durations_list:
+                scene_start_times.append(cumulative)
+                cumulative += sd
 
         return {
             "title": title,
@@ -216,6 +221,7 @@ async def generate_fairytale(
             "order_id": order_id,
             "script": screenplay,
             "illustrations": illustration_paths,
+            "scene_start_times": scene_start_times,
         }
 
     except Exception as e:

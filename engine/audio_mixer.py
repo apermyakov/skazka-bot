@@ -162,12 +162,10 @@ async def create_video(
 
     for i, (img, dur) in enumerate(zip(image_paths, durations)):
         inputs.extend(["-loop", "1", "-t", f"{dur:.2f}", "-i", str(img)])
-        # Scale to make width/height divisible by 2, preserve aspect ratio
+        # Fit into 1920x1080, black bars if needed, ensures even dimensions
         filter_parts.append(
-            f"[{i}:v]scale='if(gt(iw,1920),1920,iw)':'if(gt(ih,1080),1080,ih)'"
-            f":force_original_aspect_ratio=decrease,"
-            f"scale=trunc(iw/2)*2:trunc(ih/2)*2,"
-            f"setsar=1[v{i}]"
+            f"[{i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,"
+            f"pad=1920:1080:-1:-1:color=black,setsar=1,format=yuv420p[v{i}]"
         )
 
     concat_inputs = "".join(f"[v{i}]" for i in range(n))
