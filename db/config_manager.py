@@ -114,10 +114,10 @@ DEFAULTS = {
     ),
 
     # ── Models ──
-    "model.llm": ("google/gemini-2.5-flash-preview-04-17", "model", "Модель для генерации сценария"),
+    "model.llm": ("google/gemini-2.5-flash", "model", "Модель для генерации сценария"),
     "model.image": ("google/gemini-2.5-flash-image", "model", "Модель для генерации иллюстраций"),
     "model.tts": ("eleven_v3", "model", "Модель ElevenLabs TTS"),
-    "model.transcribe": ("google/gemini-2.5-flash-preview-04-17", "model", "Модель для транскрипции голоса"),
+    "model.transcribe": ("google/gemini-2.5-flash", "model", "Модель для транскрипции голоса"),
 
     # ── LLM parameters ──
     "llm.screenplay_temperature": (0.8, "llm", "Температура генерации сценария"),
