@@ -34,7 +34,7 @@ async def _dismiss(callback: types.CallbackQuery):
         await callback.message.edit_reply_markup(reply_markup=None)
     except Exception:
         pass
-    await _dismiss(callback)
+    await callback.answer()
 
 
 def _clean_story_text(screenplay: dict) -> str:
