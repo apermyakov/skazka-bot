@@ -166,3 +166,102 @@ async def generate_screenplay(context: str, story_id: int = None) -> dict:
         len(screenplay["segments"]),
     )
     return screenplay
+
+
+async def generate_story_text(context: str, story_id: int = None) -> dict:
+    """Generate plain text fairy tale (no JSON, no audio tags).
+
+    Returns:
+        Dict with keys: title, text.
+    """
+    from db.config_manager import cfg
+    prompt_template = await cfg.get("prompt.story_text", "Напиши сказку.\n{context}")
+    system = await cfg.get("prompt.story_text_system", "Ты — талантливый детский писатель.")
+    prompt = prompt_template.format(context=context)
+
+    response = await _call_llm(
+        system=system,
+        user=prompt,
+        story_id=story_id,
+        purpose="story_text",
+    )
+
+    if not response or not response.strip():
+        raise RuntimeError("Empty story text response")
+
+    # Parse title from first line
+    lines = response.strip().split("\n")
+    title = ""
+    text = response.strip()
+
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.upper().startswith("ЗАГОЛОВОК:"):
+            title = stripped[len("ЗАГОЛОВОК:"):].strip().strip('"').strip("«»")
+            text = "\n".join(lines[i+1:]).strip()
+            break
+        elif i == 0 and len(stripped) < 100 and not stripped.endswith("."):
+            # First short line without period = likely title
+            title = stripped.strip('"').strip("«»")
+            text = "\n".join(lines[i+1:]).strip()
+            break
+
+    if not title:
+        title = "Сказка на ночь"
+
+    logger.info("Story text generated: '%s', %d chars", title, len(text))
+    return {"title": title, "text": text}
+
+
+async def convert_to_screenplay(title: str, text: str, story_id: int = None) -> dict:
+    """Convert plain text story into structured screenplay JSON for TTS.
+
+    Returns:
+        Dict with keys: title, characters, segments, scenes.
+    """
+    from db.config_manager import cfg
+    prompt_template = await cfg.get("prompt.screenplay_convert", "Преобразуй текст в JSON.\n{text}")
+    system = await cfg.get("prompt.screenplay_convert_system",
+                            "Ты генерируешь ТОЛЬКО валидный JSON.")
+    prompt = prompt_template.format(title=title, text=text[:8000])
+
+    for attempt in range(1, 4):
+        response = await _call_llm(
+            system=system,
+            user=prompt,
+            story_id=story_id,
+            purpose="screenplay_convert",
+        )
+        logger.info("Screenplay convert response (attempt %d): length=%d",
+                     attempt, len(response) if response else 0)
+
+        if not response or not response.strip():
+            continue
+
+        try:
+            screenplay = _extract_json(response)
+            break
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning("Screenplay convert JSON parse failed (attempt %d): %s", attempt, e)
+            if attempt == 3:
+                raise
+
+    # Validate
+    required = {"title", "characters", "segments"}
+    missing = required - set(screenplay.keys())
+    if missing:
+        raise ValueError(f"Screenplay missing fields: {missing}")
+
+    char_ids = {c["id"] for c in screenplay["characters"]}
+    if "narrator" not in char_ids:
+        raise ValueError("Screenplay must have a 'narrator' character")
+
+    for i, seg in enumerate(screenplay["segments"]):
+        if seg["character_id"] not in char_ids:
+            raise ValueError(f"Segment {i} references unknown character: {seg['character_id']}")
+        if len(seg["text"]) > 250:
+            seg["text"] = seg["text"][:247] + "..."
+
+    logger.info("Screenplay converted: '%s', %d characters, %d segments",
+                screenplay["title"], len(screenplay["characters"]), len(screenplay["segments"]))
+    return screenplay

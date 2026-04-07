@@ -18,7 +18,7 @@ from bot.config import settings
 from bot.states.create import CreateFairyTale
 from bot.keyboards.inline import confirm_input, review_story, skip_photo, photos_done, feedback, main_menu
 from engine.pipeline import generate_fairytale
-from engine.llm_client import generate_screenplay
+from engine.llm_client import generate_screenplay, generate_story_text, convert_to_screenplay
 from engine.transcribe import transcribe_voice
 from bot.notify import notify_error, notify_new_user, notify_story_complete
 from db.database import (
@@ -92,12 +92,9 @@ async def _get_text(message: types.Message, bot: Bot) -> tuple[str | None, bool]
     return None, False
 
 
-async def _show_story(message: types.Message, state: FSMContext, screenplay: dict):
+async def _show_story(message: types.Message, state: FSMContext, title: str, story_text: str):
     """Display the story text with review buttons attached."""
-    title = screenplay["title"]
-    story = _clean_story_text(screenplay)
-
-    text = f"📖 <b>{title}</b>\n\n{story}"
+    text = f"📖 <b>{title}</b>\n\n{story_text}"
 
     # Telegram limit 4096 chars — if story fits, attach buttons directly
     if len(text) <= 3900:
@@ -107,7 +104,7 @@ async def _show_story(message: types.Message, state: FSMContext, screenplay: dic
         await message.answer(text[:4000] + "...", parse_mode="HTML")
         await message.answer("⬆️", reply_markup=review_story())
 
-    await state.update_data(screenplay_json=screenplay)
+    await state.update_data(story_title=title, story_text=story_text)
     await state.set_state(CreateFairyTale.reviewing_story)
 
 
@@ -198,14 +195,12 @@ async def on_input(message: types.Message, state: FSMContext, bot: Bot):
         else:
             status = await message.answer("📝 Сочиняю сказку...")
         try:
-            screenplay = await generate_screenplay(text, story_id=story_id)
+            story_result = await generate_story_text(text, story_id=story_id)
             if story_id:
-                fire(update_story(story_id, title=screenplay.get("title"),
-                                  screenplay_json=json.dumps(screenplay, ensure_ascii=False),
-                                  status="screenplay"))
+                fire(update_story(story_id, title=story_result["title"], status="screenplay"))
             await status.delete()
             await state.update_data(_busy=False)
-            await _show_story(message, state, screenplay)
+            await _show_story(message, state, story_result["title"], story_result["text"])
         except Exception as e:
             await state.update_data(_busy=False)
             logger.error("Screenplay failed: %s", e, exc_info=True)
@@ -266,13 +261,11 @@ async def on_replace_input(message: types.Message, state: FSMContext, bot: Bot):
         else:
             status = await message.answer("📝 Сочиняю сказку...")
         try:
-            screenplay = await generate_screenplay(text, story_id=story_id)
+            story_result = await generate_story_text(text, story_id=story_id)
             if story_id:
-                fire(update_story(story_id, title=screenplay.get("title"),
-                                  screenplay_json=json.dumps(screenplay, ensure_ascii=False),
-                                  status="screenplay"))
+                fire(update_story(story_id, title=story_result["title"], status="screenplay"))
             await status.delete()
-            await _show_story(message, state, screenplay)
+            await _show_story(message, state, story_result["title"], story_result["text"])
         except Exception as e:
             logger.error("Screenplay failed: %s", e, exc_info=True)
             try:
@@ -316,15 +309,13 @@ async def on_compose(callback: types.CallbackQuery, state: FSMContext):
 
     try:
         t3 = _time.time()
-        screenplay = await generate_screenplay(context, story_id=story_id)
+        story_result = await generate_story_text(context, story_id=story_id)
         logger.info("[TIMING] LLM screenplay: %.1fms", (_time.time() - t3) * 1000)
         if story_id:
-            fire(update_story(story_id, title=screenplay.get("title"),
-                              screenplay_json=json.dumps(screenplay, ensure_ascii=False),
-                              status="screenplay"))
+            fire(update_story(story_id, title=story_result["title"], status="screenplay"))
         await status.delete()
         await state.update_data(_busy=False)
-        await _show_story(callback.message, state, screenplay)
+        await _show_story(callback.message, state, story_result["title"], story_result["text"])
     except Exception as e:
         await state.update_data(_busy=False)
         logger.error("Screenplay failed: %s", e, exc_info=True)
@@ -385,13 +376,12 @@ async def on_direct_edit(message: types.Message, state: FSMContext, bot: Bot):
     else:
         status = await message.answer("✏️ Переписываю сказку...")
     try:
-        screenplay = await generate_screenplay(new_context, story_id=story_id)
+        story_result = await generate_story_text(new_context, story_id=story_id)
         if story_id:
-            fire(update_story(story_id, title=screenplay.get("title"),
-                              screenplay_json=json.dumps(screenplay, ensure_ascii=False)))
+            fire(update_story(story_id, title=story_result["title"]))
         await status.delete()
         await state.update_data(_busy=False)
-        await _show_story(message, state, screenplay)
+        await _show_story(message, state, story_result["title"], story_result["text"])
     except Exception as e:
         await state.update_data(_busy=False)
         logger.error("Direct edit failed: %s", e, exc_info=True)
@@ -423,12 +413,11 @@ async def on_edits_received(message: types.Message, state: FSMContext, bot: Bot)
 
     status = await message.answer("✏️ Переписываю сказку с учётом правок...")
     try:
-        screenplay = await generate_screenplay(new_context, story_id=story_id)
+        story_result = await generate_story_text(new_context, story_id=story_id)
         if story_id:
-            fire(update_story(story_id, title=screenplay.get("title"),
-                              screenplay_json=json.dumps(screenplay, ensure_ascii=False)))
+            fire(update_story(story_id, title=story_result["title"]))
         await status.delete()
-        await _show_story(message, state, screenplay)
+        await _show_story(message, state, story_result["title"], story_result["text"])
     except Exception as e:
         logger.error("Edit failed: %s", e, exc_info=True)
         if story_id:
@@ -453,13 +442,12 @@ async def on_regenerate(callback: types.CallbackQuery, state: FSMContext):
     status = await callback.message.answer("🔄 Сочиняю новую версию...")
     await _dismiss(callback)
     try:
-        screenplay = await generate_screenplay(data.get("context", ""), story_id=story_id)
+        story_result = await generate_story_text(data.get("context", ""), story_id=story_id)
         if story_id:
-            fire(update_story(story_id, title=screenplay.get("title"),
-                              screenplay_json=json.dumps(screenplay, ensure_ascii=False)))
+            fire(update_story(story_id, title=story_result["title"]))
         await status.delete()
         await state.update_data(_busy=False)
-        await _show_story(callback.message, state, screenplay)
+        await _show_story(callback.message, state, story_result["title"], story_result["text"])
     except Exception as e:
         await state.update_data(_busy=False)
         logger.error("Regenerate failed: %s", e, exc_info=True)
@@ -567,12 +555,26 @@ async def on_skip_photo(callback: types.CallbackQuery, state: FSMContext):
 
 
 async def _start_generation(message: types.Message, state: FSMContext):
-    """Run the full pipeline: audio + illustrations."""
+    """Run the full pipeline: convert text → screenplay JSON → audio + illustrations."""
     await state.set_state(CreateFairyTale.generating)
     data = await state.get_data()
     context = data["context"]
-    screenplay = data.get("screenplay_json")
+    story_title = data.get("story_title", "Сказка")
+    story_text = data.get("story_text", "")
     story_id = data.get("db_story_id")
+
+    # Step 2: Convert plain text → structured screenplay JSON
+    try:
+        screenplay = await convert_to_screenplay(story_title, story_text, story_id=story_id)
+        if story_id:
+            fire(update_story(story_id,
+                              screenplay_json=json.dumps(screenplay, ensure_ascii=False)))
+    except Exception as e:
+        logger.error("Screenplay conversion failed: %s", e, exc_info=True)
+        fire(notify_error(e, user_id=message.chat.id, phase="screenplay_convert"))
+        await message.answer(f"😔 Ошибка подготовки озвучки: {str(e)[:200]}", reply_markup=main_menu())
+        await state.clear()
+        return
 
     # Load photos from disk paths (not base64 in memory)
     photo_paths = data.get("reference_photo_paths", [])
