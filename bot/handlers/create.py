@@ -16,7 +16,7 @@ from aiogram.types import FSInputFile
 
 from bot.config import settings
 from bot.states.create import CreateFairyTale
-from bot.keyboards.inline import confirm_input, review_story, skip_photo, photos_done, feedback, main_menu
+from bot.keyboards.inline import confirm_input, skip_photo, photos_done, feedback, main_menu
 from engine.pipeline import generate_fairytale
 from engine.llm_client import generate_screenplay, generate_story_text, convert_to_screenplay
 from engine.transcribe import transcribe_voice
@@ -130,15 +130,21 @@ async def _show_story(message: types.Message, state: FSMContext, title: str, sto
     if not chunks:
         chunks = [full_text[:3900]]
 
-    # Send all chunks, buttons on the last one
+    # Send all chunks, photo request + buttons on the last one
     for i, chunk in enumerate(chunks):
         if i == len(chunks) - 1:
-            await message.answer(chunk, reply_markup=review_story(), parse_mode="HTML")
+            await message.answer(chunk, parse_mode="HTML")
+            await message.answer(
+                "📸 Отправьте <b>1-3 фото ребёнка</b> для иллюстраций, затем нажмите <b>«Готово»</b>\n"
+                "<i>(или сразу нажмите «Без иллюстраций»)</i>",
+                reply_markup=photos_done(),
+                parse_mode="HTML",
+            )
         else:
             await message.answer(chunk, parse_mode="HTML")
 
     await state.update_data(story_title=title, story_text=story_text)
-    await state.set_state(CreateFairyTale.reviewing_story)
+    await state.set_state(CreateFairyTale.waiting_photo)
 
 
 async def _ensure_user(user: types.User) -> int | None:
@@ -380,7 +386,7 @@ async def on_edit(callback: types.CallbackQuery, state: FSMContext):
 
 
 # Direct text/voice while reviewing → treat as edit
-@router.message(CreateFairyTale.reviewing_story, F.text | F.voice)
+@router.message(CreateFairyTale.waiting_photo, F.text | F.voice)
 async def on_direct_edit(message: types.Message, state: FSMContext, bot: Bot):
     """User sends text/voice while reviewing story — treat as edit request."""
     if await _guard(state, message=message):
@@ -491,17 +497,8 @@ async def on_regenerate(callback: types.CallbackQuery, state: FSMContext):
         await status.edit_text(f"😔 Ошибка: {str(e)[:200]}", reply_markup=main_menu())
 
 
-# ── 7. "Озвучить" → ask for photo ──
-@router.callback_query(F.data == "generate")
-async def on_generate_ask_photo(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.answer(
-        "📸 Отправьте <b>1-3 фото ребёнка</b> для иллюстраций\n"
-        "<i>(одного, без других людей)</i>",
-        reply_markup=photos_done(),
-        parse_mode="HTML",
-    )
-    await state.set_state(CreateFairyTale.waiting_photo)
-    await _dismiss(callback)
+# ── 7. "Озвучить" removed — photo request is now part of _show_story
+# Photos are collected in waiting_photo state, then generation starts
 
 
 # ── 8a. Receive photo → collect into list ──
