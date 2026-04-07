@@ -40,10 +40,15 @@ async def _dismiss(callback: types.CallbackQuery):
     await callback.answer()
 
 
-async def _guard(state: FSMContext, key: str = "_busy") -> bool:
+async def _guard(state: FSMContext, message=None, key: str = "_busy") -> bool:
     """Prevent double-clicks. Returns True if already busy (should skip)."""
     data = await state.get_data()
     if data.get(key):
+        if message:
+            try:
+                await message.answer("⏳ Ваш запрос обрабатывается. Пожалуйста, подождите.")
+            except Exception:
+                pass
         return True
     await state.update_data(**{key: True})
     return False
@@ -231,7 +236,7 @@ async def on_change_topic(callback: types.CallbackQuery, state: FSMContext):
 @router.message(CreateFairyTale.confirming_input, F.text | F.voice)
 async def on_replace_input(message: types.Message, state: FSMContext, bot: Bot):
     """User sends new text/voice while confirming — replaces previous input."""
-    if await _guard(state):
+    if await _guard(state, message=message):
         return
     text, was_voice = await _get_text(message, bot)
     if text is None:
@@ -283,7 +288,7 @@ async def on_replace_input(message: types.Message, state: FSMContext, bot: Bot):
 async def on_compose(callback: types.CallbackQuery, state: FSMContext):
     import time as _time
     t0 = _time.time()
-    if await _guard(state):
+    if await _guard(state, message=callback.message):
         await callback.answer()
         return
     data = await state.get_data()
@@ -354,7 +359,7 @@ async def on_edit(callback: types.CallbackQuery, state: FSMContext):
 @router.message(CreateFairyTale.reviewing_story, F.text | F.voice)
 async def on_direct_edit(message: types.Message, state: FSMContext, bot: Bot):
     """User sends text/voice while reviewing story — treat as edit request."""
-    if await _guard(state):
+    if await _guard(state, message=message):
         return
     edit_text, was_voice = await _get_text(message, bot)
     if edit_text is None:
@@ -437,7 +442,7 @@ async def on_edits_received(message: types.Message, state: FSMContext, bot: Bot)
 # ── 6. Regenerate ──
 @router.callback_query(F.data == "regenerate_story")
 async def on_regenerate(callback: types.CallbackQuery, state: FSMContext):
-    if await _guard(state):
+    if await _guard(state, message=callback.message):
         await callback.answer()
         return
     data = await state.get_data()
