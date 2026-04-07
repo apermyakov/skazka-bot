@@ -596,6 +596,17 @@ async def _start_generation(message: types.Message, state: FSMContext):
     story_text = data.get("story_text", "")
     story_id = data.get("db_story_id")
 
+    # Show sticker + status immediately
+    from db.config_manager import cfg
+    sticker_id = await cfg.get("ui.sticker_generation",
+                                "CAACAgEAAxUAAWnUJVEkOcUGvclrW1NRjLNvU-L_AAJwBAAChoMgREmYf7NqHL4KOwQ")
+    sticker_msg = await message.answer_sticker(sticker_id)
+    status_msg = await message.answer(
+        "🎙 <b>Создаю сказку...</b>\n\n"
+        "⏳ Подготовка озвучки...",
+        parse_mode="HTML",
+    )
+
     # Step 2: Convert plain text → structured screenplay JSON
     try:
         screenplay = await convert_to_screenplay(story_title, story_text, story_id=story_id)
@@ -605,7 +616,11 @@ async def _start_generation(message: types.Message, state: FSMContext):
     except Exception as e:
         logger.error("Screenplay conversion failed: %s", e, exc_info=True)
         fire(notify_error(e, user_id=message.chat.id, phase="screenplay_convert"))
-        await message.answer(f"😔 Ошибка подготовки озвучки: {str(e)[:200]}", reply_markup=main_menu())
+        try:
+            await sticker_msg.delete()
+        except Exception:
+            pass
+        await status_msg.edit_text(f"😔 Ошибка подготовки озвучки: {str(e)[:200]}", reply_markup=main_menu())
         await state.clear()
         return
 
@@ -629,16 +644,16 @@ async def _start_generation(message: types.Message, state: FSMContext):
                           has_photo=bool(photo_b64),
                           photo_count=len(reference_photos)))
 
-    # Magic wand sticker while generating
-    from db.config_manager import cfg
-    sticker_id = await cfg.get("ui.sticker_generation",
-                                "CAACAgEAAxUAAWnUJVEkOcUGvclrW1NRjLNvU-L_AAJwBAAChoMgREmYf7NqHL4KOwQ")
-    sticker_msg = await message.answer_sticker(sticker_id)
-    status_msg = await message.answer(
-        "🎙 <b>Создаю сказку...</b>\n\n"
-        "⏳ Озвучиваю текст...",
-        parse_mode="HTML",
-    )
+    # Update status message
+    try:
+        await status_msg.edit_text(
+            "🎙 <b>Создаю сказку...</b>\n\n"
+            "✅ Подготовка\n"
+            "⏳ Озвучиваю текст...",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
 
     async def on_status(msg: str):
         try:
