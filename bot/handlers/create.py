@@ -40,13 +40,24 @@ async def _dismiss(callback: types.CallbackQuery):
     await callback.answer()
 
 
+async def _msg(key: str, default: str, **kwargs) -> str:
+    """Get system message from config, with format args."""
+    from db.config_manager import cfg
+    template = await cfg.get(key, default)
+    try:
+        return template.format(**kwargs) if kwargs else template
+    except (KeyError, IndexError):
+        return default
+
+
 async def _guard(state: FSMContext, message=None, key: str = "_busy") -> bool:
     """Prevent double-clicks. Returns True if already busy (should skip)."""
     data = await state.get_data()
     if data.get(key):
         if message:
             try:
-                await message.answer("⏳ Ваш запрос обрабатывается. Пожалуйста, подождите.")
+                text = await _msg("msg.busy", "⏳ Ваш запрос обрабатывается. Пожалуйста, подождите.")
+                await message.answer(text)
             except Exception:
                 pass
         return True
@@ -88,7 +99,7 @@ async def _get_text(message: types.Message, bot: Bot) -> tuple[str | None, bool]
         if message.voice.duration and message.voice.duration > MAX_VOICE_DURATION:
             await message.answer(f"⚠️ Голосовое сообщение слишком длинное (макс {MAX_VOICE_DURATION} сек).")
             return None, True
-        hint = await message.answer("🎤 Распознаю голос...")
+        hint = await message.answer(await _msg("msg.voice_recognizing", "🎤 Распознаю голос..."))
         try:
             file = await bot.get_file(message.voice.file_id)
             buf = BytesIO()
@@ -98,7 +109,7 @@ async def _get_text(message: types.Message, bot: Bot) -> tuple[str | None, bool]
             return text, True
         except Exception as e:
             logger.error("Transcription failed: %s", e, exc_info=True)
-            await hint.edit_text("😔 Не удалось распознать. Попробуйте ещё раз или напишите текстом.")
+            await hint.edit_text(await _msg("msg.voice_failed", "😔 Не удалось распознать. Попробуйте ещё раз или напишите текстом."))
             return None, True
 
     return None, False
@@ -218,7 +229,7 @@ async def on_input(message: types.Message, state: FSMContext, bot: Bot):
         return
 
     if len(text) < 10:
-        await message.answer("Расскажите чуть подробнее — хотя бы имя ребёнка и тему.")
+        await message.answer(await _msg("msg.text_too_short", "Расскажите чуть подробнее — хотя бы имя ребёнка и тему."))
         return
 
     await state.update_data(context=text, was_voice=was_voice)
@@ -273,7 +284,7 @@ async def on_input(message: types.Message, state: FSMContext, bot: Bot):
 # ── 3. Change input (button or new message while confirming) ──
 @router.callback_query(F.data == "change_topic")
 async def on_change_topic(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.answer("📖 Расскажите заново:")
+    await callback.message.answer(await _msg("msg.retry_topic", "📖 Расскажите заново:"))
     await state.set_state(CreateFairyTale.waiting_topic)
     await _dismiss(callback)
 
@@ -289,7 +300,7 @@ async def on_replace_input(message: types.Message, state: FSMContext, bot: Bot):
         return
     if len(text) < 10:
         await state.update_data(_busy=False)
-        await message.answer("Расскажите чуть подробнее — хотя бы имя ребёнка и тему.")
+        await message.answer(await _msg("msg.text_too_short", "Расскажите чуть подробнее — хотя бы имя ребёнка и тему."))
         return
     await state.update_data(context=text, was_voice=was_voice, _busy=False)
     if was_voice:
@@ -345,7 +356,7 @@ async def on_compose(callback: types.CallbackQuery, state: FSMContext):
     db_user_id = await get_user_id(callback.from_user.id)
     if db_user_id and not await check_rate_limit(db_user_id):
         await state.update_data(_busy=False)
-        await callback.message.answer("⚠️ Вы создали слишком много сказок за последний час. Попробуйте позже.")
+        await callback.message.answer(await _msg("msg.rate_limit", "⚠️ Вы создали слишком много сказок за последний час. Попробуйте позже."))
         return
     story_id = await create_story(user_id=db_user_id, context=context, was_voice=was_voice)
     await state.update_data(db_story_id=story_id)
@@ -530,7 +541,7 @@ async def on_generate_ask_photo(callback: types.CallbackQuery, state: FSMContext
 async def on_photo_received(message: types.Message, state: FSMContext, bot: Bot):
     data = await state.get_data()
     if data.get("_busy"):
-        await message.reply("⚠️ Фото уже загружено, используем первое.")
+        await message.reply(await _msg("msg.photo_duplicate", "⚠️ Фото уже загружено, используем первое."))
         return
     await state.update_data(_busy=True)
     photo = message.photo[-1]
@@ -548,7 +559,7 @@ async def on_photo_received(message: types.Message, state: FSMContext, bot: Bot)
     photo_path.write_bytes(buf.getvalue())
 
     await state.update_data(reference_photo_paths=[str(photo_path)])
-    await message.reply("📸 Это фото будет использовано для иллюстраций")
+    await message.reply(await _msg("msg.photo_accepted", "📸 Это фото будет использовано для иллюстраций"))
     await _start_generation(message, state)
 
 
@@ -557,15 +568,15 @@ async def on_photo_received(message: types.Message, state: FSMContext, bot: Bot)
 async def on_photo_document_received(message: types.Message, state: FSMContext, bot: Bot):
     data = await state.get_data()
     if data.get("_busy"):
-        await message.reply("⚠️ Фото уже загружено, используем первое.")
+        await message.reply(await _msg("msg.photo_duplicate", "⚠️ Фото уже загружено, используем первое."))
         return
     await state.update_data(_busy=True)
     doc = message.document
     if not doc.mime_type or not doc.mime_type.startswith("image/"):
-        await message.answer("Отправьте фото ребёнка (изображение).")
+        await message.answer(await _msg("msg.photo_not_image", "Отправьте фото ребёнка (изображение)."))
         return
     if doc.mime_type and doc.mime_type not in ("image/jpeg", "image/png"):
-        await message.answer("⚠️ Поддерживаются только JPEG и PNG.")
+        await message.answer(await _msg("msg.photo_wrong_format", "⚠️ Поддерживаются только JPEG и PNG."))
         return
     if doc.file_size and doc.file_size > MAX_PHOTO_SIZE:
         await message.answer(f"⚠️ Файл слишком большой (макс {MAX_PHOTO_SIZE // 1024 // 1024}МБ).")
@@ -581,7 +592,7 @@ async def on_photo_document_received(message: types.Message, state: FSMContext, 
     photo_path.write_bytes(buf.getvalue())
 
     await state.update_data(reference_photo_paths=[str(photo_path)])
-    await message.reply("📸 Это фото будет использовано для иллюстраций")
+    await message.reply(await _msg("msg.photo_accepted", "📸 Это фото будет использовано для иллюстраций"))
     await _start_generation(message, state)
 
 
@@ -791,7 +802,7 @@ async def _start_generation(message: types.Message, state: FSMContext):
                 performer=await cfg.get("ui.audio_performer", "Сказка на ночь"),
             )
 
-        await message.answer("Как вам сказка?", reply_markup=feedback())
+        await message.answer(await _msg("msg.feedback_prompt", "Как вам сказка?"), reply_markup=feedback())
 
         # Notify admin with media links
         order_id = result.get("order_id", "")

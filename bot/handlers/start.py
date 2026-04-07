@@ -28,7 +28,9 @@ async def cmd_start(message: types.Message, state: FSMContext):
     # Block /start during generation
     current_state = await state.get_state()
     if current_state == CreateFairyTale.generating:
-        await message.answer("⏳ Сказка ещё создаётся. Пожалуйста, подождите.")
+        from db.config_manager import cfg
+        text = await cfg.get("msg.start_during_generation", "⏳ Сказка ещё создаётся. Пожалуйста, подождите.")
+        await message.answer(text)
         return
 
     # Check if new user
