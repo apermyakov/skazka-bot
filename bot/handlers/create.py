@@ -14,6 +14,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile
 
+from bot.config import settings
 from bot.states.create import CreateFairyTale
 from bot.keyboards.inline import confirm_input, review_story, skip_photo, photos_done, feedback, main_menu
 from engine.pipeline import generate_fairytale
