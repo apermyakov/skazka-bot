@@ -670,13 +670,23 @@ async def _start_generation(message: types.Message, state: FSMContext):
                 pass
 
             video_file = FSInputFile(video_path, filename=f"{result['title']}.mp4")
-            await message.answer_video(
-                video=video_file,
-                caption=f"🎬 «{result['title']}»",
-                duration=int(result["duration"]),
-                width=1920,
-                height=1080,
-            )
+            try:
+                await message.answer_video(
+                    video=video_file,
+                    caption=f"🎬 «{result['title']}»",
+                    duration=int(result["duration"]),
+                    width=1920,
+                    height=1080,
+                )
+            except Exception as ve:
+                logger.warning("Video send failed (%s), sending MP3 instead", ve)
+                audio_file = FSInputFile(result["file_path"], filename=f"{result['title']}.mp3")
+                await message.answer_audio(
+                    audio=audio_file,
+                    title=result["title"],
+                    performer=await cfg.get("ui.audio_performer", "Сказка на ночь"),
+                    caption=f"🎧 «{result['title']}»",
+                )
         else:
             # Fallback: no video — send MP3
             try:
