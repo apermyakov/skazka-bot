@@ -296,7 +296,9 @@ async def save_media_file(story_id: int, file_type: str, file_path: str,
     relative = file_path
     if relative.startswith("/app/"):
         relative = relative[5:]
-    public_url = f"{settings.media_base_url}/{relative.lstrip('media/')}"
+    if relative.startswith("media/"):
+        relative = relative[6:]
+    public_url = f"{settings.media_base_url}/{relative}"
 
     async with _pool.acquire() as conn:
         await conn.execute("""

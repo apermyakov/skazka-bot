@@ -683,7 +683,9 @@ async def _start_generation(message: types.Message, state: FSMContext):
                 relative = video_path
                 if relative.startswith("/app/"):
                     relative = relative[5:]
-                video_url = f"{await cfg.get('media_base_url', 'http://95.216.117.49/media')}/{relative.lstrip('media/')}"
+                if relative.startswith("media/"):
+                    relative = relative[6:]
+                video_url = f"{await cfg.get('media_base_url', 'http://95.216.117.49/media')}/{relative}"
                 await message.answer(
                     f"🎬 Видео слишком большое для Telegram.\n\n"
                     f"<a href=\"{video_url}\">Скачать видеосказку</a>",
