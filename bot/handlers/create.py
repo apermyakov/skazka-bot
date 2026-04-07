@@ -86,19 +86,20 @@ async def _get_text(message: types.Message, bot: Bot) -> tuple[str | None, bool]
 
 
 async def _show_story(message: types.Message, state: FSMContext, screenplay: dict):
-    """Display the story text with review buttons."""
+    """Display the story text with review buttons attached."""
     title = screenplay["title"]
     story = _clean_story_text(screenplay)
 
     text = f"📖 <b>{title}</b>\n\n{story}"
-    if len(text) > 4000:
-        text = text[:4000] + "..."
 
-    await message.answer(text, parse_mode="HTML")
-    await message.answer(
-        "Нравится сказка? Можно озвучить, внести изменения или сочинить заново.",
-        reply_markup=review_story(),
-    )
+    # Telegram limit 4096 chars — if story fits, attach buttons directly
+    if len(text) <= 3900:
+        await message.answer(text, reply_markup=review_story(), parse_mode="HTML")
+    else:
+        # Long story — split: text + separate buttons
+        await message.answer(text[:4000] + "...", parse_mode="HTML")
+        await message.answer("⬆️", reply_markup=review_story())
+
     await state.update_data(screenplay_json=screenplay)
     await state.set_state(CreateFairyTale.reviewing_story)
 
@@ -365,12 +366,8 @@ async def on_regenerate(callback: types.CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "generate")
 async def on_generate_ask_photo(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer(
-        "🖼 <b>Хотите добавить иллюстрации?</b>\n\n"
-        "Отправьте <b>1-3 фото ребёнка</b> (одного, без других людей) — "
-        "и он станет главным героем на картинках к сказке!\n\n"
-        "📌 Чем больше разных фото — тем точнее будет сходство.\n"
-        "Когда закончите, нажмите <b>«Готово»</b>.\n\n"
-        "Или нажмите кнопку ниже, чтобы получить сказку без иллюстраций.",
+        "📸 Отправьте <b>1-3 фото ребёнка</b> для иллюстраций\n"
+        "<i>(одного, без других людей)</i>",
         reply_markup=photos_done(),
         parse_mode="HTML",
     )
