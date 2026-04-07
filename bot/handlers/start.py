@@ -5,7 +5,8 @@ from aiogram import Router, types
 from aiogram.filters import CommandStart, Command
 
 from bot.keyboards.inline import main_menu
-from db.database import save_user, fire
+from bot.notify import notify_new_user
+from db.database import save_user, get_user_id, fire
 
 router = Router()
 
@@ -22,6 +23,9 @@ WELCOME_TEXT = (
 
 @router.message(CommandStart())
 async def cmd_start(message: types.Message):
+    # Check if new user
+    existing = await get_user_id(message.from_user.id)
+
     fire(save_user(
         telegram_id=message.from_user.id,
         username=message.from_user.username,
@@ -29,6 +33,14 @@ async def cmd_start(message: types.Message):
         last_name=message.from_user.last_name,
         language_code=message.from_user.language_code,
     ))
+
+    if not existing:
+        fire(notify_new_user(
+            user_id=message.from_user.id,
+            username=message.from_user.username,
+            first_name=message.from_user.first_name,
+        ))
+
     await message.answer(WELCOME_TEXT, reply_markup=main_menu(), parse_mode="HTML")
 
 

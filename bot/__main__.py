@@ -47,6 +47,11 @@ async def main():
         token=settings.bot_token,
         default=DefaultBotProperties(parse_mode="HTML"),
     )
+
+    # Set bot for admin notifications
+    from bot.notify import set_bot
+    set_bot(bot)
+
     dp = Dispatcher()
 
     # Register routers

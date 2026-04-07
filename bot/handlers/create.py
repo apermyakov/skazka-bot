@@ -20,6 +20,7 @@ from bot.keyboards.inline import confirm_input, review_story, skip_photo, photos
 from engine.pipeline import generate_fairytale
 from engine.llm_client import generate_screenplay
 from engine.transcribe import transcribe_voice
+from bot.notify import notify_error, notify_new_user, notify_story_complete
 from db.database import (
     save_user, get_user_id, create_story, update_story,
     save_revision, log_api_call, log_error, save_feedback,
@@ -679,13 +680,16 @@ async def _start_generation(message: types.Message, state: FSMContext):
                     height=1080,
                 )
             except Exception as ve:
-                logger.warning("Video send failed (%s), sending MP3 instead", ve)
-                audio_file = FSInputFile(result["file_path"], filename=f"{result['title']}.mp3")
-                await message.answer_audio(
-                    audio=audio_file,
-                    title=result["title"],
-                    performer=await cfg.get("ui.audio_performer", "Сказка на ночь"),
-                    caption=f"🎧 «{result['title']}»",
+                logger.warning("Video send failed (%s), sending link instead", ve)
+                # Video too large for Telegram — send direct link
+                relative = video_path
+                if relative.startswith("/app/"):
+                    relative = relative[5:]
+                video_url = f"{await cfg.get('media_base_url', 'http://95.216.117.49/media')}/{relative.lstrip('media/')}"
+                await message.answer(
+                    f"🎬 Видео слишком большое для Telegram.\n\n"
+                    f"<a href=\"{video_url}\">Скачать видеосказку</a>",
+                    parse_mode="HTML",
                 )
         else:
             # Fallback: no video — send MP3
@@ -706,8 +710,18 @@ async def _start_generation(message: types.Message, state: FSMContext):
 
         await message.answer("Как вам сказка?", reply_markup=feedback())
 
+        # Notify admin
+        fire(notify_story_complete(
+            user_id=message.chat.id,
+            username=message.chat.username if hasattr(message.chat, 'username') else None,
+            title=result.get("title"),
+            duration=result.get("duration"),
+        ))
+
     except Exception as e:
         logger.error("Generation failed: %s", e, exc_info=True)
+        fire(notify_error(e, user_id=message.chat.id, phase="generation",
+                          context=context[:200] if context else None))
         if story_id:
             fire(update_story(story_id, status="failed", error_message=str(e)[:500]))
             fire(log_error(story_id=story_id, phase="generation",
