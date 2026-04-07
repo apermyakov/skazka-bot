@@ -528,6 +528,8 @@ async def on_generate_ask_photo(callback: types.CallbackQuery, state: FSMContext
 # ── 8a. Receive photo → save and start generation ──
 @router.message(CreateFairyTale.waiting_photo, F.photo)
 async def on_photo_received(message: types.Message, state: FSMContext, bot: Bot):
+    if await _guard(state, message=message):
+        return
     photo = message.photo[-1]
     if photo.file_size and photo.file_size > MAX_PHOTO_SIZE:
         await message.answer(f"⚠️ Фото слишком большое (макс {MAX_PHOTO_SIZE // 1024 // 1024}МБ).")
@@ -550,6 +552,8 @@ async def on_photo_received(message: types.Message, state: FSMContext, bot: Bot)
 # ── 8a-bis. Receive photo sent as document (file) ──
 @router.message(CreateFairyTale.waiting_photo, F.document)
 async def on_photo_document_received(message: types.Message, state: FSMContext, bot: Bot):
+    if await _guard(state, message=message):
+        return
     doc = message.document
     if not doc.mime_type or not doc.mime_type.startswith("image/"):
         await message.answer("Отправьте фото ребёнка (изображение).")
