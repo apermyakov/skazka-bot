@@ -598,12 +598,10 @@ async def _start_generation(message: types.Message, state: FSMContext):
             pass
 
     async def on_audio_ready(audio_info: dict):
-        dur_min = int(audio_info["duration"]) // 60
-        dur_sec = int(audio_info["duration"]) % 60
         try:
             await status_msg.edit_text(
                 f"🎙 <b>Создаю сказку...</b>\n\n"
-                f"✅ Озвучка готова — {dur_min}:{dur_sec:02d}\n"
+                f"✅ Озвучка\n"
                 f"🎨 Рисую иллюстрации...",
                 parse_mode="HTML",
             )
