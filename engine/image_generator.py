@@ -330,6 +330,7 @@ def _build_scene_prompt(
     previous_scene_desc: str | None,
     style_block: str,
     style_suffix: str,
+    scene_full_text: str = "",
 ) -> str:
     """Build the text prompt for a single illustration."""
     continuity = ""
@@ -345,8 +346,16 @@ def _build_scene_prompt(
     appearance_block = ""
     if appearance_lines:
         appearance_block = (
-            "\n\nCHARACTER APPEARANCES (MUST match exactly in every scene):\n"
+            "\nCHARACTER APPEARANCES (MUST match exactly in every scene):\n"
             + "\n".join(appearance_lines)
+        )
+
+    # Full text block for context
+    text_block = ""
+    if scene_full_text:
+        text_block = (
+            f"\n=== FULL TEXT OF THIS SCENE (most important — illustrate THIS) ===\n"
+            f"{scene_full_text[:1000]}\n"
         )
 
     return (
@@ -363,6 +372,7 @@ def _build_scene_prompt(
         f"Mood: {scene.get('mood', 'magical')}\n"
         f"Action: {scene.get('description', '')}\n"
         f"Characters present: {', '.join(scene.get('characters_present', []))}\n"
+        f"{text_block}"
         f"{continuity}\n\n"
         f"Generate a NEW unique illustration for this scene with NEW poses and composition. "
         f"Each character appears EXACTLY ONCE. "
@@ -458,6 +468,7 @@ async def generate_illustration(
     reference_photos: list[str] | None = None,
     story_id: int = None,
     previous_illustration_b64: str | None = None,
+    scene_full_text: str = "",
 ) -> bytes | None:
     """Generate one Pixar-style illustration via Gemini, then face swap if photo provided."""
 
@@ -491,6 +502,7 @@ async def generate_illustration(
         if appearance_lines:
             appearance_block = "Characters:\n" + "\n".join(appearance_lines)
 
+        text_block = f"\n\nFull scene text:\n{scene_full_text[:800]}" if scene_full_text else ""
         prompt = (
             f"Create a Pixar-style 3D cartoon illustration for a children's fairy tale scene. "
             f"The child in the attached photo is the MAIN CHARACTER — keep them RECOGNIZABLE. "
@@ -499,7 +511,7 @@ async def generate_illustration(
             f"Scene: {scene.get('description', '')}\n"
             f"Setting: {scene.get('setting', 'forest')}\n"
             f"Mood: {scene.get('mood', 'magical')}\n"
-            f"{appearance_block}\n\n"
+            f"{appearance_block}{text_block}\n\n"
             f"{style_block}\n\n"
             f"Wide landscape 16:9. Output ONLY the image. No text or words anywhere."
         )
@@ -512,6 +524,7 @@ async def generate_illustration(
             character_appearances or {},
             previous_scene_desc, style_block,
             "Pixar-style 3D render.",
+            scene_full_text=scene_full_text,
         )
         content = [{"type": "text", "text": prompt}]
 
@@ -559,11 +572,29 @@ async def generate_illustrations_batch(
     prev_desc = None
     prev_illustration_b64 = None
 
+    # Build character name lookup for full text extraction
+    char_names = {c["id"]: c["name"] for c in screenplay.get("characters", [])}
+    segments = screenplay.get("segments", [])
+
     for i, scene in enumerate(scenes):
         if on_progress:
             result = on_progress(f"🎨 Рисую иллюстрацию {i + 1}/{len(scenes)}...")
             if asyncio.iscoroutine(result):
                 await result
+
+        # Extract full text for this scene's segments
+        scene_full_text = ""
+        s_start = scene.get("segment_start", 0)
+        s_end = scene.get("segment_end", len(segments))
+        if isinstance(s_start, int) and isinstance(s_end, int):
+            scene_lines = []
+            for si in range(max(0, s_start), min(s_end, len(segments))):
+                seg = segments[si]
+                speaker = char_names.get(seg.get("character_id", ""), "")
+                text_clean = re.sub(r'\[[\w\s]+\]', '', seg.get("text", "")).strip()
+                if text_clean:
+                    scene_lines.append(f"{speaker}: {text_clean}" if speaker else text_clean)
+            scene_full_text = "\n".join(scene_lines)
 
         img_bytes = await generate_illustration(
             scene=scene,
@@ -577,6 +608,7 @@ async def generate_illustrations_batch(
             reference_photos=reference_photos,
             story_id=story_id,
             previous_illustration_b64=prev_illustration_b64,
+            scene_full_text=scene_full_text,
         )
 
         results.append(img_bytes)
