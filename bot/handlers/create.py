@@ -686,9 +686,15 @@ async def _start_generation(message: types.Message, state: FSMContext):
                 if relative.startswith("media/"):
                     relative = relative[6:]
                 video_url = f"{await cfg.get('media_base_url', 'http://95.216.117.49/media')}/{relative}"
+                # Send MP3 + download link
+                audio_file = FSInputFile(result["file_path"], filename=f"{result['title']}.mp3")
+                await message.answer_audio(
+                    audio=audio_file,
+                    title=result["title"],
+                    performer=await cfg.get("ui.audio_performer", "Сказка на ночь"),
+                )
                 await message.answer(
-                    f"🎬 Видео слишком большое для Telegram.\n\n"
-                    f"<a href=\"{video_url}\">Скачать видеосказку</a>",
+                    f"🎬 <a href=\"{video_url}\">Скачать видеосказку</a>",
                     parse_mode="HTML",
                 )
         else:
