@@ -111,17 +111,31 @@ def _clean_for_display(story_text: str) -> str:
 
 
 async def _show_story(message: types.Message, state: FSMContext, title: str, story_text: str):
-    """Display the story text with review buttons attached."""
+    """Display the story text split into Telegram-safe chunks with buttons on last."""
     display_text = _clean_for_display(story_text)
-    text = f"📖 <b>{title}</b>\n\n{display_text}"
+    full_text = f"📖 <b>{title}</b>\n\n{display_text}"
 
-    # Telegram limit 4096 chars — if story fits, attach buttons directly
-    if len(text) <= 3900:
-        await message.answer(text, reply_markup=review_story(), parse_mode="HTML")
-    else:
-        # Long story — split: text + separate buttons
-        await message.answer(text[:4000] + "...", parse_mode="HTML")
-        await message.answer("⬆️", reply_markup=review_story())
+    # Split into chunks of ~3900 chars at paragraph boundaries
+    chunks = []
+    current = ""
+    for para in full_text.split("\n\n"):
+        if len(current) + len(para) + 2 > 3900 and current:
+            chunks.append(current.strip())
+            current = para
+        else:
+            current = current + "\n\n" + para if current else para
+    if current.strip():
+        chunks.append(current.strip())
+
+    if not chunks:
+        chunks = [full_text[:3900]]
+
+    # Send all chunks, buttons on the last one
+    for i, chunk in enumerate(chunks):
+        if i == len(chunks) - 1:
+            await message.answer(chunk, reply_markup=review_story(), parse_mode="HTML")
+        else:
+            await message.answer(chunk, parse_mode="HTML")
 
     await state.update_data(story_title=title, story_text=story_text)
     await state.set_state(CreateFairyTale.reviewing_story)
