@@ -114,6 +114,14 @@ CREATE TABLE IF NOT EXISTS errors (
     created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_api_calls_story_id ON api_calls(story_id);
+CREATE INDEX IF NOT EXISTS idx_api_calls_service_purpose ON api_calls(service, purpose);
+CREATE INDEX IF NOT EXISTS idx_api_calls_created_at ON api_calls(created_at);
+CREATE INDEX IF NOT EXISTS idx_stories_user_id ON stories(user_id);
+CREATE INDEX IF NOT EXISTS idx_stories_created_at ON stories(created_at);
+CREATE INDEX IF NOT EXISTS idx_media_files_story_id ON media_files(story_id);
+CREATE INDEX IF NOT EXISTS idx_errors_story_id ON errors(story_id);
+
 CREATE TABLE IF NOT EXISTS config (
     key         TEXT PRIMARY KEY,
     value       JSONB NOT NULL,

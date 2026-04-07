@@ -51,7 +51,7 @@ async def _call_llm(system: str, user: str, max_retries: int = 3,
                     if resp.status != 200:
                         body = await resp.text()
                         logger.warning("LLM HTTP %d (attempt %d): %s", resp.status, attempt, body[:300])
-                        fire(log_api_call(story_id=story_id, service="openrouter", model=settings.llm_model,
+                        fire(log_api_call(story_id=story_id, service="openrouter", model=model,
                                           purpose=purpose, status="failed", duration_ms=duration_ms,
                                           request_text=user[:10000], error=body[:1000]))
                         continue
@@ -61,7 +61,7 @@ async def _call_llm(system: str, user: str, max_retries: int = 3,
                     if not content or not content.strip():
                         logger.warning("LLM returned empty content (attempt %d)", attempt)
                         continue
-                    fire(log_api_call(story_id=story_id, service="openrouter", model=settings.llm_model,
+                    fire(log_api_call(story_id=story_id, service="openrouter", model=model,
                                       purpose=purpose, status="success", duration_ms=duration_ms,
                                       request_text=user[:10000], response_text=content[:10000],
                                       tokens_in=usage.get("prompt_tokens"),
@@ -70,7 +70,7 @@ async def _call_llm(system: str, user: str, max_retries: int = 3,
         except Exception as e:
             duration_ms = int((time.time() - t0) * 1000)
             logger.warning("LLM error (attempt %d): %s", attempt, e)
-            fire(log_api_call(story_id=story_id, service="openrouter", model=settings.llm_model,
+            fire(log_api_call(story_id=story_id, service="openrouter", model=model,
                               purpose=purpose, status="failed", duration_ms=duration_ms,
                               request_text=user[:10000], error=str(e)[:1000]))
 
