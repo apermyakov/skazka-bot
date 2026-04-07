@@ -5,9 +5,10 @@ import logging
 import traceback as tb_mod
 from typing import Any
 
+from bot.config import settings
+
 logger = logging.getLogger(__name__)
 
-ADMIN_ID = 119993853
 _bot = None
 
 
@@ -18,14 +19,15 @@ def set_bot(bot):
 
 
 async def notify_admin(text: str):
-    """Send a message to admin. Truncates to Telegram limit."""
+    """Send a message to all admins. Truncates to Telegram limit."""
     if not _bot:
         return
-    try:
-        msg = text[:4000]  # Telegram message limit
-        await _bot.send_message(ADMIN_ID, msg, parse_mode="HTML")
-    except Exception as e:
-        logger.warning("Failed to notify admin: %s", e)
+    msg = text[:4000]
+    for admin_id in settings.admin_id_list:
+        try:
+            await _bot.send_message(admin_id, msg, parse_mode="HTML")
+        except Exception as e:
+            logger.warning("Failed to notify admin %d: %s", admin_id, e)
 
 
 async def notify_error(

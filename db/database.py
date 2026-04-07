@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS stories (
     feedback            TEXT,
     status              TEXT DEFAULT 'started',
     error_message       TEXT,
+    total_cost_usd      REAL DEFAULT 0,
     created_at          TIMESTAMPTZ DEFAULT NOW(),
     completed_at        TIMESTAMPTZ
 );

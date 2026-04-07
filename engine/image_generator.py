@@ -530,10 +530,7 @@ async def generate_illustration(
 
     img_bytes = await _call_image_api(content, scene_index, "pixar", story_id=story_id)
 
-    # Step 2: Face swap if we have a photo and Replicate token
-    if img_bytes and reference_photo_b64 and settings.replicate_api_token:
-        logger.info("Running face swap for scene %d", scene_index)
-        img_bytes = await _face_swap_replicate(img_bytes, reference_photo_b64)
+    # Face swap disabled — moved to backlog (Segmind FaceSwap V3 with face_index)
 
     return img_bytes
 

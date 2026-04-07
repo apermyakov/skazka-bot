@@ -5,14 +5,13 @@ from aiogram import Router, types
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 
+from bot.config import settings
 from bot.keyboards.inline import main_menu
 from bot.notify import notify_new_user
 from bot.states.create import CreateFairyTale
 from db.database import save_user, get_user_id, fire
 
 router = Router()
-
-ADMIN_ID = 119993853
 
 WELCOME_TEXT = (
     "🌙 <b>Сказка на ночь</b>\n\n"
@@ -66,7 +65,7 @@ async def cmd_cancel(message: types.Message, state: FSMContext):
 
 @router.message(Command("reload"))
 async def cmd_reload(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
+    if message.from_user.id not in settings.admin_id_list:
         return
     from db.config_manager import cfg
     await cfg._reload()

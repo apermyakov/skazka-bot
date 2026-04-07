@@ -13,7 +13,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 
 from bot.config import settings
-from bot.handlers import start, create
+from bot.handlers import start, create, compose, generate
 
 logging.basicConfig(
     level=logging.INFO,
@@ -57,6 +57,8 @@ async def main():
     # Register routers
     dp.include_router(start.router)
     dp.include_router(create.router)
+    dp.include_router(compose.router)
+    dp.include_router(generate.router)
 
     logger.info("Bot started. Polling...")
     try:
