@@ -75,7 +75,7 @@ async def _get_text(message: types.Message, bot: Bot) -> tuple[str | None, bool]
             buf = BytesIO()
             await bot.download_file(file.file_path, buf)
             text = await transcribe_voice(buf.getvalue())
-            await hint.edit_text(f"🎤 Распознано: <i>{text}</i>", parse_mode="HTML")
+            await hint.delete()
             return text, True
         except Exception as e:
             logger.error("Transcription failed: %s", e, exc_info=True)
@@ -287,16 +287,58 @@ async def on_compose(callback: types.CallbackQuery, state: FSMContext):
         await state.clear()
 
 
-# ── 5. Edit story ──
+# ── 5. Edit story (button or direct message) ──
 @router.callback_query(F.data == "edit_story")
 async def on_edit(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer(
-        "✏️ Что изменить? Напишите текстом или голосом, например:\n\n"
-        "<i>«Сделай медведя добрее» или «Добавь дракона»</i>",
+        "✏️ Напишите что изменить:",
         parse_mode="HTML",
     )
     await state.set_state(CreateFairyTale.waiting_edits)
     await _dismiss(callback)
+
+
+# Direct text/voice while reviewing → treat as edit
+@router.message(CreateFairyTale.reviewing_story, F.text | F.voice)
+async def on_direct_edit(message: types.Message, state: FSMContext, bot: Bot):
+    """User sends text/voice while reviewing story — treat as edit request."""
+    edit_text, _ = await _get_text(message, bot)
+    if edit_text is None:
+        return
+
+    data = await state.get_data()
+    new_context = f"{data.get('context', '')}\n\nИзменения: {edit_text}"
+    await state.update_data(context=new_context)
+
+    story_id = data.get("db_story_id")
+    if story_id:
+        fire(save_revision(story_id, revision_type="edit", user_input=edit_text, full_context=new_context))
+
+    from db.config_manager import cfg
+    composing_sticker = await cfg.get("ui.sticker_composing", None)
+    if composing_sticker:
+        status = await message.answer_sticker(composing_sticker)
+    else:
+        status = await message.answer("✏️ Переписываю сказку...")
+    try:
+        screenplay = await generate_screenplay(new_context, story_id=story_id)
+        if story_id:
+            fire(update_story(story_id, title=screenplay.get("title"),
+                              screenplay_json=json.dumps(screenplay, ensure_ascii=False)))
+        await status.delete()
+        await _show_story(message, state, screenplay)
+    except Exception as e:
+        logger.error("Direct edit failed: %s", e, exc_info=True)
+        if story_id:
+            fire(log_error(story_id=story_id, phase="edit",
+                           error_type=type(e).__name__, error_message=str(e),
+                           traceback_str=tb_mod.format_exc()))
+        try:
+            await status.delete()
+        except Exception:
+            pass
+        await message.answer(f"😔 Ошибка: {str(e)[:200]}", reply_markup=main_menu())
+        await state.clear()
 
 
 @router.message(CreateFairyTale.waiting_edits, F.text | F.voice)
