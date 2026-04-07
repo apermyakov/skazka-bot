@@ -171,6 +171,8 @@ async def on_change_topic(callback: types.CallbackQuery, state: FSMContext):
 # ── 4. Confirm → compose story ──
 @router.callback_query(F.data == "compose_story")
 async def on_compose(callback: types.CallbackQuery, state: FSMContext):
+    import time as _time
+    t0 = _time.time()
     if await _guard(state):
         await callback.answer()
         return
@@ -178,16 +180,24 @@ async def on_compose(callback: types.CallbackQuery, state: FSMContext):
     context = data["context"]
     was_voice = data.get("was_voice", False)
 
+    logger.info("[TIMING] guard+state: %.1fms", (_time.time() - t0) * 1000)
+
     # Create story in DB
+    t1 = _time.time()
     db_user_id = await get_user_id(callback.from_user.id)
     story_id = await create_story(user_id=db_user_id, context=context, was_voice=was_voice)
     await state.update_data(db_story_id=story_id)
+    logger.info("[TIMING] DB write: %.1fms", (_time.time() - t1) * 1000)
 
+    t2 = _time.time()
     status = await callback.message.answer("📝 Сочиняю сказку...")
     await _dismiss(callback)
+    logger.info("[TIMING] Telegram answer+dismiss: %.1fms", (_time.time() - t2) * 1000)
 
     try:
+        t3 = _time.time()
         screenplay = await generate_screenplay(context, story_id=story_id)
+        logger.info("[TIMING] LLM screenplay: %.1fms", (_time.time() - t3) * 1000)
         if story_id:
             fire(update_story(story_id, title=screenplay.get("title"),
                               screenplay_json=json.dumps(screenplay, ensure_ascii=False),
