@@ -54,6 +54,16 @@ async def cmd_start(message: types.Message, state: FSMContext):
     await message.answer(WELCOME_TEXT, reply_markup=main_menu(), parse_mode="HTML")
 
 
+@router.message(Command("cancel"))
+async def cmd_cancel(message: types.Message, state: FSMContext):
+    current = await state.get_state()
+    if current:
+        await state.clear()
+        await message.answer("❌ Отменено. Начните заново — /new или /start")
+    else:
+        await message.answer("Нечего отменять. Создайте сказку — /new")
+
+
 @router.message(Command("reload"))
 async def cmd_reload(message: types.Message):
     if message.from_user.id != ADMIN_ID:
