@@ -514,17 +514,13 @@ async def _start_generation(message: types.Message, state: FSMContext):
         # Send only MP4 video
         video_path = result.get("video_path")
         if video_path:
-            dur_min = int(result["duration"]) // 60
-            dur_sec = int(result["duration"]) % 60
             try:
                 await sticker_msg.delete()
             except Exception:
                 pass
             try:
                 await status_msg.edit_text(
-                    f"✅ <b>Сказка готова!</b>\n\n"
-                    f"📖 <b>{result['title']}</b>\n"
-                    f"⏱ {dur_min}:{dur_sec:02d}",
+                    f"✅ <b>{result['title']}</b>",
                     parse_mode="HTML",
                 )
             except Exception:
