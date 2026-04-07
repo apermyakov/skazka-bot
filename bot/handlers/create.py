@@ -37,6 +37,15 @@ async def _dismiss(callback: types.CallbackQuery):
     await callback.answer()
 
 
+async def _guard(state: FSMContext, key: str = "_busy") -> bool:
+    """Prevent double-clicks. Returns True if already busy (should skip)."""
+    data = await state.get_data()
+    if data.get(key):
+        return True
+    await state.update_data(**{key: True})
+    return False
+
+
 def _clean_story_text(screenplay: dict) -> str:
     """Build clean readable text from screenplay, stripping audio tags."""
     lines = []
@@ -162,6 +171,9 @@ async def on_change_topic(callback: types.CallbackQuery, state: FSMContext):
 # ── 4. Confirm → compose story ──
 @router.callback_query(F.data == "compose_story")
 async def on_compose(callback: types.CallbackQuery, state: FSMContext):
+    if await _guard(state):
+        await callback.answer()
+        return
     data = await state.get_data()
     context = data["context"]
     was_voice = data.get("was_voice", False)
@@ -181,8 +193,10 @@ async def on_compose(callback: types.CallbackQuery, state: FSMContext):
                               screenplay_json=json.dumps(screenplay, ensure_ascii=False),
                               status="screenplay"))
         await status.delete()
+        await state.update_data(_busy=False)
         await _show_story(callback.message, state, screenplay)
     except Exception as e:
+        await state.update_data(_busy=False)
         logger.error("Screenplay failed: %s", e, exc_info=True)
         if story_id:
             fire(update_story(story_id, status="failed", error_message=str(e)[:500]))
@@ -243,6 +257,9 @@ async def on_edits_received(message: types.Message, state: FSMContext, bot: Bot)
 # ── 6. Regenerate ──
 @router.callback_query(F.data == "regenerate_story")
 async def on_regenerate(callback: types.CallbackQuery, state: FSMContext):
+    if await _guard(state):
+        await callback.answer()
+        return
     data = await state.get_data()
     story_id = data.get("db_story_id")
     if story_id:
@@ -256,8 +273,10 @@ async def on_regenerate(callback: types.CallbackQuery, state: FSMContext):
             fire(update_story(story_id, title=screenplay.get("title"),
                               screenplay_json=json.dumps(screenplay, ensure_ascii=False)))
         await status.delete()
+        await state.update_data(_busy=False)
         await _show_story(callback.message, state, screenplay)
     except Exception as e:
+        await state.update_data(_busy=False)
         logger.error("Regenerate failed: %s", e, exc_info=True)
         if story_id:
             fire(log_error(story_id=story_id, phase="regenerate",
