@@ -494,9 +494,10 @@ async def generate_illustration(
     consistency_suffix = ""
     if previous_illustration_b64:
         consistency_suffix = (
-            "CRITICAL: The last image in the references is the PREVIOUS scene illustration. "
-            "You MUST match its exact visual style, color palette, character appearances "
-            "(clothing colors, hair style, face shape). Characters must look IDENTICAL across scenes. "
+            "The last image in the references is from a PREVIOUS scene — use it ONLY as a reference "
+            "for character identity: face shape, hair color, hair style, eye color, clothing colors. "
+            "Do NOT copy the pose, composition, background, or camera angle from that image. "
+            "Create a completely NEW scene with NEW poses and actions matching the scene description. "
         )
 
     from db.config_manager import cfg
