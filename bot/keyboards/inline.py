@@ -13,7 +13,6 @@ def main_menu() -> InlineKeyboardMarkup:
 def confirm_input() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📝 Сочинить сказку", callback_data="compose_story")],
-        [InlineKeyboardButton(text="✏️ Изменить запрос", callback_data="change_topic")],
     ])
 
 
