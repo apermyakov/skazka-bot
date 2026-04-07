@@ -348,19 +348,22 @@ def _build_scene_prompt(
         )
 
     return (
+        f"=== STYLE (fixed for all scenes) ===\n"
         f"{style_block}\n\n"
+        f"=== CHARACTER BIBLE (fixed — do NOT change between scenes) ===\n"
+        f"{appearance_block}\n"
+        f"Do NOT redesign any character. Keep IDENTICAL: face shape, hair color, hairstyle, "
+        f"eye color, clothing colors, accessories, body proportions.\n\n"
+        f"=== SCENE (variable — this is what changes) ===\n"
         f"Fairy tale: '{fairy_tale_title}'\n"
-        f"Characters: {characters_desc}\n"
-        f"Scene {scene_index + 1} of {total_scenes}: {scene.get('title', '')}\n"
+        f"Scene {scene_index + 1} of {total_scenes}\n"
         f"Setting: {scene.get('setting', 'forest')}\n"
         f"Mood: {scene.get('mood', 'magical')}\n"
-        f"Visual description: {scene.get('description', '')}\n"
-        f"{appearance_block}"
+        f"Action: {scene.get('description', '')}\n"
+        f"Characters present: {', '.join(scene.get('characters_present', []))}\n"
         f"{continuity}\n\n"
-        f"Generate a single children's book illustration for this scene. "
-        f"IMPORTANT: Each character appears EXACTLY ONCE. Do NOT duplicate any character or animal. "
-        f"Characters in this scene: {', '.join(scene.get('characters_present', []))} — draw each one ONLY ONCE. "
-        f"CRITICAL: Each character's appearance (fur color, hair color, clothing) must be IDENTICAL across all scenes. "
+        f"Generate a NEW unique illustration for this scene with NEW poses and composition. "
+        f"Each character appears EXACTLY ONCE. "
         f"{style_suffix}"
     )
 
@@ -469,12 +472,8 @@ async def generate_illustration(
                 "image_url": {"url": photo_url},
             })
 
-    # Add previous illustration as style reference
-    if previous_illustration_b64:
-        photo_content.append({
-            "type": "image_url",
-            "image_url": {"url": f"data:image/png;base64,{previous_illustration_b64}"},
-        })
+    # Previous illustration reference disabled — causes composition copying
+    # Relying on character bible text instead for consistency
 
     face_suffix = ""
     if photo_content:
@@ -491,15 +490,6 @@ async def generate_illustration(
                 "same face shape, hair color, hair style, eye color, skin tone."
             )
 
-    consistency_suffix = ""
-    if previous_illustration_b64:
-        consistency_suffix = (
-            "The last image in the references is from a PREVIOUS scene — use it ONLY as a reference "
-            "for character identity: face shape, hair color, hair style, eye color, clothing colors. "
-            "Do NOT copy the pose, composition, background, or camera angle from that image. "
-            "Create a completely NEW scene with NEW poses and actions matching the scene description. "
-        )
-
     from db.config_manager import cfg
     style_block = await cfg.get("prompt.style_pixar", STYLE_PIXAR)
 
@@ -507,7 +497,7 @@ async def generate_illustration(
         scene, scene_index, total_scenes, fairy_tale_title, characters_desc,
         character_appearances or {},
         previous_scene_desc, style_block,
-        f"Pixar-style 3D render. {consistency_suffix}{face_suffix}",
+        f"Pixar-style 3D render. {face_suffix}",
     )
     content = [{"type": "text", "text": prompt}] + photo_content
 
