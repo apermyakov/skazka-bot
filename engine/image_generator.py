@@ -90,13 +90,17 @@ async def split_into_scenes(screenplay: dict, story_id: int = None) -> list[dict
     characters = ", ".join(c["name"] for c in screenplay["characters"] if c["id"] != "narrator")
 
     # Build numbered story text (segment indices for scene mapping)
+    # Build character name lookup
+    char_names = {c["id"]: c["name"] for c in screenplay.get("characters", [])}
+
     story_lines = []
     for idx, seg in enumerate(screenplay["segments"]):
         raw = seg["text"]
         clean = re.sub(r'\[[\w\s]+\]', '', raw).strip()
         clean = re.sub(r'\s{2,}', ' ', clean)
         if clean:
-            story_lines.append(f"[{idx}] {clean}")
+            speaker = char_names.get(seg.get("character_id", ""), "?")
+            story_lines.append(f"[{idx}] ({speaker}) {clean}")
     story_text = "\n".join(story_lines)
 
     from db.config_manager import cfg
