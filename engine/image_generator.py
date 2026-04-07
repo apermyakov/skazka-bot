@@ -115,8 +115,10 @@ async def split_into_scenes(screenplay: dict, story_id: int = None) -> list[dict
         "Authorization": f"Bearer {settings.openrouter_api_key}",
         "Content-Type": "application/json",
     }
+    llm_model = await cfg.get("model.llm", settings.llm_model)
+
     payload = {
-        "model": settings.llm_model,
+        "model": llm_model,
         "messages": [
             {"role": "system", "content": "Ты генерируешь ТОЛЬКО валидный JSON."},
             {"role": "user", "content": prompt},
