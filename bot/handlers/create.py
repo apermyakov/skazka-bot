@@ -169,16 +169,43 @@ async def on_input(message: types.Message, state: FSMContext, bot: Bot):
     await state.update_data(context=text, was_voice=was_voice)
 
     if was_voice:
-        label = "🎤 <b>Вот что я услышал:</b>"
+        # Voice input → show transcription and ask to confirm
+        await message.answer(
+            f"🎤 <b>Вот что я услышал:</b>\n\n<i>{text[:500]}</i>\n\nВсё верно?",
+            reply_markup=confirm_input(),
+            parse_mode="HTML",
+        )
+        await state.set_state(CreateFairyTale.confirming_input)
     else:
-        label = "📝 <b>Ваш запрос:</b>"
+        # Text input → go straight to screenplay generation
+        fire(_ensure_user(message.from_user))
+        db_user_id = await get_user_id(message.from_user.id)
+        story_id = await create_story(user_id=db_user_id, context=text, was_voice=False)
+        await state.update_data(db_story_id=story_id)
 
-    await message.answer(
-        f"{label}\n\n<i>{text[:500]}</i>\n\nВсё верно?",
-        reply_markup=confirm_input(),
-        parse_mode="HTML",
-    )
-    await state.set_state(CreateFairyTale.confirming_input)
+        status = await message.answer("📝 Сочиняю сказку...")
+        try:
+            screenplay = await generate_screenplay(text, story_id=story_id)
+            if story_id:
+                fire(update_story(story_id, title=screenplay.get("title"),
+                                  screenplay_json=json.dumps(screenplay, ensure_ascii=False),
+                                  status="screenplay"))
+            await status.delete()
+            await state.update_data(_busy=False)
+            await _show_story(message, state, screenplay)
+        except Exception as e:
+            await state.update_data(_busy=False)
+            logger.error("Screenplay failed: %s", e, exc_info=True)
+            if story_id:
+                fire(update_story(story_id, status="failed", error_message=str(e)[:500]))
+                fire(log_error(story_id=story_id, user_id=db_user_id, phase="screenplay",
+                               error_type=type(e).__name__, error_message=str(e),
+                               traceback_str=tb_mod.format_exc()))
+            await status.edit_text(
+                f"😔 Не удалось сочинить сказку: {str(e)[:200]}\nПопробуйте ещё раз!",
+                reply_markup=main_menu(),
+            )
+            await state.clear()
 
 
 # ── 3. Change input ──
