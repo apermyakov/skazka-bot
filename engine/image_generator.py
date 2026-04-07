@@ -452,6 +452,7 @@ async def generate_illustration(
     character_appearances: dict[str, str] | None = None,
     reference_photos: list[str] | None = None,
     story_id: int = None,
+    previous_illustration_b64: str | None = None,
 ) -> bytes | None:
     """Generate one Pixar-style illustration via Gemini, then face swap if photo provided."""
 
@@ -468,6 +469,13 @@ async def generate_illustration(
                 "image_url": {"url": photo_url},
             })
 
+    # Add previous illustration as style reference
+    if previous_illustration_b64:
+        photo_content.append({
+            "type": "image_url",
+            "image_url": {"url": f"data:image/png;base64,{previous_illustration_b64}"},
+        })
+
     face_suffix = ""
     if photo_content:
         if len(photo_content) > 1:
@@ -483,6 +491,14 @@ async def generate_illustration(
                 "same face shape, hair color, hair style, eye color, skin tone."
             )
 
+    consistency_suffix = ""
+    if previous_illustration_b64:
+        consistency_suffix = (
+            "CRITICAL: The last image in the references is the PREVIOUS scene illustration. "
+            "You MUST match its exact visual style, color palette, character appearances "
+            "(clothing colors, hair style, face shape). Characters must look IDENTICAL across scenes. "
+        )
+
     from db.config_manager import cfg
     style_block = await cfg.get("prompt.style_pixar", STYLE_PIXAR)
 
@@ -490,7 +506,7 @@ async def generate_illustration(
         scene, scene_index, total_scenes, fairy_tale_title, characters_desc,
         character_appearances or {},
         previous_scene_desc, style_block,
-        f"Pixar-style 3D render. {face_suffix}",
+        f"Pixar-style 3D render. {consistency_suffix}{face_suffix}",
     )
     content = [{"type": "text", "text": prompt}] + photo_content
 
@@ -531,8 +547,10 @@ async def generate_illustrations_batch(
     )
 
     # Step 2: Generate illustrations sequentially (for style consistency)
+    # Each scene receives the previous illustration as a visual reference
     results = []
     prev_desc = None
+    prev_illustration_b64 = None
 
     for i, scene in enumerate(scenes):
         if on_progress:
@@ -551,9 +569,12 @@ async def generate_illustrations_batch(
             character_appearances=character_appearances,
             reference_photos=reference_photos,
             story_id=story_id,
+            previous_illustration_b64=prev_illustration_b64,
         )
 
         results.append(img_bytes)
+        if img_bytes:
+            prev_illustration_b64 = base64.b64encode(img_bytes).decode("ascii")
         prev_desc = scene.get("description", "")
 
         logger.info(
