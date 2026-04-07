@@ -497,6 +497,41 @@ async def on_photo_received(message: types.Message, state: FSMContext, bot: Bot)
         )
 
 
+# ── 8a-bis. Receive photo sent as document (file) ──
+@router.message(CreateFairyTale.waiting_photo, F.document)
+async def on_photo_document_received(message: types.Message, state: FSMContext, bot: Bot):
+    doc = message.document
+    if not doc.mime_type or not doc.mime_type.startswith("image/"):
+        await message.answer("Отправьте фото ребёнка (изображение).")
+        return
+    # Reuse same logic as photo handler
+    file = await bot.get_file(doc.file_id)
+    buf = BytesIO()
+    await bot.download_file(file.file_path, buf)
+    photo_bytes = buf.getvalue()
+
+    import uuid
+    photos_dir = settings.media_dir / "_photos"
+    photos_dir.mkdir(parents=True, exist_ok=True)
+    photo_path = photos_dir / f"{uuid.uuid4().hex}.jpg"
+    photo_path.write_bytes(photo_bytes)
+
+    data = await state.get_data()
+    photo_paths = data.get("reference_photo_paths", [])
+    photo_paths.append(str(photo_path))
+    await state.update_data(reference_photo_paths=photo_paths)
+
+    count = len(photo_paths)
+    if count >= 3:
+        await message.answer(f"📸 Отлично, {count} фото! Начинаю генерацию.")
+        await _start_generation(message, state)
+    else:
+        await message.answer(
+            f"📸 Фото {count} получено! Отправьте ещё или нажмите «Готово».",
+            reply_markup=photos_done(),
+        )
+
+
 # ── 8b. Photos done → start generation ──
 @router.callback_query(F.data == "photos_done")
 async def on_photos_done(callback: types.CallbackQuery, state: FSMContext):
