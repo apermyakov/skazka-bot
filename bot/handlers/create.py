@@ -130,21 +130,16 @@ async def _show_story(message: types.Message, state: FSMContext, title: str, sto
     if not chunks:
         chunks = [full_text[:3900]]
 
-    # Send all chunks, photo request + buttons on the last one
+    # Send all chunks, "Озвучить" button on the last one
+    from bot.keyboards.inline import review_story
     for i, chunk in enumerate(chunks):
         if i == len(chunks) - 1:
-            await message.answer(chunk, parse_mode="HTML")
-            await message.answer(
-                "📸 Отправьте <b>1-3 фото ребёнка</b> для иллюстраций, затем нажмите <b>«Готово»</b>\n"
-                "<i>(или сразу нажмите «Без иллюстраций»)</i>",
-                reply_markup=photos_done(),
-                parse_mode="HTML",
-            )
+            await message.answer(chunk, reply_markup=review_story(), parse_mode="HTML")
         else:
             await message.answer(chunk, parse_mode="HTML")
 
     await state.update_data(story_title=title, story_text=story_text)
-    await state.set_state(CreateFairyTale.waiting_photo)
+    await state.set_state(CreateFairyTale.reviewing_story)
 
 
 async def _ensure_user(user: types.User) -> int | None:
@@ -386,7 +381,7 @@ async def on_edit(callback: types.CallbackQuery, state: FSMContext):
 
 
 # Direct text/voice while reviewing → treat as edit
-@router.message(CreateFairyTale.waiting_photo, F.text | F.voice)
+@router.message(CreateFairyTale.reviewing_story, F.text | F.voice)
 async def on_direct_edit(message: types.Message, state: FSMContext, bot: Bot):
     """User sends text/voice while reviewing story — treat as edit request."""
     if await _guard(state, message=message):
@@ -497,41 +492,36 @@ async def on_regenerate(callback: types.CallbackQuery, state: FSMContext):
         await status.edit_text(f"😔 Ошибка: {str(e)[:200]}", reply_markup=main_menu())
 
 
-# ── 7. "Озвучить" removed — photo request is now part of _show_story
-# Photos are collected in waiting_photo state, then generation starts
+# ── 7. "Озвучить" → ask for photo ──
+@router.callback_query(F.data == "generate")
+async def on_generate_ask_photo(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.answer(
+        "📸 Отправьте <b>фото ребёнка</b> для иллюстраций\n"
+        "<i>(одного, без других людей)</i>",
+        reply_markup=photos_done(),
+        parse_mode="HTML",
+    )
+    await state.set_state(CreateFairyTale.waiting_photo)
+    await _dismiss(callback)
 
 
-# ── 8a. Receive photo → collect into list ──
+# ── 8a. Receive photo → save and start generation ──
 @router.message(CreateFairyTale.waiting_photo, F.photo)
 async def on_photo_received(message: types.Message, state: FSMContext, bot: Bot):
-    # Download the highest resolution photo and save to disk (not memory)
-    photo = message.photo[-1]  # Last = largest
+    photo = message.photo[-1]
     file = await bot.get_file(photo.file_id)
     buf = BytesIO()
     await bot.download_file(file.file_path, buf)
-    photo_bytes = buf.getvalue()
 
-    # Save to temp file on disk
     import uuid
     photos_dir = settings.media_dir / "_photos"
     photos_dir.mkdir(parents=True, exist_ok=True)
     photo_path = photos_dir / f"{uuid.uuid4().hex}.jpg"
-    photo_path.write_bytes(photo_bytes)
+    photo_path.write_bytes(buf.getvalue())
 
-    data = await state.get_data()
-    photo_paths = data.get("reference_photo_paths", [])
-    photo_paths.append(str(photo_path))
-    await state.update_data(reference_photo_paths=photo_paths)
-
-    count = len(photo_paths)
-    if count >= 3:
-        await message.answer(f"📸 Отлично, {count} фото! Начинаю генерацию.")
-        await _start_generation(message, state)
-    else:
-        await message.answer(
-            f"📸 Фото {count} получено! Отправьте ещё или нажмите «Готово».",
-            reply_markup=photos_done(),
-        )
+    await state.update_data(reference_photo_paths=[str(photo_path)])
+    await message.answer("📸 Фото получено!")
+    await _start_generation(message, state)
 
 
 # ── 8a-bis. Receive photo sent as document (file) ──
@@ -541,32 +531,19 @@ async def on_photo_document_received(message: types.Message, state: FSMContext, 
     if not doc.mime_type or not doc.mime_type.startswith("image/"):
         await message.answer("Отправьте фото ребёнка (изображение).")
         return
-    # Reuse same logic as photo handler
     file = await bot.get_file(doc.file_id)
     buf = BytesIO()
     await bot.download_file(file.file_path, buf)
-    photo_bytes = buf.getvalue()
 
     import uuid
     photos_dir = settings.media_dir / "_photos"
     photos_dir.mkdir(parents=True, exist_ok=True)
     photo_path = photos_dir / f"{uuid.uuid4().hex}.jpg"
-    photo_path.write_bytes(photo_bytes)
+    photo_path.write_bytes(buf.getvalue())
 
-    data = await state.get_data()
-    photo_paths = data.get("reference_photo_paths", [])
-    photo_paths.append(str(photo_path))
-    await state.update_data(reference_photo_paths=photo_paths)
-
-    count = len(photo_paths)
-    if count >= 3:
-        await message.answer(f"📸 Отлично, {count} фото! Начинаю генерацию.")
-        await _start_generation(message, state)
-    else:
-        await message.answer(
-            f"📸 Фото {count} получено! Отправьте ещё или нажмите «Готово».",
-            reply_markup=photos_done(),
-        )
+    await state.update_data(reference_photo_paths=[str(photo_path)])
+    await message.answer("📸 Фото получено!")
+    await _start_generation(message, state)
 
 
 # ── 8b. Photos done → start generation ──
