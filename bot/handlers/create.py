@@ -349,9 +349,13 @@ async def on_edit(callback: types.CallbackQuery, state: FSMContext):
 @router.message(CreateFairyTale.reviewing_story, F.text | F.voice)
 async def on_direct_edit(message: types.Message, state: FSMContext, bot: Bot):
     """User sends text/voice while reviewing story — treat as edit request."""
-    edit_text, _ = await _get_text(message, bot)
+    edit_text, was_voice = await _get_text(message, bot)
     if edit_text is None:
         return
+
+    # Show what was recognized from voice
+    if was_voice:
+        await message.answer(f"✏️ <i>{edit_text}</i>", parse_mode="HTML")
 
     data = await state.get_data()
     new_context = f"{data.get('context', '')}\n\nИзменения: {edit_text}"
