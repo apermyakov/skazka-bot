@@ -218,12 +218,58 @@ async def on_input(message: types.Message, state: FSMContext, bot: Bot):
             await state.clear()
 
 
-# ── 3. Change input ──
+# ── 3. Change input (button or new message while confirming) ──
 @router.callback_query(F.data == "change_topic")
 async def on_change_topic(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.answer("📖 Расскажите заново — текстом или голосовым сообщением:")
+    await callback.message.answer("📖 Расскажите заново:")
     await state.set_state(CreateFairyTale.waiting_topic)
     await _dismiss(callback)
+
+
+@router.message(CreateFairyTale.confirming_input, F.text | F.voice)
+async def on_replace_input(message: types.Message, state: FSMContext, bot: Bot):
+    """User sends new text/voice while confirming — replaces previous input."""
+    text, was_voice = await _get_text(message, bot)
+    if text is None:
+        return
+    if len(text) < 10:
+        await message.answer("Расскажите чуть подробнее — хотя бы имя ребёнка и тему.")
+        return
+    await state.update_data(context=text, was_voice=was_voice)
+    if was_voice:
+        await message.answer(
+            f"🎤 <b>Вот что я услышал:</b>\n\n<i>{text[:500]}</i>\n\nВсё верно?",
+            reply_markup=confirm_input(),
+            parse_mode="HTML",
+        )
+    else:
+        # Text → go straight to generation
+        fire(_ensure_user(message.from_user))
+        db_user_id = await get_user_id(message.from_user.id)
+        story_id = await create_story(user_id=db_user_id, context=text, was_voice=False)
+        await state.update_data(db_story_id=story_id)
+        from db.config_manager import cfg
+        composing_sticker = await cfg.get("ui.sticker_composing", None)
+        if composing_sticker:
+            status = await message.answer_sticker(composing_sticker)
+        else:
+            status = await message.answer("📝 Сочиняю сказку...")
+        try:
+            screenplay = await generate_screenplay(text, story_id=story_id)
+            if story_id:
+                fire(update_story(story_id, title=screenplay.get("title"),
+                                  screenplay_json=json.dumps(screenplay, ensure_ascii=False),
+                                  status="screenplay"))
+            await status.delete()
+            await _show_story(message, state, screenplay)
+        except Exception as e:
+            logger.error("Screenplay failed: %s", e, exc_info=True)
+            try:
+                await status.delete()
+            except Exception:
+                pass
+            await message.answer(f"😔 Ошибка: {str(e)[:200]}", reply_markup=main_menu())
+            await state.clear()
 
 
 # ── 4. Confirm → compose story ──
