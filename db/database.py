@@ -196,6 +196,18 @@ async def get_user_id(telegram_id: int) -> int | None:
         return row["id"] if row else None
 
 
+async def check_rate_limit(user_id: int, max_per_hour: int = 5) -> bool:
+    """Check if user exceeded rate limit. Returns True if OK, False if exceeded."""
+    if not _pool or not user_id:
+        return True
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            SELECT COUNT(*) as cnt FROM stories
+            WHERE user_id = $1 AND created_at > NOW() - INTERVAL '1 hour'
+        """, user_id)
+        return (row["cnt"] or 0) < max_per_hour
+
+
 # ── Stories ──
 
 async def create_story(order_id: str = None, user_id: int = None, context: str = None,

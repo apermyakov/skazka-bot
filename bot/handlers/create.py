@@ -24,7 +24,7 @@ from bot.notify import notify_error, notify_new_user, notify_story_complete
 from db.database import (
     save_user, get_user_id, create_story, update_story,
     save_revision, log_api_call, log_error, save_feedback,
-    save_media_file, fire,
+    save_media_file, check_rate_limit, fire,
 )
 
 logger = logging.getLogger(__name__)
@@ -70,12 +70,24 @@ def _clean_story_text(screenplay: dict) -> str:
     return "\n\n".join(lines)
 
 
+MAX_TEXT_LENGTH = 2000
+MAX_VOICE_DURATION = 60  # seconds
+MAX_PHOTO_SIZE = 10 * 1024 * 1024  # 10MB
+
+
 async def _get_text(message: types.Message, bot: Bot) -> tuple[str | None, bool]:
     """Extract text from message. Returns (text, was_voice)."""
     if message.text:
-        return message.text.strip(), False
+        text = message.text.strip()
+        if len(text) > MAX_TEXT_LENGTH:
+            text = text[:MAX_TEXT_LENGTH]
+            await message.answer(f"⚠️ Текст обрезан до {MAX_TEXT_LENGTH} символов.")
+        return text, False
 
     if message.voice:
+        if message.voice.duration and message.voice.duration > MAX_VOICE_DURATION:
+            await message.answer(f"⚠️ Голосовое сообщение слишком длинное (макс {MAX_VOICE_DURATION} сек).")
+            return None, True
         hint = await message.answer("🎤 Распознаю голос...")
         try:
             file = await bot.get_file(message.voice.file_id)
@@ -90,6 +102,9 @@ async def _get_text(message: types.Message, bot: Bot) -> tuple[str | None, bool]
             return None, True
 
     return None, False
+
+
+import html as _html
 
 
 def _clean_for_display(story_text: str) -> str:
@@ -112,8 +127,9 @@ def _clean_for_display(story_text: str) -> str:
 
 async def _show_story(message: types.Message, state: FSMContext, title: str, story_text: str):
     """Display the story text split into Telegram-safe chunks with buttons on last."""
-    display_text = _clean_for_display(story_text)
-    full_text = f"📖 <b>{title}</b>\n\n{display_text}"
+    display_text = _html.escape(_clean_for_display(story_text))
+    safe_title = _html.escape(title)
+    full_text = f"📖 <b>{safe_title}</b>\n\n{display_text}"
 
     # Split into chunks of ~3900 chars at paragraph boundaries
     chunks = []
@@ -324,9 +340,13 @@ async def on_compose(callback: types.CallbackQuery, state: FSMContext):
 
     logger.info("[TIMING] guard+state: %.1fms", (_time.time() - t0) * 1000)
 
-    # Create story in DB
+    # Rate limit + create story in DB
     t1 = _time.time()
     db_user_id = await get_user_id(callback.from_user.id)
+    if db_user_id and not await check_rate_limit(db_user_id):
+        await state.update_data(_busy=False)
+        await callback.message.answer("⚠️ Вы создали слишком много сказок за последний час. Попробуйте позже.")
+        return
     story_id = await create_story(user_id=db_user_id, context=context, was_voice=was_voice)
     await state.update_data(db_story_id=story_id)
     logger.info("[TIMING] DB write: %.1fms", (_time.time() - t1) * 1000)
@@ -509,6 +529,9 @@ async def on_generate_ask_photo(callback: types.CallbackQuery, state: FSMContext
 @router.message(CreateFairyTale.waiting_photo, F.photo)
 async def on_photo_received(message: types.Message, state: FSMContext, bot: Bot):
     photo = message.photo[-1]
+    if photo.file_size and photo.file_size > MAX_PHOTO_SIZE:
+        await message.answer(f"⚠️ Фото слишком большое (макс {MAX_PHOTO_SIZE // 1024 // 1024}МБ).")
+        return
     file = await bot.get_file(photo.file_id)
     buf = BytesIO()
     await bot.download_file(file.file_path, buf)
@@ -530,6 +553,12 @@ async def on_photo_document_received(message: types.Message, state: FSMContext, 
     doc = message.document
     if not doc.mime_type or not doc.mime_type.startswith("image/"):
         await message.answer("Отправьте фото ребёнка (изображение).")
+        return
+    if doc.mime_type and doc.mime_type not in ("image/jpeg", "image/png"):
+        await message.answer("⚠️ Поддерживаются только JPEG и PNG.")
+        return
+    if doc.file_size and doc.file_size > MAX_PHOTO_SIZE:
+        await message.answer(f"⚠️ Файл слишком большой (макс {MAX_PHOTO_SIZE // 1024 // 1024}МБ).")
         return
     file = await bot.get_file(doc.file_id)
     buf = BytesIO()

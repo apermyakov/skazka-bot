@@ -209,6 +209,12 @@ async def generate_story_text(context: str, story_id: int = None) -> dict:
     if not title:
         title = "Сказка на ночь"
 
+    # Enforce limits
+    title = title[:200]
+    if len(text) > 15000:
+        text = text[:15000]
+        logger.warning("Story text truncated from %d to 15000 chars", len(response))
+
     logger.info("Story text generated: '%s', %d chars", title, len(text))
     return {"title": title, "text": text}
 
@@ -256,10 +262,15 @@ async def convert_to_screenplay(title: str, text: str, story_id: int = None) -> 
     if "narrator" not in char_ids:
         raise ValueError("Screenplay must have a 'narrator' character")
 
+    # Enforce segment limit
+    if len(screenplay["segments"]) > 60:
+        logger.warning("Screenplay has %d segments, truncating to 60", len(screenplay["segments"]))
+        screenplay["segments"] = screenplay["segments"][:60]
+
     for i, seg in enumerate(screenplay["segments"]):
-        if seg["character_id"] not in char_ids:
-            raise ValueError(f"Segment {i} references unknown character: {seg['character_id']}")
-        if len(seg["text"]) > 250:
+        if seg.get("character_id") not in char_ids:
+            seg["character_id"] = "narrator"  # fallback instead of crash
+        if len(seg.get("text", "")) > 250:
             seg["text"] = seg["text"][:247] + "..."
 
     logger.info("Screenplay converted: '%s', %d characters, %d segments",

@@ -145,8 +145,11 @@ async def generate_fairytale(
             )
         )
 
-        # Wait for TTS
-        audio_chunks = await tts_task
+        # Wait for TTS (with timeout)
+        try:
+            audio_chunks = await asyncio.wait_for(tts_task, timeout=300)  # 5 min
+        except asyncio.TimeoutError:
+            raise RuntimeError("TTS generation timed out (>5 min)")
 
         # ── Step 5: Save segments + measure durations for timecodes ──
         await status("🎵 Финальное сведение...")
@@ -210,8 +213,10 @@ async def generate_fairytale(
         # ── Step 7: Wait for illustrations ──
         result_scenes = []
         try:
-            img_results, result_scenes = await img_task
+            img_results, result_scenes = await asyncio.wait_for(img_task, timeout=600)  # 10 min
             logger.info("Illustrations: %d/%d saved", len(illustration_paths), len(img_results))
+        except asyncio.TimeoutError:
+            logger.warning("Illustrations timed out (>10 min), continuing without them")
         except Exception as e:
             logger.warning("Illustrations failed: %s, continuing without them", e, exc_info=True)
 

@@ -3,9 +3,11 @@
 
 from aiogram import Router, types
 from aiogram.filters import CommandStart, Command
+from aiogram.fsm.context import FSMContext
 
 from bot.keyboards.inline import main_menu
 from bot.notify import notify_new_user
+from bot.states.create import CreateFairyTale
 from db.database import save_user, get_user_id, fire
 
 router = Router()
@@ -22,7 +24,13 @@ WELCOME_TEXT = (
 
 
 @router.message(CommandStart())
-async def cmd_start(message: types.Message):
+async def cmd_start(message: types.Message, state: FSMContext):
+    # Block /start during generation
+    current_state = await state.get_state()
+    if current_state == CreateFairyTale.generating:
+        await message.answer("⏳ Сказка ещё создаётся. Пожалуйста, подождите.")
+        return
+
     # Check if new user
     existing = await get_user_id(message.from_user.id)
 
