@@ -47,15 +47,16 @@ async def _call_llm(system: str, user: str, max_retries: int = 3,
         try:
             session = get_session()
             async with session.post(OPENROUTER_URL, json=payload, headers=headers) as resp:
-                    duration_ms = int((time.time() - t0) * 1000)
                     if resp.status != 200:
                         body = await resp.text()
+                        duration_ms = int((time.time() - t0) * 1000)
                         logger.warning("LLM HTTP %d (attempt %d): %s", resp.status, attempt, body[:300])
                         fire(log_api_call(story_id=story_id, service="openrouter", model=model,
                                           purpose=purpose, status="failed", duration_ms=duration_ms,
                                           request_text=user[:10000], error=body[:1000]))
                         continue
                     data = await resp.json()
+                    duration_ms = int((time.time() - t0) * 1000)
                     content = data["choices"][0]["message"]["content"]
                     usage = data.get("usage", {})
                     if not content or not content.strip():
