@@ -183,7 +183,12 @@ async def on_input(message: types.Message, state: FSMContext, bot: Bot):
         story_id = await create_story(user_id=db_user_id, context=text, was_voice=False)
         await state.update_data(db_story_id=story_id)
 
-        status = await message.answer("📝 Сочиняю сказку...")
+        from db.config_manager import cfg
+        composing_sticker = await cfg.get("ui.sticker_composing", None)
+        if composing_sticker:
+            status = await message.answer_sticker(composing_sticker)
+        else:
+            status = await message.answer("📝 Сочиняю сказку...")
         try:
             screenplay = await generate_screenplay(text, story_id=story_id)
             if story_id:
@@ -201,7 +206,11 @@ async def on_input(message: types.Message, state: FSMContext, bot: Bot):
                 fire(log_error(story_id=story_id, user_id=db_user_id, phase="screenplay",
                                error_type=type(e).__name__, error_message=str(e),
                                traceback_str=tb_mod.format_exc()))
-            await status.edit_text(
+            try:
+                await status.delete()
+            except Exception:
+                pass
+            await message.answer(
                 f"😔 Не удалось сочинить сказку: {str(e)[:200]}\nПопробуйте ещё раз!",
                 reply_markup=main_menu(),
             )
@@ -238,7 +247,12 @@ async def on_compose(callback: types.CallbackQuery, state: FSMContext):
     logger.info("[TIMING] DB write: %.1fms", (_time.time() - t1) * 1000)
 
     t2 = _time.time()
-    status = await callback.message.answer("📝 Сочиняю сказку...")
+    from db.config_manager import cfg
+    composing_sticker = await cfg.get("ui.sticker_composing", None)
+    if composing_sticker:
+        status = await callback.message.answer_sticker(composing_sticker)
+    else:
+        status = await callback.message.answer("📝 Сочиняю сказку...")
     await _dismiss(callback)
     logger.info("[TIMING] Telegram answer+dismiss: %.1fms", (_time.time() - t2) * 1000)
 
@@ -261,7 +275,11 @@ async def on_compose(callback: types.CallbackQuery, state: FSMContext):
             fire(log_error(story_id=story_id, user_id=db_user_id, phase="screenplay",
                            error_type=type(e).__name__, error_message=str(e),
                            traceback_str=tb_mod.format_exc()))
-        await status.edit_text(
+        try:
+            await status.delete()
+        except Exception:
+            pass
+        await callback.message.answer(
             f"😔 Не удалось сочинить сказку: {str(e)[:200]}\nПопробуйте ещё раз!",
             reply_markup=main_menu(),
         )
