@@ -92,9 +92,28 @@ async def _get_text(message: types.Message, bot: Bot) -> tuple[str | None, bool]
     return None, False
 
 
+def _clean_for_display(story_text: str) -> str:
+    """Remove character name prefixes (e.g. 'Рассказчик: ') for user display."""
+    lines = []
+    for line in story_text.split("\n"):
+        stripped = line.strip()
+        if ":" in stripped:
+            # Check if it's a character label (short prefix before colon)
+            prefix, _, rest = stripped.partition(":")
+            if len(prefix) < 30 and rest.strip():
+                # It's "Name: dialogue" — show as dialogue
+                lines.append(f"— {rest.strip()}" if prefix.strip().lower() != "рассказчик" else rest.strip())
+            else:
+                lines.append(stripped)
+        else:
+            lines.append(stripped)
+    return "\n".join(lines)
+
+
 async def _show_story(message: types.Message, state: FSMContext, title: str, story_text: str):
     """Display the story text with review buttons attached."""
-    text = f"📖 <b>{title}</b>\n\n{story_text}"
+    display_text = _clean_for_display(story_text)
+    text = f"📖 <b>{title}</b>\n\n{display_text}"
 
     # Telegram limit 4096 chars — if story fits, attach buttons directly
     if len(text) <= 3900:
