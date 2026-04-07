@@ -111,53 +111,23 @@ async def generate_fairytale(
                 "style": voice.default_style,
             })
 
-        # ── Step 4: TTS + Illustrations in parallel ──
+        # ── Step 4: TTS ──
         await status("🎙 Озвучиваю сказку...")
 
-        # Start TTS
-        tts_task = asyncio.create_task(
-            synthesize_batch(tts_requests, max_concurrent=settings.max_concurrent_tts,
-                             story_id=story_id)
-        )
-
-        # Start illustrations (if photo provided or generate without face)
-        illustration_paths: list[str] = []
-        scene_durations_list: list[float] = []
-        audio_ready_event = asyncio.Event()
-
-        async def _on_img_ready(idx: int, img_bytes: bytes):
-            img_path = illustrations_dir / f"scene_{idx + 1}.png"
-            img_path.write_bytes(img_bytes)
-            illustration_paths.append(str(img_path))
-            # Wait until MP3 has been sent before delivering illustrations
-            await audio_ready_event.wait()
-            if on_illustration_ready:
-                await on_illustration_ready(idx, str(img_path))
-
-        img_task = asyncio.create_task(
-            generate_illustrations_batch(
-                screenplay=screenplay,
-                reference_photo_b64=reference_photo_b64,
-                reference_photos=reference_photos,
-                on_progress=status,
-                story_id=story_id,
-                on_illustration_ready=_on_img_ready,
-            )
-        )
-
-        # Wait for TTS (with timeout)
         try:
-            audio_chunks = await asyncio.wait_for(tts_task, timeout=300)  # 5 min
+            audio_chunks = await asyncio.wait_for(
+                synthesize_batch(tts_requests, max_concurrent=settings.max_concurrent_tts,
+                                 story_id=story_id),
+                timeout=300,  # 5 min
+            )
         except asyncio.TimeoutError:
             raise RuntimeError("TTS generation timed out (>5 min)")
 
-        # ── Step 5: Save segments + measure durations for timecodes ──
+        # ── Step 5: Save segments + measure durations ──
         await status("🎵 Финальное сведение...")
         seg_files = []
-        seg_durations = []  # duration of each segment in seconds
-        seg_indices = []    # original segment index
-
-        seg_char_ids = []  # character_id for each saved segment (for pause logic)
+        seg_durations = []
+        seg_char_ids = []
 
         for i, audio in enumerate(audio_chunks):
             if audio is None:
@@ -165,10 +135,8 @@ async def generate_fairytale(
             seg_path = segments_dir / f"seg_{i:02d}.mp3"
             seg_path.write_bytes(audio)
             seg_files.append(seg_path)
-            seg_indices.append(i)
             seg_char_ids.append(segments[i]["character_id"])
 
-        # Measure each segment duration for scene timecodes
         for seg_path in seg_files:
             dur = await get_duration(seg_path)
             seg_durations.append(dur)
@@ -200,7 +168,7 @@ async def generate_fairytale(
 
         duration = await get_duration(final_path)
 
-        # ── Notify: audio is ready, deliver MP3 immediately ──
+        # ── Notify: audio is ready ──
         if on_audio_ready:
             await on_audio_ready({
                 "title": title,
@@ -208,12 +176,56 @@ async def generate_fairytale(
                 "duration": duration,
                 "segments_count": len(seg_files),
             })
-        audio_ready_event.set()
 
-        # ── Step 7: Wait for illustrations ──
+        # ── Step 7: Build timeline with real timecodes ──
+        # Calculate cumulative time including pauses
+        from db.config_manager import cfg
+        short_pause = await cfg.get("audio.short_pause_sec", 0.7)
+        long_pause = await cfg.get("audio.long_pause_sec", 1.3)
+
+        timeline_entries = []
+        cumulative = 0.0
+        char_names = {c["id"]: c["name"] for c in screenplay["characters"]}
+        for i, (seg, dur) in enumerate(zip(segments, seg_durations)):
+            if i < len(seg_durations):
+                speaker = char_names.get(seg.get("character_id", ""), "?")
+                raw_text = seg.get("text", "")
+                import re
+                clean = re.sub(r'\[[\w\s]+\]', '', raw_text).strip()
+                timeline_entries.append(f"[{i}] ({speaker}) {clean} [at {cumulative:.1f}s, dur {dur:.1f}s]")
+                cumulative += dur
+                # Add pause
+                if i < len(seg_durations) - 1:
+                    next_char = segments[i + 1]["character_id"] if i + 1 < len(segments) else None
+                    pause = long_pause if next_char != seg.get("character_id") else short_pause
+                    cumulative += pause
+
+        timeline_text = "\n".join(timeline_entries)
+        logger.info("Timeline built: %d entries, total %.1fs (audio: %.1fs)", len(timeline_entries), cumulative, duration)
+
+        # ── Step 8: Scene split with timeline → Illustrations ──
+        await status("🎨 Рисую иллюстрации...")
+        illustration_paths: list[str] = []
+        scene_durations_list: list[float] = []
         result_scenes = []
+
         try:
-            img_results, result_scenes = await asyncio.wait_for(img_task, timeout=600)  # 10 min
+            img_results, result_scenes = await asyncio.wait_for(
+                generate_illustrations_batch(
+                    screenplay=screenplay,
+                    reference_photo_b64=reference_photo_b64,
+                    reference_photos=reference_photos,
+                    on_progress=status,
+                    story_id=story_id,
+                    timeline_text=timeline_text,
+                ),
+                timeout=600,  # 10 min
+            )
+            for i, img_bytes in enumerate(img_results):
+                if img_bytes:
+                    img_path = illustrations_dir / f"scene_{i + 1}.png"
+                    img_path.write_bytes(img_bytes)
+                    illustration_paths.append(str(img_path))
             logger.info("Illustrations: %d/%d saved", len(illustration_paths), len(img_results))
         except asyncio.TimeoutError:
             logger.warning("Illustrations timed out (>10 min), continuing without them")
@@ -222,55 +234,52 @@ async def generate_fairytale(
 
         logger.info("Fairy tale audio complete: '%s', %.1fs, %d illustrations", title, duration, len(illustration_paths))
 
-        # ── Step 8: Create MP4 video with scene-synced timecodes ──
+        # ── Step 9: Create MP4 video with scene-synced timecodes ──
         video_path = None
         if illustration_paths:
             await status("🎬 Собираю видео...")
             mp4_path = work_dir / "fairytale.mp4"
 
-            # Calculate per-scene durations from segment timecodes
             n_scenes = len(illustration_paths)
-            n_segs = len(seg_durations)
-
-            # Try to use segment_start/segment_end from scene split
             scene_data = result_scenes
-            has_segment_ranges = (
+
+            # Calculate scene durations using timeline cumulative times
+            has_ranges = (
                 scene_data
                 and len(scene_data) >= n_scenes
                 and all("segment_start" in s and "segment_end" in s for s in scene_data[:n_scenes])
             )
 
-            if has_segment_ranges:
-                valid_ranges = True
+            if has_ranges:
+                # Calculate real duration per scene including pauses
                 for sc_idx in range(n_scenes):
                     s_start = int(scene_data[sc_idx].get("segment_start", 0))
-                    s_end = int(scene_data[sc_idx].get("segment_end", n_segs))
-                    # Validate: must be within bounds and non-empty
-                    if not (0 <= s_start < s_end <= n_segs):
-                        logger.warning("Invalid segment range for scene %d: [%d, %d) (n_segs=%d)",
-                                       sc_idx, s_start, s_end, n_segs)
-                        valid_ranges = False
-                        break
-                    scene_dur = sum(seg_durations[s_start:s_end])
-                    scene_durations_list.append(scene_dur)
+                    s_end = int(scene_data[sc_idx].get("segment_end", len(seg_durations)))
+                    s_start = max(0, min(s_start, len(seg_durations)))
+                    s_end = max(s_start, min(s_end, len(seg_durations)))
 
-                if not valid_ranges:
-                    scene_durations_list.clear()
-                    has_segment_ranges = False
-                else:
-                    # Ensure total scene duration matches REAL audio duration (includes pauses + ambient tail)
-                    total_scene_dur = sum(scene_durations_list)
-                    total_audio_dur = duration  # real duration of final.mp3
-                    if total_scene_dur < total_audio_dur and scene_durations_list:
-                        gap = total_audio_dur - total_scene_dur
-                        scene_durations_list[-1] += gap
-                        logger.info("Added %.1fs gap to last scene (LLM didn't cover all segments)", gap)
-                    logger.info("Using LLM segment ranges for scene timecodes")
+                    # Sum segment durations + pauses between them
+                    scene_dur = 0.0
+                    for si in range(s_start, s_end):
+                        if si < len(seg_durations):
+                            scene_dur += seg_durations[si]
+                        # Add pause after each segment (except last in scene)
+                        if si < s_end - 1 and si < len(seg_char_ids) - 1:
+                            next_char = seg_char_ids[si + 1] if si + 1 < len(seg_char_ids) else None
+                            scene_dur += long_pause if next_char != seg_char_ids[si] else short_pause
+                    scene_durations_list.append(max(scene_dur, 1.0))
+
+                # Ensure total matches audio
+                total = sum(scene_durations_list)
+                if total < duration and scene_durations_list:
+                    scene_durations_list[-1] += duration - total
+                logger.info("Scene timecodes (with pauses): %s (total: %.1fs, audio: %.1fs)",
+                            [f"{d:.1f}" for d in scene_durations_list], sum(scene_durations_list), duration)
             else:
-                # Fallback: distribute audio duration evenly across scenes
+                # Fallback: distribute evenly
                 per_scene = duration / n_scenes
                 scene_durations_list = [per_scene] * n_scenes
-                logger.info("Using even distribution for scene timecodes (no segment ranges)")
+                logger.info("Even distribution: %.1fs per scene", per_scene)
 
             logger.info("Scene timecodes: %s (total: %.1fs)", scene_durations_list, sum(scene_durations_list))
 

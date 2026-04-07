@@ -84,24 +84,26 @@ SCENE_SPLIT_PROMPT = """\
 """
 
 
-async def split_into_scenes(screenplay: dict, story_id: int = None) -> list[dict]:
+async def split_into_scenes(screenplay: dict, story_id: int = None,
+                            timeline_text: str | None = None) -> list[dict]:
     """Split screenplay into 7-8 key visual scenes for illustration."""
     title = screenplay["title"]
     characters = ", ".join(c["name"] for c in screenplay["characters"] if c["id"] != "narrator")
 
-    # Build numbered story text (segment indices for scene mapping)
-    # Build character name lookup
-    char_names = {c["id"]: c["name"] for c in screenplay.get("characters", [])}
-
-    story_lines = []
-    for idx, seg in enumerate(screenplay["segments"]):
-        raw = seg["text"]
-        clean = re.sub(r'\[[\w\s]+\]', '', raw).strip()
-        clean = re.sub(r'\s{2,}', ' ', clean)
-        if clean:
-            speaker = char_names.get(seg.get("character_id", ""), "?")
-            story_lines.append(f"[{idx}] ({speaker}) {clean}")
-    story_text = "\n".join(story_lines)
+    # Use timeline with real timecodes if available, otherwise build from text
+    if timeline_text:
+        story_text = timeline_text
+    else:
+        char_names = {c["id"]: c["name"] for c in screenplay.get("characters", [])}
+        story_lines = []
+        for idx, seg in enumerate(screenplay["segments"]):
+            raw = seg["text"]
+            clean = re.sub(r'\[[\w\s]+\]', '', raw).strip()
+            clean = re.sub(r'\s{2,}', ' ', clean)
+            if clean:
+                speaker = char_names.get(seg.get("character_id", ""), "?")
+                story_lines.append(f"[{idx}] ({speaker}) {clean}")
+        story_text = "\n".join(story_lines)
 
     from db.config_manager import cfg
     scene_split_prompt = await cfg.get("prompt.scene_split", SCENE_SPLIT_PROMPT)
@@ -530,6 +532,7 @@ async def generate_illustrations_batch(
     on_progress=None,
     story_id: int = None,
     on_illustration_ready: Callable[[int, bytes], Awaitable[None]] | None = None,
+    timeline_text: str | None = None,
 ) -> list[bytes]:
     """Generate all Pixar-style illustrations for a fairy tale.
 
@@ -539,8 +542,9 @@ async def generate_illustrations_batch(
 
     Returns list of PNG bytes (may contain None for failed scenes).
     """
-    # Step 1: Split into scenes
-    scenes, character_appearances = await split_into_scenes(screenplay, story_id=story_id)
+    # Step 1: Split into scenes (with timeline if available)
+    scenes, character_appearances = await split_into_scenes(
+        screenplay, story_id=story_id, timeline_text=timeline_text)
 
     title = screenplay["title"]
     characters_desc = ", ".join(
