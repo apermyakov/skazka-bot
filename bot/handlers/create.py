@@ -708,12 +708,18 @@ async def _start_generation(message: types.Message, state: FSMContext):
 
         await message.answer("Как вам сказка?", reply_markup=feedback())
 
-        # Notify admin
+        # Notify admin with media links
+        order_id = result.get("order_id", "")
+        base_url = await cfg.get("media_base_url", "http://95.216.117.49/media")
+        v_url = f"{base_url}/{order_id}/fairytale.mp4" if result.get("video_path") else None
+        a_url = f"{base_url}/{order_id}/final.mp3"
         fire(notify_story_complete(
             user_id=message.chat.id,
             username=message.chat.username if hasattr(message.chat, 'username') else None,
             title=result.get("title"),
             duration=result.get("duration"),
+            video_url=v_url,
+            audio_url=a_url,
         ))
 
     except Exception as e:

@@ -65,8 +65,15 @@ async def notify_story_complete(
     username: str = None,
     title: str = None,
     duration: float = None,
+    video_url: str = None,
+    audio_url: str = None,
 ):
-    """Notify admin about completed story."""
+    """Notify admin about completed story with media links."""
     name = f"@{username}" if username else str(user_id)
     dur = f"{int(duration)//60}:{int(duration)%60:02d}" if duration else "?"
-    await notify_admin(f"✅ Сказка готова: «{title}» ({dur}) — {name}")
+    parts = [f"✅ «{title}» ({dur}) — {name}"]
+    if video_url:
+        parts.append(f"🎬 <a href=\"{video_url}\">Видео</a>")
+    if audio_url:
+        parts.append(f"🎧 <a href=\"{audio_url}\">Аудио</a>")
+    await notify_admin("\n".join(parts))
