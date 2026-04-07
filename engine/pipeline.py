@@ -251,12 +251,34 @@ async def generate_fairytale(
             )
 
             if has_ranges:
-                # Calculate real duration per scene including pauses
+                # Normalize ranges: force continuous coverage [0 → n_segs]
+                n_segs = len(seg_durations)
+                raw_ranges = []
                 for sc_idx in range(n_scenes):
                     s_start = int(scene_data[sc_idx].get("segment_start", 0))
-                    s_end = int(scene_data[sc_idx].get("segment_end", len(seg_durations)))
-                    s_start = max(0, min(s_start, len(seg_durations)))
-                    s_end = max(s_start, min(s_end, len(seg_durations)))
+                    s_end = int(scene_data[sc_idx].get("segment_end", n_segs))
+                    raw_ranges.append((s_start, s_end))
+
+                # Fix: make ranges continuous — each starts where previous ended
+                fixed_ranges = []
+                for sc_idx in range(n_scenes):
+                    if sc_idx == 0:
+                        s_start = 0
+                    else:
+                        s_start = fixed_ranges[-1][1]  # prev end
+                    if sc_idx == n_scenes - 1:
+                        s_end = n_segs
+                    else:
+                        s_end = raw_ranges[sc_idx][1]
+                        s_end = max(s_end, s_start + 1)  # at least 1 segment
+                    s_start = max(0, min(s_start, n_segs))
+                    s_end = max(s_start + 1, min(s_end, n_segs))
+                    fixed_ranges.append((s_start, s_end))
+                logger.info("Scene ranges: raw=%s, fixed=%s", raw_ranges, fixed_ranges)
+
+                # Calculate real duration per scene including pauses
+                for sc_idx in range(n_scenes):
+                    s_start, s_end = fixed_ranges[sc_idx]
 
                     # Sum segment durations + pauses between them
                     scene_dur = 0.0
