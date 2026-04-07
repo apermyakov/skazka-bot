@@ -475,31 +475,43 @@ async def generate_illustration(
     # Previous illustration reference disabled — causes composition copying
     # Relying on character bible text instead for consistency
 
-    face_suffix = ""
-    if photo_content:
-        if len(photo_content) > 1:
-            face_suffix = (
-                f"Reference: {len(photo_content)} photos of the same child from different angles. "
-                "The main child character MUST closely match this child: "
-                "same face shape, hair color, hair style, eye color, skin tone. "
-                "Study ALL reference photos carefully to capture the child's true appearance."
-            )
-        else:
-            face_suffix = (
-                "The main child character MUST closely match the child in the reference photo: "
-                "same face shape, hair color, hair style, eye color, skin tone."
-            )
-
     from db.config_manager import cfg
     style_block = await cfg.get("prompt.style_pixar", STYLE_PIXAR)
 
-    prompt = _build_scene_prompt(
-        scene, scene_index, total_scenes, fairy_tale_title, characters_desc,
-        character_appearances or {},
-        previous_scene_desc, style_block,
-        f"Pixar-style 3D render. {face_suffix}",
-    )
-    content = [{"type": "text", "text": prompt}] + photo_content
+    if photo_content:
+        # Photo-first approach: "transform THIS child into Pixar character in this scene"
+        appearance_block = ""
+        appearance_lines = []
+        for char_name in scene.get("characters_present", []):
+            desc = (character_appearances or {}).get(char_name, "")
+            if desc:
+                appearance_lines.append(f"  - {char_name}: {desc}")
+        if appearance_lines:
+            appearance_block = "Characters:\n" + "\n".join(appearance_lines)
+
+        prompt = (
+            f"Create a Pixar-style 3D cartoon illustration for a children's fairy tale scene. "
+            f"The child in the attached photo is the MAIN CHARACTER — keep them RECOGNIZABLE. "
+            f"Same face shape, same hair color, same hair style, same eye color. "
+            f"The child and their parents must immediately recognize them in the illustration.\n\n"
+            f"Scene: {scene.get('description', '')}\n"
+            f"Setting: {scene.get('setting', 'forest')}\n"
+            f"Mood: {scene.get('mood', 'magical')}\n"
+            f"{appearance_block}\n\n"
+            f"{style_block}\n\n"
+            f"Wide landscape 16:9. Output ONLY the image. No text or words anywhere."
+        )
+        # Photo FIRST, then text — model transforms the photo
+        content = photo_content + [{"type": "text", "text": prompt}]
+    else:
+        # No photo — use character bible only
+        prompt = _build_scene_prompt(
+            scene, scene_index, total_scenes, fairy_tale_title, characters_desc,
+            character_appearances or {},
+            previous_scene_desc, style_block,
+            "Pixar-style 3D render.",
+        )
+        content = [{"type": "text", "text": prompt}]
 
     img_bytes = await _call_image_api(content, scene_index, "pixar", story_id=story_id)
 
