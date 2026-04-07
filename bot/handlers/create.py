@@ -231,13 +231,17 @@ async def on_change_topic(callback: types.CallbackQuery, state: FSMContext):
 @router.message(CreateFairyTale.confirming_input, F.text | F.voice)
 async def on_replace_input(message: types.Message, state: FSMContext, bot: Bot):
     """User sends new text/voice while confirming — replaces previous input."""
+    if await _guard(state):
+        return
     text, was_voice = await _get_text(message, bot)
     if text is None:
+        await state.update_data(_busy=False)
         return
     if len(text) < 10:
+        await state.update_data(_busy=False)
         await message.answer("Расскажите чуть подробнее — хотя бы имя ребёнка и тему.")
         return
-    await state.update_data(context=text, was_voice=was_voice)
+    await state.update_data(context=text, was_voice=was_voice, _busy=False)
     if was_voice:
         await message.answer(
             f"🎤 <b>Вот что я услышал:</b>\n\n<i>{text[:500]}</i>\n\nВсё верно?",
@@ -350,8 +354,11 @@ async def on_edit(callback: types.CallbackQuery, state: FSMContext):
 @router.message(CreateFairyTale.reviewing_story, F.text | F.voice)
 async def on_direct_edit(message: types.Message, state: FSMContext, bot: Bot):
     """User sends text/voice while reviewing story — treat as edit request."""
+    if await _guard(state):
+        return
     edit_text, was_voice = await _get_text(message, bot)
     if edit_text is None:
+        await state.update_data(_busy=False)
         return
 
     # Show what was recognized from voice
@@ -378,8 +385,10 @@ async def on_direct_edit(message: types.Message, state: FSMContext, bot: Bot):
             fire(update_story(story_id, title=screenplay.get("title"),
                               screenplay_json=json.dumps(screenplay, ensure_ascii=False)))
         await status.delete()
+        await state.update_data(_busy=False)
         await _show_story(message, state, screenplay)
     except Exception as e:
+        await state.update_data(_busy=False)
         logger.error("Direct edit failed: %s", e, exc_info=True)
         if story_id:
             fire(log_error(story_id=story_id, phase="edit",
