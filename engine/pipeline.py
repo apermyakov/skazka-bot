@@ -258,22 +258,18 @@ async def generate_fairytale(
                     scene_durations_list.clear()
                     has_segment_ranges = False
                 else:
-                    # Ensure total scene duration matches audio duration
+                    # Ensure total scene duration matches REAL audio duration (includes pauses + ambient tail)
                     total_scene_dur = sum(scene_durations_list)
-                    total_audio_dur = sum(seg_durations)
+                    total_audio_dur = duration  # real duration of final.mp3
                     if total_scene_dur < total_audio_dur and scene_durations_list:
                         gap = total_audio_dur - total_scene_dur
                         scene_durations_list[-1] += gap
                         logger.info("Added %.1fs gap to last scene (LLM didn't cover all segments)", gap)
                     logger.info("Using LLM segment ranges for scene timecodes")
             else:
-                # Fallback: distribute evenly
-                segs_per_scene = max(1, n_segs // n_scenes)
-                for sc_idx in range(n_scenes):
-                    start = sc_idx * segs_per_scene
-                    end = (sc_idx + 1) * segs_per_scene if sc_idx < n_scenes - 1 else n_segs
-                    scene_dur = sum(seg_durations[start:end])
-                    scene_durations_list.append(scene_dur)
+                # Fallback: distribute audio duration evenly across scenes
+                per_scene = duration / n_scenes
+                scene_durations_list = [per_scene] * n_scenes
                 logger.info("Using even distribution for scene timecodes (no segment ranges)")
 
             logger.info("Scene timecodes: %s (total: %.1fs)", scene_durations_list, sum(scene_durations_list))
