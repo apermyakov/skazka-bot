@@ -152,12 +152,30 @@ async def generate_screenplay(context: str, story_id: int = None) -> dict:
         raise ValueError("Screenplay must have a 'narrator' character")
 
     # Validate segments
-    for i, seg in enumerate(screenplay["segments"]):
+    import re as _re
+    new_segs = []
+    for seg in screenplay["segments"]:
         if seg["character_id"] not in char_ids:
-            raise ValueError(f"Segment {i} references unknown character: {seg['character_id']}")
-        if len(seg["text"]) > 250:
-            # Truncate overly long segments
-            seg["text"] = seg["text"][:247] + "..."
+            raise ValueError(f"Segment references unknown character: {seg['character_id']}")
+        text = seg.get("text", "")
+        if len(text) <= 250:
+            new_segs.append(seg)
+        else:
+            sentences = _re.split(r'(?<=[.!?])\s+', text)
+            current = ""
+            for s in sentences:
+                if len(current) + len(s) + 1 > 250 and current:
+                    new_seg = dict(seg)
+                    new_seg["text"] = current.strip()
+                    new_segs.append(new_seg)
+                    current = s
+                else:
+                    current = (current + " " + s).strip() if current else s
+            if current.strip():
+                new_seg = dict(seg)
+                new_seg["text"] = current.strip()
+                new_segs.append(new_seg)
+    screenplay["segments"] = new_segs
 
     logger.info(
         "Screenplay generated: '%s', %d characters, %d segments",
@@ -267,11 +285,32 @@ async def convert_to_screenplay(title: str, text: str, story_id: int = None) -> 
         logger.warning("Screenplay has %d segments, truncating to 60", len(screenplay["segments"]))
         screenplay["segments"] = screenplay["segments"][:60]
 
-    for i, seg in enumerate(screenplay["segments"]):
+    # Split long segments by sentence boundaries instead of truncating
+    new_segments = []
+    for seg in screenplay["segments"]:
         if seg.get("character_id") not in char_ids:
-            seg["character_id"] = "narrator"  # fallback instead of crash
-        if len(seg.get("text", "")) > 250:
-            seg["text"] = seg["text"][:247] + "..."
+            seg["character_id"] = "narrator"
+        text = seg.get("text", "")
+        if len(text) <= 250:
+            new_segments.append(seg)
+        else:
+            # Split by sentence boundaries
+            import re as _re
+            sentences = _re.split(r'(?<=[.!?])\s+', text)
+            current = ""
+            for sentence in sentences:
+                if len(current) + len(sentence) + 1 > 250 and current:
+                    new_seg = dict(seg)
+                    new_seg["text"] = current.strip()
+                    new_segments.append(new_seg)
+                    current = sentence
+                else:
+                    current = (current + " " + sentence).strip() if current else sentence
+            if current.strip():
+                new_seg = dict(seg)
+                new_seg["text"] = current.strip()
+                new_segments.append(new_seg)
+    screenplay["segments"] = new_segments
 
     logger.info("Screenplay converted: '%s', %d characters, %d segments",
                 screenplay["title"], len(screenplay["characters"]), len(screenplay["segments"]))
