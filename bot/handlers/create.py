@@ -10,6 +10,7 @@ import traceback as tb_mod
 from io import BytesIO
 
 from aiogram import Router, types, F, Bot
+from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile
 
@@ -113,7 +114,27 @@ async def _ensure_user(user: types.User) -> int | None:
     )
 
 
-# ── 1. "Создать сказку" ──
+# ── 1. "Создать сказку" (кнопка или /new) ──
+@router.message(Command("new"))
+async def cmd_new(message: types.Message, state: FSMContext):
+    """Slash command to start a new story."""
+    await state.clear()
+    fire(_ensure_user(message.from_user))
+    await message.answer(
+        "📖 <b>Расскажите мне всё для сказки!</b>\n\n"
+        "Отправьте <b>одно сообщение</b> (текстом или голосом):\n\n"
+        "🧒 <b>Кто ваш ребёнок?</b> Имя, возраст\n"
+        "❤️ <b>Что любит?</b> Увлечения, любимые игрушки\n"
+        "😨 <b>Чего боится?</b> (если хотите, чтобы сказка помогла)\n"
+        "💬 <b>Любимые фразы?</b>\n"
+        "📖 <b>Тема или сюжет?</b> (необязательно)\n\n"
+        "<i>Например: «Мой сын Даня, 5 лет, обожает динозавров и космос. "
+        "Боится темноты. Сделай сказку про динозавра в космосе.»</i>",
+        parse_mode="HTML",
+    )
+    await state.set_state(CreateFairyTale.waiting_topic)
+
+
 @router.callback_query(F.data == "create")
 async def on_create(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
