@@ -273,14 +273,42 @@ async def log_api_call(story_id: int = None, service: str = "", model: str = Non
                        tokens_out: int = None, error: str = None):
     if not _pool:
         return
+
+    # Calculate cost
+    cost_usd = None
+    try:
+        from db.config_manager import cfg
+        if service == "openrouter" and purpose == "illustration":
+            cost_usd = await cfg.get("pricing.openrouter.image_per_call", 0.03)
+        elif service == "openrouter" and tokens_in is not None:
+            input_price = await cfg.get("pricing.openrouter.input_per_mtok", 0.15)
+            output_price = await cfg.get("pricing.openrouter.output_per_mtok", 0.60)
+            cost_usd = (tokens_in or 0) / 1_000_000 * input_price + (tokens_out or 0) / 1_000_000 * output_price
+        elif service == "elevenlabs" and input_chars:
+            price_per_1k = await cfg.get("pricing.elevenlabs.per_1k_chars", 0.044)
+            cost_usd = input_chars / 1000 * price_per_1k
+    except Exception:
+        pass
+
     async with _pool.acquire() as conn:
         await conn.execute("""
             INSERT INTO api_calls
                 (story_id, service, model, purpose, status, duration_ms,
-                 request_text, response_text, input_chars, tokens_in, tokens_out, error)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                 request_text, response_text, input_chars, tokens_in, tokens_out, error, cost_usd)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         """, story_id, service, model, purpose, status, duration_ms,
-             request_text, response_text, input_chars, tokens_in, tokens_out, error)
+             request_text, response_text, input_chars, tokens_in, tokens_out, error, cost_usd)
+
+    # Update story total cost
+    if story_id and cost_usd and cost_usd > 0:
+        try:
+            async with _pool.acquire() as conn:
+                await conn.execute("""
+                    UPDATE stories SET total_cost_usd = COALESCE(total_cost_usd, 0) + $1
+                    WHERE id = $2
+                """, cost_usd, story_id)
+        except Exception:
+            pass
 
 
 # ── Media files ──
