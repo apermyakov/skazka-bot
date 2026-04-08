@@ -1,156 +1,158 @@
 # Skazka Bot
 
-Telegram-бот для генерации персонализированных аудиосказок с иллюстрациями.
+Telegram-бот для генерации персонализированных аудиосказок с иллюстрациями и видео.
 
 ## Архитектура
 
 ```
-Telegram (aiogram3) → LLM сценарий → Voice assignment → ElevenLabs TTS → ffmpeg mix
-                                                        → Gemini Flash Image (иллюстрации)
-                                                        ↓
-                                          Доставка: MP3 → картинки по одной → MP4 (Ken Burns)
+Telegram (aiogram3) → LLM текст сказки → LLM screenplay JSON → Voice assignment
+                        → ElevenLabs TTS → ffmpeg concat + ambient
+                        → LLM scene split (с таймкодами) → Gemini Pro Image (иллюстрации)
+                        → ffmpeg video (24fps, crop-to-fill)
+                        → Доставка: MP4 видео (или MP3 + ссылка если >50MB)
 ```
 
-Ключевые модули:
-- `bot/` — Telegram handlers, FSM, keyboards
-- `bot/handlers/create.py` — основной флоу создания сказки, callback-доставка
-- `engine/pipeline.py` — оркестрация: TTS + картинки параллельно, callbacks
-- `engine/image_generator.py` — Pixar-стиль иллюстрации через Gemini 2.5 Flash Image
-- `engine/voice_pool.py` — ~58 голосов ElevenLabs, scoring по gender/age/role/tone
-- `engine/tts_client.py` — ElevenLabs TTS с батчингом
-- `engine/audio_mixer.py` — ffmpeg: concat сегментов, амбиент, MP4 видео с Ken Burns анимацией
-- `engine/llm_client.py` — генерация сценария через Gemini 2.5 Pro
-- `engine/story_parser.py` — аудио-теги ElevenLabs v3 для TTS, маппинг амбиентов
-- `engine/transcribe.py` — голосовой ввод через Gemini Flash
-- `assets/ambient_sounds/` — 4 фоновых звука (forest, cave, stream, night)
+## Структура файлов
 
-## API и ключи (.env)
+```
+bot/
+  __main__.py              — Entry point, DB/config init, router registration
+  config.py                — Pydantic settings from .env
+  notify.py                — Admin notifications (errors, new users, completed stories)
+  states/create.py         — FSM state definitions
+  keyboards/inline.py      — Inline keyboard builders
+  handlers/
+    utils.py               — Shared helpers (_guard, _msg, _get_text, _show_story, etc.)
+    create.py              — Entry points: /new, on_create, on_input
+    compose.py             — Story composition: compose, edit, regenerate
+    generate.py            — Generation pipeline: photo, TTS, illustrations, video, feedback
+    start.py               — /start, /cancel, /reload commands
 
-| Сервис | Переменная | Модель | Для чего |
-|--------|-----------|--------|----------|
-| Telegram | BOT_TOKEN | — | @SkazikBot |
-| OpenRouter | OPENROUTER_API_KEY | `google/gemini-2.5-pro-preview-03-25` | Сценарий + разбивка на сцены |
-| OpenRouter | (тот же ключ) | `google/gemini-2.5-flash-image` | Иллюстрации (Pixar-стиль) |
-| OpenRouter | (тот же ключ) | `google/gemini-2.5-flash` | Транскрипция голосовых |
-| ElevenLabs | ELEVENLABS_API_KEY | v3 API (`eleven_v3`) | TTS, ~58 голосов. План Pro, 500K символов/мес |
-| ElevenLabs | ELEVENLABS_PROXY | — | SOCKS5 прокси (гео-блок из РФ) |
+engine/
+  pipeline.py              — Main orchestration: TTS → timeline → scene split → illustrations → video
+  llm_client.py            — generate_story_text(), convert_to_screenplay(), generate_screenplay()
+  tts_client.py            — ElevenLabs TTS batch synthesis
+  image_generator.py       — Scene split + Pixar illustration generation
+  audio_mixer.py           — FFmpeg: concat, ambient mix, video creation
+  voice_pool.py            — 58 voices + scoring algorithm
+  story_parser.py          — Audio tags, ambient mapping
+  transcribe.py            — Voice message transcription
+  http_session.py          — Shared aiohttp session
 
-## Ограничения
+db/
+  database.py              — PostgreSQL schema + async CRUD (8 tables)
+  config_manager.py        — Dynamic config with 30s TTL cache (79 keys)
 
-- ElevenLabs v3: max 3000 символов/запрос, мы шлём по ~250 символов (1 сегмент = 1 голос, лимит `segment_char_limit=250`)
-- Gemini 2.5 Flash Image: ~10-15 сек на картинку
-- MAX_CONCURRENT_TTS=10 (Pro план ElevenLabs)
-- Сказка = ~20 сегментов, ~2700 символов, ~3 мин аудио, 7-8 иллюстраций
-- Общее время генерации: ~3-5 мин (TTS ~30с, картинки ~100с, видео ~40с)
+assets/ambient_sounds/     — 16 ambient MP3 files
+```
+
+## Двухшаговая генерация
+
+1. **Шаг 1** — LLM пишет plain text сказки (быстро) → показываем пользователю → правки
+2. **Шаг 2** — "Озвучить" → конвертация в screenplay JSON → TTS → illustrations → video
+
+## Pipeline (post-TTS scene split)
+
+1. Convert text → screenplay JSON (characters, segments, emotions, audio tags)
+2. Voice assignment (58 voices, scoring по gender/age/role/tone)
+3. TTS generation (ElevenLabs v3, 10 concurrent)
+4. Concat segments + pauses (0.7с/1.3с) + ambient mix (16 sounds)
+5. Build timeline с реальными таймкодами (cumulative seconds)
+6. Scene split (LLM видит таймкоды → точная привязка иллюстраций к аудио)
+7. Illustrations (Gemini 3 Pro Image, photo-first подход, character bible, полный текст сцены)
+8. Video (24fps, keyframes every 2s, crop-to-fill 1920×1080)
+
+## API и модели (.env + DB config)
+
+| Сервис | Модель (из DB config) | Для чего |
+|--------|----------------------|----------|
+| OpenRouter | `model.llm` (Grok 4.1 Fast) | Текст сказки + screenplay convert + scene split |
+| OpenRouter | `model.image` (Gemini 3 Pro Image) | Иллюстрации (Pixar-стиль) |
+| OpenRouter | `model.transcribe` (Gemini 2.5 Flash) | Транскрипция голосовых |
+| ElevenLabs | `model.tts` (eleven_v3) | TTS, 58 голосов, Pro план |
+
+Все модели и параметры меняются через DB config без деплоя.
 
 ## Пользовательский флоу
 
-1. `/start` → «Создать сказку»
-2. Голос/текст — всё о ребёнке одним сообщением
-3. Подтверждение ввода → «Сочинить сказку»
-4. Текст сказки → «Озвучить» / «Изменить» / «Заново»
-5. Запрос фото ребёнка (или пропуск). Фото может содержать родителей — промпт инструктирует модель выбрать ребёнка
-6. Генерация: TTS + картинки параллельно
-7. Доставка потоковая:
-   - MP3 отправляется сразу после сведения (callback `on_audio_ready`)
-   - Картинки приходят по одной по мере генерации (callback `on_illustration_ready`)
-   - `asyncio.Event` гарантирует: картинки только ПОСЛЕ MP3
-   - MP4 видео с Ken Burns анимацией в конце
-8. Фидбек → «Создать ещё»
+1. `/start` или `/new` → инструкция
+2. Текст → сразу генерация сказки (без подтверждения)
+3. Голос → транскрипция → "Вот что я услышал" → подтверждение
+4. Текст сказки → кнопка "Озвучить" (правки — просто отправить текст/голос)
+5. Запрос фото ребёнка (одно) или "Озвучить без фото"
+6. Генерация: стикер + статус → TTS → illustrations → video
+7. MP4 видео → "Как вам сказка?" → фидбек
+8. `/cancel` — отмена на любом этапе
 
-FSM-состояния: `waiting_topic` → `confirming_input` → `reviewing_story` → `waiting_edits` → `waiting_photo` → `generating`
+## База данных (PostgreSQL)
 
-## Pipeline: callback-архитектура
+8 таблиц:
+- `users` — Telegram пользователи
+- `stories` — сказки (title, context, duration, cost, status)
+- `story_revisions` — правки (edit/regenerate с текстом)
+- `voice_assignments` — назначения голосов
+- `api_calls` — все API вызовы (request/response text, duration, cost_usd)
+- `media_files` — медиафайлы с public URLs (audio, video, illustrations)
+- `errors` — ошибки с traceback
+- `config` — 79 динамических ключей (промпты, модели, параметры, сообщения)
 
-```python
-generate_fairytale(
-    context, screenplay, reference_photo_b64,
-    on_status,              # str → обновление статус-сообщения
-    on_audio_ready,         # dict → MP3 готов, отправить пользователю
-    on_illustration_ready,  # (idx, path) → картинка готова, отправить
-)
-```
+## Динамический конфиг (config table)
 
-TTS и иллюстрации запускаются параллельно (`asyncio.create_task`).
-`audio_ready_event = asyncio.Event()` предотвращает отправку картинок до MP3.
+79 ключей в категориях: prompt, model, llm, tts, audio, video, voice, ui, msg, pricing.
+TTL кэша: 30 секунд. `/reload` — мгновенное обновление.
+Все системные сообщения бота — в категории `msg.*` (30 ключей).
 
-## Иллюстрации
+## Admin функции
 
-- Модель: `google/gemini-2.5-flash-image` (через OpenRouter)
-- Стиль: Pixar 3D (16:9, 2K)
-- 7-8 сцен на сказку, генерируются последовательно (для визуальной консистентности)
-- `character_appearances` — LLM описывает внешность каждого персонажа один раз,
-  затем описание инжектится в промпт КАЖДОЙ сцены (чтобы кот не менял цвет)
-- Промпт включает: антидупликацию животных, continuity с предыдущей сценой
-- Фото ребёнка: промпт умеет выбирать ребёнка из групповых фото (игнорирует взрослых)
-- Graceful degradation: если картинки упали — отдаём MP3 без них
-- Видео: Ken Burns анимация (6 паттернов zoom/pan чередуются по сценам)
-- Scene split: до 5 retry при обрезанном JSON, авто-починка незакрытых скобок
+- `/reload` — перечитать конфиг из DB
+- Уведомления в Telegram: 👋 новый юзер, ✅ готовая сказка (с ссылками), 🚨 ошибки (с traceback)
+- Rate limit: 5 сказок/час/юзер
+- Медиафайлы по HTTP: `http://95.216.117.49/media/{order_id}/`
 
-## Voice Pool
+## Валидация (v1.1)
 
-~58 голосов в `engine/voice_pool.py`:
-- 20 русскоязычных женских (narrator, hero, magical, comic, deep, elderly)
-- 18 русскоязычных мужских (narrator, hero, villain, comic, elderly)
-- 15 character/animation голосов (child, animal, magical, gruff, squeaky)
-- 5 женских villain/special
+- Текст: max 2000 символов
+- Голос: max 60 секунд
+- Фото: max 10MB, только JPEG/PNG
+- LLM output: title 200, story 15000, segments max 60
+- Длинные сегменты разбиваются по предложениям (не обрезаются)
+- HTML escaping для всего текста из LLM
+- Таймауты: TTS 5мин, illustrations 10мин
+- Double-click protection (_guard)
+- /start блокируется во время генерации
 
-Автоматический подбор через scoring: gender × age × role × tone × priority.
+## Стоимость (из DB api_calls)
 
-Scoring-правила:
-- `_AGE_SCORE`: таблица совместимости возрастов (child→child=1.0, child→young=0.8, child→middle=0.2)
-- `_ROLE_TONE_SCORE`: таблица совместимости ролей и тонов (villain→deep=1.0, comic→bright=1.0)
-- `role_bonus`: +0.3 если роль в `best_for` голоса
-- `priority`: 1.3× для проверенных best-in-class голосов (★)
-- Для `age: "child"`: ×0.2 штраф за deep/authoritative, ×1.3 бонус за bright/soft/squeaky
-- Для `role: "animal"`: ×1.3 бонус за squeaky/gruff/raspy
-- Уже использованные голоса: ×0.5 (разнообразие)
+- LLM (Grok): ~$0.002/сказка
+- TTS (ElevenLabs): ~$0.10/сказка
+- Иллюстрации (Gemini Pro Image × 4): ~$0.12/сказка
+- **Итого: ~$0.22-0.25/сказка**
 
-TTS-параметры по умолчанию: stability=0.45, similarity=0.80, style=0.25.
-
-## Команды
+## Команды деплоя
 
 ```bash
-# Локально
-cd skazka_bot && python -m bot
-
-# Деплой (сервер 95.216.117.49, Docker)
 ssh root@95.216.117.49
 cd /opt/skazka-bot && git pull && docker compose up -d --build
-docker logs skazka-bot --tail 50
-docker logs skazka-bot -f  # realtime
-
-# Тест callback-порядка (1 сказка)
-docker compose exec skazka-bot python test_callbacks.py
-
-# Полный тест (3 сказки)
-docker compose exec skazka-bot python test_e2e.py
-
-# Тест только иллюстраций (без LLM/TTS)
-docker compose exec skazka-bot python test_illustrations.py
-docker compose exec skazka-bot python test_illustrations.py photo.jpg  # с фото
+docker logs skazka-bot -f
+docker compose exec postgres psql -U skazka  # DB доступ
 ```
 
 ## Что нельзя ломать
 
-- Флоу подтверждений: пользователь ВСЕГДА подтверждает перед генерацией
-- Голосовой ввод: транскрипция через Gemini Flash, показ результата пользователю
-- Паузы между сегментами: 0.7с (один голос), 1.3с (смена голоса)
-- 5 сек затухающий амбиент в конце каждой сказки
-- Порядок доставки: MP3 ПЕРВЫМ, затем картинки, затем MP4
-- Graceful degradation: если картинки упали — отдаём MP3 без них
-- `asyncio.Event` между audio и illustrations — не убирать
+- Двухшаговая генерация: текст отдельно от озвучки
+- Post-TTS scene split с таймкодами — обеспечивает sync видео
+- Continuous scene ranges (без gaps)
+- Паузы: 0.7с (один голос), 1.3с (смена голоса)
+- 5с ambient tail в конце
+- Graceful degradation: картинки упали → MP3 без видео
+- Video duration = audio duration
+- Photo-first промпт для face preservation
 
-## Стиль кода
+## Бэклог
 
-- Python 3.12, async/await, aiohttp
-- Пути через pathlib
-- Логирование через logging (не print)
-- Эмодзи в сообщениях пользователю, но НЕ в логах (Windows cp1251 ломается)
-
-## Известные ограничения и TODO
-
-- Генеративные модели иногда дублируют/искажают персонажей на иллюстрациях
-- Нет кэширования сценариев / голосов между сессиями
-- Нет системы оплаты / лимитов на пользователя
-- Groq API key в конфиге, но нигде не используется (резерв)
+- Поддержка до 3 детей с отдельными фото
+- Face swap с выбором конкретного лица (Segmind FaceSwap V3)
+- Модель с нативным face preservation (IP-Adapter, InstantID)
+- Character passport (master reference + turnarounds)
+- Перегенерация озвучки без пересоздания сценария
+- Параллельная TTS + сбор фото
