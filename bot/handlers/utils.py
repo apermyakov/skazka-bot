@@ -119,11 +119,16 @@ def _clean_for_display(story_text: str) -> str:
     return "\n".join(lines)
 
 
+def _sanitize_text(text: str) -> str:
+    """Remove surrogate characters that break UTF-8 encoding."""
+    return text.encode("utf-8", errors="replace").decode("utf-8")
+
+
 async def _show_story(message: types.Message, state: FSMContext, title: str, story_text: str):
     """Display the story text split into Telegram-safe chunks with buttons on last."""
-    display_text = _html.escape(_clean_for_display(story_text))
-    safe_title = _html.escape(title)
-    full_text = f"\ud83d\udcd6 <b>{safe_title}</b>\n\n{display_text}"
+    display_text = _html.escape(_clean_for_display(_sanitize_text(story_text)))
+    safe_title = _html.escape(_sanitize_text(title))
+    full_text = f"\U0001f4d6 <b>{safe_title}</b>\n\n{display_text}"
 
     # Split into chunks of ~3900 chars at paragraph boundaries
     chunks = []
