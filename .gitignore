@@ -19,5 +19,6 @@ pro_test.png
 send_story.py
 gen5.py
 scripts/
+backups/
 ambient_preview.html
 last_scene_*.png

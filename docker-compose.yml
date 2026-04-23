@@ -15,10 +15,10 @@ services:
     container_name: skazka-postgres
     restart: unless-stopped
     ports:
-      - "5434:5432"
+      - "127.0.0.1:5434:5432"
     environment:
       POSTGRES_USER: skazka
-      POSTGRES_PASSWORD: skazka
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in .env}
       POSTGRES_DB: skazka
     volumes:
       - pg_data:/var/lib/postgresql/data

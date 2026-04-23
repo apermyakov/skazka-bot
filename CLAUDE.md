@@ -1,6 +1,33 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Skazka Bot
 
 Telegram-бот для генерации персонализированных аудиосказок с иллюстрациями и видео.
+
+## Команды для разработки
+
+```bash
+# Локальный стек (Postgres на хост-порту 5434, nginx для media на 8080)
+docker compose up -d --build
+docker logs skazka-bot -f
+docker compose exec postgres psql -U skazka
+
+# Перечитать DB-конфиг без рестарта — отправить боту команду /reload
+
+# Тесты (запускать из корня репо, требуют .env и доступ к внешним API)
+python test_e2e.py         # полный пайплайн: 3 сказки, проверка файлов/длительности
+python test_callbacks.py   # порядок колбэков (audio_ready раньше illustration_ready)
+```
+
+Рантайм требует **ffmpeg** (в Dockerfile ставится автоматически; для запуска вне Docker установить отдельно).
+
+⚠️ `.env.example` устарел — там упомянуты SQLite и Redis, но реально используется **asyncpg + Postgres** без Redis. Актуальные переменные см. в `bot/config.py` и `docker-compose.yml`.
+
+## Главная точка входа пайплайна
+
+`engine.pipeline.generate_fairytale(context, reference_photo_b64, on_status, on_audio_ready, on_illustration_ready)` — единственная функция оркестрации. Её вызывают и хендлеры, и оба тестовых скрипта. Колбэки срабатывают строго в порядке: `on_status` → `on_audio_ready` → `on_illustration_ready` (аудио доставляется раньше иллюстраций — это инвариант, см. `test_callbacks.py`).
 
 ## Архитектура
 
@@ -21,6 +48,8 @@ bot/
   notify.py                — Admin notifications (errors, new users, completed stories)
   states/create.py         — FSM state definitions
   keyboards/inline.py      — Inline keyboard builders
+  filters/                 — aiogram filters (доступ, admin-only и т.п.)
+  middlewares/             — aiogram middlewares (rate limit, guard, логирование)
   handlers/
     utils.py               — Shared helpers (_guard, _msg, _get_text, _show_story, etc.)
     create.py              — Entry points: /new, on_create, on_input
