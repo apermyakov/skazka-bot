@@ -2,10 +2,16 @@
 """Application configuration loaded from .env."""
 
 from pathlib import Path
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",  # tolerate unrelated env vars like POSTGRES_PASSWORD (used by docker-compose)
+    )
+
     # Telegram
     bot_token: str
     admin_ids: str = ""
@@ -47,9 +53,6 @@ class Settings(BaseSettings):
     max_concurrent_tts: int = 10
     segment_char_limit: int = 250
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
 
 
 settings = Settings()

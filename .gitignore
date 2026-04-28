@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .env
+.env.bak*
 media/
 *.db
 test_scene_*.png

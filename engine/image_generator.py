@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 
 IMAGE_MODEL = "google/gemini-2.5-flash-image"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+IMAGE_MAX_ATTEMPTS = 3
+IMAGE_RETRY_DELAY = 2.0
 
 STYLE_PIXAR = (
     "Generate a wide landscape (16:9) Pixar-style 3D cartoon illustration. "
@@ -245,37 +247,52 @@ async def _call_image_api(content: list[dict], scene_index: int, style_label: st
     # Extract text prompt for logging (skip base64 images)
     prompt_text = " ".join(p.get("text", "") for p in content if p.get("type") == "text")[:5000]
 
-    try:
+    from engine.http_session import get_session
+
+    last_error = "unknown"
+    for attempt in range(1, IMAGE_MAX_ATTEMPTS + 1):
         t0 = time.time()
-        from engine.http_session import get_session
-        logger.info("Generating illustration %d [%s]", scene_index, style_label)
-        session = get_session()
-        async with session.post(
-                OPENROUTER_URL, json=payload, headers=headers,
-            ) as resp:
+        logger.info("Generating illustration %d [%s] (attempt %d/%d)",
+                    scene_index, style_label, attempt, IMAGE_MAX_ATTEMPTS)
+        try:
+            session = get_session()
+            async with session.post(
+                    OPENROUTER_URL, json=payload, headers=headers,
+                ) as resp:
                 if resp.status != 200:
                     body = await resp.text()
-                    logger.warning("Image gen failed for scene %d [%s]: HTTP %d: %s",
-                                   scene_index, style_label, resp.status, body[:300])
-                    return None
+                    logger.warning("Image gen HTTP %d for scene %d [%s] (attempt %d): %s",
+                                   resp.status, scene_index, style_label, attempt, body[:300])
+                    last_error = f"HTTP {resp.status}"
+                    if attempt < IMAGE_MAX_ATTEMPTS:
+                        await asyncio.sleep(IMAGE_RETRY_DELAY)
+                    continue
 
                 raw_body = await resp.text()
                 if not raw_body or not raw_body.strip():
-                    logger.warning("Empty response body for scene %d [%s]", scene_index, style_label)
-                    return None
+                    logger.warning("Empty response body for scene %d [%s] (attempt %d)",
+                                   scene_index, style_label, attempt)
+                    last_error = "empty body"
+                    if attempt < IMAGE_MAX_ATTEMPTS:
+                        await asyncio.sleep(IMAGE_RETRY_DELAY)
+                    continue
 
                 try:
                     data = json.loads(raw_body)
                 except Exception as je:
-                    logger.warning("JSON parse error for scene %d [%s]: %s | body: %s",
-                                   scene_index, style_label, je, raw_body[:300])
-                    return None
+                    logger.warning("JSON parse error for scene %d [%s] (attempt %d): %s | body: %s",
+                                   scene_index, style_label, attempt, je, raw_body[:300])
+                    last_error = "json parse"
+                    if attempt < IMAGE_MAX_ATTEMPTS:
+                        await asyncio.sleep(IMAGE_RETRY_DELAY)
+                    continue
 
                 message = data["choices"][0]["message"]
-                logger.info("Image API response for scene %d: keys=%s, content_type=%s, refusal=%s, content=%s",
-                            scene_index, list(message.keys()),
+                refusal = message.get("refusal")
+                logger.info("Image API response for scene %d (attempt %d): keys=%s, content_type=%s, refusal=%s, content=%s",
+                            scene_index, attempt, list(message.keys()),
                             type(message.get("content")).__name__,
-                            str(message.get("refusal", ""))[:300],
+                            str(refusal or "")[:300],
                             str(message.get("content", ""))[:300])
 
                 images = message.get("images", [])
@@ -289,11 +306,23 @@ async def _call_image_api(content: list[dict], scene_index: int, style_label: st
                 duration_ms = int((time.time() - t0) * 1000)
 
                 if not images:
-                    logger.warning("No images in response for scene %d [%s]", scene_index, style_label)
+                    # Hard refusal — model declined for policy reasons. Retry won't help.
+                    if refusal:
+                        logger.warning("Model refused scene %d [%s]: %s — no retry",
+                                       scene_index, style_label, str(refusal)[:200])
+                        fire(log_api_call(story_id=story_id, service="openrouter", model=IMAGE_MODEL,
+                                          purpose="illustration", status="failed", duration_ms=duration_ms,
+                                          request_text=prompt_text, error=f"Refused: {str(refusal)[:200]}"))
+                        return None
+                    logger.warning("No images in response for scene %d [%s] (attempt %d)",
+                                   scene_index, style_label, attempt)
                     fire(log_api_call(story_id=story_id, service="openrouter", model=IMAGE_MODEL,
                                       purpose="illustration", status="failed", duration_ms=duration_ms,
-                                      request_text=prompt_text, error="No images in response"))
-                    return None
+                                      request_text=prompt_text, error=f"No images (attempt {attempt})"))
+                    last_error = "no images"
+                    if attempt < IMAGE_MAX_ATTEMPTS:
+                        await asyncio.sleep(IMAGE_RETRY_DELAY)
+                    continue
 
                 img_url = images[0]
                 if isinstance(img_url, dict):
@@ -305,19 +334,35 @@ async def _call_image_api(content: list[dict], scene_index: int, style_label: st
                     fire(log_api_call(story_id=story_id, service="openrouter", model=IMAGE_MODEL,
                                       purpose="illustration", status="success", duration_ms=duration_ms,
                                       request_text=prompt_text))
+                    if attempt > 1:
+                        logger.info("Illustration scene %d succeeded on attempt %d", scene_index, attempt)
                     return img_bytes
                 else:
-                    logger.warning("Unexpected image format for scene %d [%s]", scene_index, style_label)
+                    logger.warning("Unexpected image format for scene %d [%s] (attempt %d)",
+                                   scene_index, style_label, attempt)
                     fire(log_api_call(story_id=story_id, service="openrouter", model=IMAGE_MODEL,
                                       purpose="illustration", status="failed", duration_ms=duration_ms,
                                       request_text=prompt_text, error="Unexpected image format"))
-                    return None
+                    last_error = "bad format"
+                    if attempt < IMAGE_MAX_ATTEMPTS:
+                        await asyncio.sleep(IMAGE_RETRY_DELAY)
+                    continue
 
-    except Exception as e:
-        import traceback
-        logger.error("Image generation error for scene %d [%s]: %s\n%s",
-                     scene_index, style_label, e, traceback.format_exc())
-        return None
+        except Exception as e:
+            import traceback
+            logger.warning("Image generation exception for scene %d [%s] (attempt %d): %s",
+                           scene_index, style_label, attempt, e)
+            if attempt == IMAGE_MAX_ATTEMPTS:
+                logger.error("Final attempt failed for scene %d [%s]: %s\n%s",
+                             scene_index, style_label, e, traceback.format_exc())
+            last_error = f"exception: {e}"
+            if attempt < IMAGE_MAX_ATTEMPTS:
+                await asyncio.sleep(IMAGE_RETRY_DELAY)
+            continue
+
+    logger.error("Illustration scene %d [%s] failed after %d attempts (last: %s)",
+                 scene_index, style_label, IMAGE_MAX_ATTEMPTS, last_error)
+    return None
 
 
 def _build_scene_prompt(
