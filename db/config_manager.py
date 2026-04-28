@@ -162,6 +162,9 @@ DEFAULTS = {
     "audio.ambient_tail_sec": (5.0, "audio", "Длительность затухания амбиента в конце (сек)"),
     "audio.ambient_fade_in_sec": (1.0, "audio", "Длительность fade-in амбиента (сек)"),
     "audio.default_ambient": ("forest", "audio", "Амбиент по умолчанию"),
+    "audio.tempo_slow": (1.00, "audio", "Темп при выборе 'Медленно' (множитель)"),
+    "audio.tempo_normal": (1.15, "audio", "Темп при выборе 'Нормально' (множитель)"),
+    "audio.tempo_fast": (1.30, "audio", "Темп при выборе 'Быстро' (множитель)"),
 
     # ── Video ──
     "video.width": (1920, "video", "Ширина видео"),

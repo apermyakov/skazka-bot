@@ -18,7 +18,11 @@ def confirm_input() -> InlineKeyboardMarkup:
 
 def review_story() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎙 Озвучить сказку", callback_data="generate")],
+        [
+            InlineKeyboardButton(text="🐢 Медленно", callback_data="generate:slow"),
+            InlineKeyboardButton(text="🚶 Нормально", callback_data="generate:normal"),
+            InlineKeyboardButton(text="🐇 Быстро", callback_data="generate:fast"),
+        ],
     ])
 
 

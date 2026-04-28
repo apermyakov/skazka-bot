@@ -31,9 +31,11 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
-# -- 7. "Озвучить" -> ask for photo --
-@router.callback_query(F.data == "generate")
+# -- 7. "Озвучить (темп)" -> ask for photo --
+@router.callback_query(F.data.startswith("generate:"))
 async def on_generate_ask_photo(callback: types.CallbackQuery, state: FSMContext):
+    speed_label = callback.data.split(":", 1)[1]  # slow | normal | fast
+    await state.update_data(speed=speed_label)
     await callback.message.answer(
         "📸 Отправьте <b>фото ребёнка</b> для иллюстраций\n"
         "<i>(одного, без других людей)</i>",
@@ -211,6 +213,11 @@ async def _start_generation(message: types.Message, state: FSMContext):
                                  file_size=file_size, duration_sec=audio_info["duration"],
                                  mime_type="audio/mpeg"))
 
+    speed = data.get("speed", "slow")
+    tempo_key = {"slow": "audio.tempo_slow", "normal": "audio.tempo_normal", "fast": "audio.tempo_fast"}.get(speed, "audio.tempo_slow")
+    tempo = float(await cfg.get(tempo_key, 1.0 if speed == "slow" else (1.15 if speed == "normal" else 1.30)))
+    logger.info("Pipeline tempo: speed=%s -> %s=%.2f", speed, tempo_key, tempo)
+
     try:
         result = await generate_fairytale(
             context=context,
@@ -220,6 +227,7 @@ async def _start_generation(message: types.Message, state: FSMContext):
             on_status=on_status,
             on_audio_ready=on_audio_ready,
             story_id=story_id,
+            tempo=tempo,
         )
 
         # Update story with results

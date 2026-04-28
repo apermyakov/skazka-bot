@@ -66,6 +66,32 @@ async def mix_with_ambient(
         raise RuntimeError(f"ffmpeg mix failed: {stderr.decode()[-200:]}")
 
 
+async def apply_atempo(input_path: str | Path, output_path: str | Path, tempo: float) -> None:
+    """Speed up (or slow down) audio by `tempo` factor, preserving pitch.
+
+    `tempo=1.0` is no-op (file is just copied). atempo accepts 0.5..100.0 in
+    a single filter; we stay well within that range for our 1.0/1.15/1.30 presets.
+    """
+    if abs(tempo - 1.0) < 0.001:
+        if str(input_path) != str(output_path):
+            import shutil
+            shutil.copy2(input_path, output_path)
+        return
+
+    proc = await asyncio.create_subprocess_exec(
+        "ffmpeg", "-y",
+        "-i", str(input_path),
+        "-filter:a", f"atempo={tempo:.3f}",
+        "-c:a", "libmp3lame", "-b:a", "128k",
+        str(output_path),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    _, stderr = await proc.communicate()
+    if proc.returncode != 0:
+        raise RuntimeError(f"ffmpeg atempo failed: {stderr.decode()[-200:]}")
+
+
 async def _generate_silence(output_path: str | Path, duration: float = 1.0) -> None:
     """Generate a silent MP3 file of given duration."""
     proc = await asyncio.create_subprocess_exec(

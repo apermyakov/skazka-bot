@@ -13,7 +13,7 @@ from engine.llm_client import generate_screenplay
 from engine.voice_pool import pick_voice, VoiceProfile
 from engine.story_parser import build_tagged_text, AMBIENT_MAP
 from engine.tts_client import synthesize_batch
-from engine.audio_mixer import mix_with_ambient, concat_segments, get_duration, create_video
+from engine.audio_mixer import mix_with_ambient, concat_segments, get_duration, create_video, apply_atempo
 from engine.image_generator import generate_illustrations_batch
 
 logger = logging.getLogger(__name__)
@@ -28,6 +28,7 @@ async def generate_fairytale(
     on_audio_ready: Callable[[dict], Awaitable[None]] | None = None,
     on_illustration_ready: Callable[[int, str], Awaitable[None]] | None = None,
     story_id: int | None = None,
+    tempo: float = 1.0,
 ) -> dict:
     """Generate a complete fairy tale: MP3 audio + illustrations.
 
@@ -144,6 +145,16 @@ async def generate_fairytale(
         dry_path = work_dir / "dry.mp3"
         await concat_segments(seg_files, dry_path, character_ids=seg_char_ids)
 
+        # Apply tempo (speed up speech + pauses uniformly, pitch preserved)
+        if abs(tempo - 1.0) > 0.001:
+            sped_path = work_dir / "dry_sped.mp3"
+            await apply_atempo(dry_path, sped_path, tempo)
+            dry_path.unlink(missing_ok=True)
+            sped_path.rename(dry_path)
+            # Scale per-segment durations so timeline reflects sped-up audio
+            seg_durations = [d / tempo for d in seg_durations]
+            logger.info("Applied atempo=%.2f to dry mix", tempo)
+
         # ── Step 6: Overlay ambient ──
         assets_dir = Path(__file__).parent.parent / "assets" / "ambient_sounds"
         primary_ambient = "forest"
@@ -182,6 +193,10 @@ async def generate_fairytale(
         from db.config_manager import cfg
         short_pause = await cfg.get("audio.short_pause_sec", 0.7)
         long_pause = await cfg.get("audio.long_pause_sec", 1.3)
+        # Scale pauses to match sped-up audio (atempo shrinks silent pauses too)
+        if abs(tempo - 1.0) > 0.001:
+            short_pause /= tempo
+            long_pause /= tempo
 
         timeline_entries = []
         cumulative = 0.0
