@@ -14,7 +14,7 @@ from aiogram.types import FSInputFile
 
 from bot.config import settings
 from bot.states.create import CreateFairyTale
-from bot.keyboards.inline import skip_photo, photos_done, feedback, main_menu
+from bot.keyboards.inline import skip_photo, photos_done, feedback, main_menu, review_story, STYLE_LABELS
 from engine.pipeline import generate_fairytale
 from engine.llm_client import convert_to_screenplay
 from bot.notify import notify_error, notify_story_complete
@@ -29,6 +29,21 @@ from bot.handlers.utils import (
 
 logger = logging.getLogger(__name__)
 router = Router()
+
+
+# -- 6b. Style picker (toggle on the review screen) --
+@router.callback_query(F.data.startswith("style:"))
+async def on_style_select(callback: types.CallbackQuery, state: FSMContext):
+    style = callback.data.split(":", 1)[1]
+    if style not in STYLE_LABELS:
+        await callback.answer()
+        return
+    await state.update_data(style=style)
+    try:
+        await callback.message.edit_reply_markup(reply_markup=review_story(selected_style=style))
+    except Exception:
+        pass
+    await callback.answer(f"Стиль: {STYLE_LABELS[style]}")
 
 
 # -- 7. "Озвучить (темп)" -> ask for photo --
@@ -216,7 +231,8 @@ async def _start_generation(message: types.Message, state: FSMContext):
     speed = data.get("speed", "slow")
     tempo_key = {"slow": "audio.tempo_slow", "normal": "audio.tempo_normal", "fast": "audio.tempo_fast"}.get(speed, "audio.tempo_slow")
     tempo = float(await cfg.get(tempo_key, 1.0 if speed == "slow" else (1.15 if speed == "normal" else 1.30)))
-    logger.info("Pipeline tempo: speed=%s -> %s=%.2f", speed, tempo_key, tempo)
+    style = data.get("style") or await cfg.get("image.default_style", "painted")
+    logger.info("Pipeline tempo: speed=%s -> %s=%.2f | style=%s", speed, tempo_key, tempo, style)
 
     try:
         result = await generate_fairytale(
@@ -228,6 +244,7 @@ async def _start_generation(message: types.Message, state: FSMContext):
             on_audio_ready=on_audio_ready,
             story_id=story_id,
             tempo=tempo,
+            style=style,
         )
 
         # Update story with results

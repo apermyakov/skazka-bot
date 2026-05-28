@@ -16,8 +16,28 @@ def confirm_input() -> InlineKeyboardMarkup:
     ])
 
 
-def review_story() -> InlineKeyboardMarkup:
+STYLE_LABELS = {
+    "painted": "🎨 Живопись",
+    "watercolor": "🖌 Акварель",
+    "realistic": "🎬 Реализм",
+    "pixar": "✨ Pixar",
+}
+
+
+def review_story(selected_style: str = "painted") -> InlineKeyboardMarkup:
+    """Story review keyboard: a style-picker (toggle) + a speed row that triggers generation.
+
+    Tapping a style updates the selection (marked with ✅); tapping a speed starts generation.
+    """
+    def style_btn(key: str) -> InlineKeyboardButton:
+        label = STYLE_LABELS[key]
+        if key == selected_style:
+            label = f"✅ {label}"
+        return InlineKeyboardButton(text=label, callback_data=f"style:{key}")
+
     return InlineKeyboardMarkup(inline_keyboard=[
+        [style_btn("painted"), style_btn("watercolor")],
+        [style_btn("realistic"), style_btn("pixar")],
         [
             InlineKeyboardButton(text="🐢 Медленно", callback_data="generate:slow"),
             InlineKeyboardButton(text="🚶 Нормально", callback_data="generate:normal"),

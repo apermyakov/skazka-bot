@@ -7,6 +7,7 @@ import traceback as tb_mod
 from aiogram import Router, types, F, Bot
 from aiogram.fsm.context import FSMContext
 
+from bot.config import settings
 from bot.states.create import CreateFairyTale
 from bot.keyboards.inline import main_menu
 from engine.llm_client import generate_story_text
@@ -77,10 +78,17 @@ async def on_compose(callback: types.CallbackQuery, state: FSMContext):
     # Rate limit + create story in DB
     t1 = _time.time()
     db_user_id = await get_user_id(callback.from_user.id)
-    if db_user_id and not await check_rate_limit(db_user_id):
-        await state.update_data(_busy=False)
-        await callback.message.answer(await _msg("msg.rate_limit", "⚠️ Вы создали слишком много сказок за последний час. Попробуйте позже."))
-        return
+    is_admin = callback.from_user.id in settings.admin_id_list
+    if db_user_id and not is_admin:
+        from db.config_manager import cfg
+        daily_limit = int(await cfg.get("limit.stories_per_day", 2))
+        if not await check_rate_limit(db_user_id, daily_limit):
+            await state.update_data(_busy=False)
+            await callback.message.answer(await _msg(
+                "msg.rate_limit",
+                "⚠️ На сегодня лимит сказок исчерпан ({limit} в день). Возвращайтесь завтра!",
+                limit=daily_limit))
+            return
     story_id = await create_story(user_id=db_user_id, context=context, was_voice=was_voice)
     await state.update_data(db_story_id=story_id)
     logger.info("[TIMING] DB write: %.1fms", (_time.time() - t1) * 1000)

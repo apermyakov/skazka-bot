@@ -29,6 +29,7 @@ async def generate_fairytale(
     on_illustration_ready: Callable[[int, str], Awaitable[None]] | None = None,
     story_id: int | None = None,
     tempo: float = 1.0,
+    style: str | None = None,
 ) -> dict:
     """Generate a complete fairy tale: MP3 audio + illustrations.
 
@@ -233,6 +234,7 @@ async def generate_fairytale(
                     on_progress=status,
                     story_id=story_id,
                     timeline_text=timeline_text,
+                    style=style,
                 ),
                 timeout=600,  # 10 min
             )
@@ -258,38 +260,37 @@ async def generate_fairytale(
             n_scenes = len(illustration_paths)
             scene_data = result_scenes
 
-            # Calculate scene durations using timeline cumulative times
+            # Calculate scene durations using timeline cumulative times.
+            # Storyboard model: each shot is ANCHORED at its segment_start — i.e. the image
+            # appears exactly when its content is first narrated and holds until the next shot's
+            # anchor. So shot i covers [anchor_i, anchor_{i+1}). This keeps the picture in sync
+            # with the narration (no more "image changes before it is talked about").
             has_ranges = (
                 scene_data
                 and len(scene_data) >= n_scenes
-                and all("segment_start" in s and "segment_end" in s for s in scene_data[:n_scenes])
+                and all("segment_start" in s for s in scene_data[:n_scenes])
             )
 
             if has_ranges:
-                # Normalize ranges: force continuous coverage [0 → n_segs]
                 n_segs = len(seg_durations)
-                raw_ranges = []
-                for sc_idx in range(n_scenes):
-                    s_start = int(scene_data[sc_idx].get("segment_start", 0))
-                    s_end = int(scene_data[sc_idx].get("segment_end", n_segs))
-                    raw_ranges.append((s_start, s_end))
+                # Raw anchors from the storyboard, clamped into range
+                anchors = [max(0, min(int(scene_data[i].get("segment_start", 0)), n_segs - 1))
+                           for i in range(n_scenes)]
+                # Shot 0 always opens at segment 0; enforce strictly increasing anchors
+                anchors[0] = 0
+                for i in range(1, n_scenes):
+                    if anchors[i] <= anchors[i - 1]:
+                        anchors[i] = anchors[i - 1] + 1
+                    anchors[i] = min(anchors[i], n_segs - 1)
 
-                # Fix: make ranges continuous — each starts where previous ended
+                # Build contiguous ranges from anchors: shot i shown until shot i+1's anchor
                 fixed_ranges = []
                 for sc_idx in range(n_scenes):
-                    if sc_idx == 0:
-                        s_start = 0
-                    else:
-                        s_start = fixed_ranges[-1][1]  # prev end
-                    if sc_idx == n_scenes - 1:
-                        s_end = n_segs
-                    else:
-                        s_end = raw_ranges[sc_idx][1]
-                        s_end = max(s_end, s_start + 1)  # at least 1 segment
-                    s_start = max(0, min(s_start, n_segs))
-                    s_end = max(s_start + 1, min(s_end, n_segs))
+                    s_start = anchors[sc_idx]
+                    s_end = anchors[sc_idx + 1] if sc_idx + 1 < n_scenes else n_segs
+                    s_end = max(s_end, s_start + 1)
                     fixed_ranges.append((s_start, s_end))
-                logger.info("Scene ranges: raw=%s, fixed=%s", raw_ranges, fixed_ranges)
+                logger.info("Storyboard anchors=%s, ranges=%s", anchors, fixed_ranges)
 
                 # Calculate real duration per scene including pauses
                 for sc_idx in range(n_scenes):

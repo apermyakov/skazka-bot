@@ -45,16 +45,73 @@ STYLE_KIDS_DRAWING = (
     "Soft, dreamy lighting. Gentle watercolor palette."
 )
 
+STYLE_PAINTED = (
+    "Generate a wide landscape (16:9) classic hand-PAINTED fairy-tale storybook illustration — "
+    "rich gouache and oil painting with visible brushwork, warm golden light, painterly textures, "
+    "the timeless look of a treasured children's picture book. Painterly, not flat vector, not photographic. "
+    "The main child character must be RECOGNIZABLE from the reference photo. "
+    "STRICTLY NO text, words, letters, signs, or writing anywhere. "
+    "Anatomically correct: exactly two arms, two hands per person. "
+    "Each animal has exactly ONE head, ONE body, and the correct number of legs for its species. "
+    "NEVER duplicate or merge animals — if the scene has one cat, draw exactly ONE cat. "
+    "Warm, magical lighting. Consistent painterly style and palette throughout the series."
+)
+
+STYLE_REALISTIC = (
+    "Generate a wide landscape (16:9) polished SEMI-REALISTIC 3D render with realistic facial "
+    "proportions, skin and detail (close to a real child's face while still gentle and animated), "
+    "soft cinematic lighting, high detail. Prioritise faithful real facial likeness from the "
+    "reference photo over cartoon stylisation. "
+    "STRICTLY NO text, words, letters, signs, or writing anywhere. "
+    "Anatomically correct: exactly two arms, two hands per person. "
+    "Each animal has exactly ONE head, ONE body, and the correct number of legs for its species. "
+    "NEVER duplicate or merge animals — if the scene has one cat, draw exactly ONE cat. "
+    "Warm, magical lighting. Consistent style throughout the series."
+)
+
+# style key → (config key, code fallback). Used to resolve the style block text.
+STYLE_CONFIG_KEYS = {
+    "painted": ("prompt.style.painted", STYLE_PAINTED),
+    "watercolor": ("prompt.style_kids_drawing", STYLE_KIDS_DRAWING),
+    "realistic": ("prompt.style.realistic", STYLE_REALISTIC),
+    "pixar": ("prompt.style_pixar", STYLE_PIXAR),
+}
+DEFAULT_STYLE = "painted"
+
+# Image models love sprinkling comic sound-effects / captions (often garbled Cyrillic like
+# "ДЗІН-ДЗІН"). Append this hard rule to every image prompt to keep illustrations 100% wordless.
+NO_TEXT_RULE = (
+    "CRITICAL: the image must be 100% WORDLESS. Absolutely NO text anywhere — no letters, words, "
+    "numbers, captions, titles, signs, labels, speech bubbles, and especially NO sound-effect or "
+    "onomatopoeia words (like 'ding', 'дзинь', 'дзін', 'бом', 'ring') in ANY language or alphabet. "
+    "Do not write the sound a bell or object makes. Output ONLY the picture."
+)
+
+
+async def _resolve_style_block(style: str | None) -> str:
+    """Resolve the style instruction text for a style key, from config with a constant fallback."""
+    from db.config_manager import cfg
+    key, fallback = STYLE_CONFIG_KEYS.get(style or DEFAULT_STYLE, STYLE_CONFIG_KEYS[DEFAULT_STYLE])
+    return await cfg.get(key, fallback)
+
 SCENE_SPLIT_PROMPT = """\
-Ты — художественный редактор детской книги. Дан сценарий аудиосказки.
-Каждая строка текста пронумерована [0], [1], [2]... — это номера сегментов.
-Раздели сценарий на 7-8 ключевых сцен для иллюстраций.
+Ты — режиссёр раскадровки детской аудиосказки. Озвучка УЖЕ записана.
+Каждая строка пронумерована [i] и помечена таймкодом [at Xs, dur Ys] — это КОГДА и сколько звучит сегмент.
 
 Сценарий:
 Название: {title}
 Персонажи: {characters}
-Текст:
+Таймлайн:
 {story_text}
+
+Составь РАСКАДРОВКУ — последовательность кадров (иллюстраций), синхронных с озвучкой.
+
+ГЛАВНОЕ ПРАВИЛО: картинка кадра появляется на экране РОВНО на той строке, где ВПЕРВЫЕ
+произносится то, что на ней изображено — НИКОГДА не раньше. Поэтому:
+- segment_start кадра = номер сегмента, где это визуальное событие впервые озвучивается;
+- description описывает то, что видно ИМЕННО В ЭТОТ момент (что нового только что ввёл рассказчик),
+  а НЕ кульминацию всего блока и не то, что будет дальше.
+Кадр держится на экране до следующего кадра.
 
 Верни ТОЛЬКО JSON без markdown:
 {{
@@ -65,24 +122,30 @@ SCENE_SPLIT_PROMPT = """\
     {{
       "scene_index": 0,
       "segment_start": 0,
-      "segment_end": 3,
-      "description": "Что происходит визуально (макс 10 слов)",
+      "description": "что видно В ЭТОТ момент (макс 12 слов)",
       "characters_present": ["имя1"],
       "setting": "лес",
-      "mood": "радостный"
+      "mood": "спокойный"
     }}
   ]
 }}
 
 ПРАВИЛА:
-1. Ровно 7-8 сцен
-2. segment_start и segment_end — диапазон номеров сегментов для этой сцены (segment_end НЕ включается)
-3. Сцены должны покрывать ВСЕ сегменты без пропусков и пересечений
-4. Первая сцена — начало, последняя — счастливый финал
-5. Описание сцены — МАКСИМУМ 10 слов
-6. Главный герой-ребёнок присутствует в каждой сцене
-7. character_appearances ОБЯЗАТЕЛЕН — опиши внешность КАЖДОГО персонажа (кроме рассказчика)
-8. Если в тексте указан цвет (серый кот, рыжая лиса) — ОБЯЗАТЕЛЬНО укажи этот цвет
+1. Кадр 0 ОБЯЗАТЕЛЬНО имеет segment_start=0 (открывающая сцена).
+2. Новый кадр — ТОЛЬКО когда визуальная ситуация заметно меняется: новое место, появляется
+   важный персонаж/предмет, ключевой поворот. НЕ создавай похожие кадры в одной обстановке.
+   ВАЖНО: когда в истории ВПЕРВЫЕ появляется персонаж или предмет (мишка, колокольчик и т.п.),
+   привяжи кадр к сегменту, где о нём СКАЗАЛИ впервые, и НЕ показывай его в более ранних кадрах.
+3. characters_present — только те, кто УЖЕ в кадре на момент segment_start. НЕ добавляй тех,
+   кто появится позже в этом отрезке: персонаж не должен быть виден на картинке раньше, чем о нём сказали.
+4. segment_start строго возрастает; кадры покрывают всю сказку до конца.
+5. 4-6 кадров на сказку. Соседние кадры — не ближе ~25 секунд по таймкоду (смотри [at Xs]),
+   иначе картинки мелькают и выглядят как дубли.
+6. description — что видно В МОМЕНТ segment_start, МАКСИМУМ 12 слов. НЕ описывай будущее или
+   развязку блока — только текущий момент, который сейчас звучит.
+7. Главный герой-ребёнок присутствует в кадрах, где он есть по сюжету.
+8. character_appearances ОБЯЗАТЕЛЕН — опиши внешность КАЖДОГО персонажа (кроме рассказчика).
+9. Если в тексте указан цвет (серый кот, рыжая лиса) — ОБЯЗАТЕЛЬНО укажи этот цвет.
 """
 
 
@@ -229,6 +292,7 @@ async def _call_image_api(content: list[dict], scene_index: int, style_label: st
     """Send image generation request to OpenRouter and return image bytes."""
     from db.config_manager import cfg
     image_model = await cfg.get("model.image", IMAGE_MODEL)
+    image_size = await cfg.get("image.size", "1K")
 
     headers = {
         "Authorization": f"Bearer {settings.openrouter_api_key}",
@@ -240,7 +304,7 @@ async def _call_image_api(content: list[dict], scene_index: int, style_label: st
         "messages": [{"role": "user", "content": content}],
         "image_config": {
             "aspect_ratio": "16:9",
-            "image_size": "2K",
+            "image_size": image_size,
         },
     }
 
@@ -376,11 +440,21 @@ def _build_scene_prompt(
     style_block: str,
     style_suffix: str,
     scene_full_text: str = "",
+    has_character_sheet: bool = False,
 ) -> str:
     """Build the text prompt for a single illustration."""
     continuity = ""
     if previous_scene_desc:
         continuity = f"\nPrevious scene showed: {previous_scene_desc}. This scene continues the same story."
+
+    sheet_block = ""
+    if has_character_sheet:
+        sheet_block = (
+            "\n=== CHARACTER REFERENCE SHEET (attached image) ===\n"
+            "An image is attached showing the exact look of every character (a reference lineup). "
+            "Match each character in this scene to that sheet EXACTLY — same face, hair, "
+            "eye color, clothing, accessories, and body proportions.\n"
+        )
 
     # Build appearance block for characters in this scene
     appearance_lines = []
@@ -405,7 +479,8 @@ def _build_scene_prompt(
 
     return (
         f"=== STYLE (fixed for all scenes) ===\n"
-        f"{style_block}\n\n"
+        f"{style_block}\n"
+        f"{sheet_block}\n"
         f"=== CHARACTER BIBLE (fixed — do NOT change between scenes) ===\n"
         f"{appearance_block}\n"
         f"Do NOT redesign any character. Keep IDENTICAL: face shape, hair color, hairstyle, "
@@ -421,8 +496,70 @@ def _build_scene_prompt(
         f"{continuity}\n\n"
         f"Generate a NEW unique illustration for this scene with NEW poses and composition. "
         f"Each character appears EXACTLY ONCE. "
-        f"{style_suffix}"
+        f"{style_suffix}\n{NO_TEXT_RULE}"
     )
+
+
+def _build_character_sheet_prompt(
+    cast: list[tuple[str, str]],
+    style_block: str,
+    has_photo: bool,
+    fairy_tale_title: str,
+) -> str:
+    """Prompt for a single 'cast lineup' character reference sheet."""
+    cast_lines = "\n".join(f"  - {name}: {desc}" for name, desc in cast if desc)
+    photo_note = ""
+    if has_photo:
+        photo_note = (
+            "\nThe attached photo is the real child who is the MAIN CHARACTER. "
+            "Make that character's face RECOGNIZABLE from the photo — same face shape, "
+            "hair color, hairstyle, eye color.\n"
+        )
+    return (
+        f"Create a CHARACTER MODEL SHEET (reference lineup) for the children's fairy tale "
+        f"'{fairy_tale_title}'.\n"
+        f"Draw ALL the characters below TOGETHER, standing side by side in one row, "
+        f"each full body head-to-toe, facing forward, in a neutral relaxed standing pose, "
+        f"on a plain light-grey studio background. This is a reference sheet, NOT a story scene — "
+        f"no scenery, no props, no action, each character clearly separated.\n\n"
+        f"CHARACTERS (draw each EXACTLY ONCE, left to right):\n{cast_lines}\n"
+        f"{photo_note}\n"
+        f"{style_block}\n\n"
+        f"Wide landscape 16:9.\n{NO_TEXT_RULE}"
+    )
+
+
+async def generate_character_sheet(
+    cast: list[str],
+    character_appearances: dict[str, str],
+    reference_photo_b64: str | None = None,
+    reference_photos: list[str] | None = None,
+    fairy_tale_title: str = "",
+    story_id: int = None,
+    style_block: str | None = None,
+) -> str | None:
+    """Render one cast-lineup reference image used to keep all scenes consistent.
+
+    Returns the image as a base64 string (no data: prefix), or None on failure.
+    """
+    if style_block is None:
+        style_block = await _resolve_style_block(DEFAULT_STYLE)
+    cast_pairs = [(name, character_appearances.get(name, "")) for name in cast]
+
+    photos = reference_photos or ([reference_photo_b64] if reference_photo_b64 else [])
+    image_content = []
+    for photo in photos:
+        if photo:
+            purl = photo if photo.startswith("data:") else f"data:image/jpeg;base64,{photo}"
+            image_content.append({"type": "image_url", "image_url": {"url": purl}})
+
+    prompt = _build_character_sheet_prompt(
+        cast_pairs, style_block, bool(image_content), fairy_tale_title)
+    content = image_content + [{"type": "text", "text": prompt}]
+    img_bytes = await _call_image_api(content, -1, "char_sheet", story_id=story_id)
+    if img_bytes:
+        return base64.b64encode(img_bytes).decode("ascii")
+    return None
 
 
 async def _face_swap_replicate(
@@ -514,8 +651,19 @@ async def generate_illustration(
     story_id: int = None,
     previous_illustration_b64: str | None = None,
     scene_full_text: str = "",
+    character_sheet_b64: str | None = None,
+    style_block: str | None = None,
 ) -> bytes | None:
-    """Generate one Pixar-style illustration via Gemini, then face swap if photo provided."""
+    """Generate one scene illustration via Gemini.
+
+    Likeness: when a photo is present we use a forceful "photo is the ground truth"
+    identity prompt so the real child is recognisable (the chosen art style is applied
+    on top). When there is no photo, an optional character_sheet_b64 (cast lineup) is
+    attached as the consistency anchor. Scenes are independent, so the batch runs them
+    in parallel.
+    """
+    if style_block is None:
+        style_block = await _resolve_style_block(DEFAULT_STYLE)
 
     # Build photo content from all reference photos (more photos = better face matching)
     photos = reference_photos or ([reference_photo_b64] if reference_photo_b64 else [])
@@ -530,52 +678,55 @@ async def generate_illustration(
                 "image_url": {"url": photo_url},
             })
 
-    # Previous illustration reference disabled — causes composition copying
-    # Relying on character bible text instead for consistency
-
-    from db.config_manager import cfg
-    style_block = await cfg.get("prompt.style_pixar", STYLE_PIXAR)
+    # Character reference sheet (cast lineup) — the visual consistency anchor (no-photo path)
+    sheet_content = []
+    if character_sheet_b64:
+        sheet_url = character_sheet_b64
+        if not sheet_url.startswith("data:"):
+            sheet_url = f"data:image/png;base64,{character_sheet_b64}"
+        sheet_content.append({"type": "image_url", "image_url": {"url": sheet_url}})
 
     if photo_content:
-        # Photo-first approach: "transform THIS child into Pixar character in this scene"
-        appearance_block = ""
+        # Photo present → forceful identity prompt: the photo is ground truth for the child's face.
         appearance_lines = []
         for char_name in scene.get("characters_present", []):
             desc = (character_appearances or {}).get(char_name, "")
             if desc:
                 appearance_lines.append(f"  - {char_name}: {desc}")
-        if appearance_lines:
-            appearance_block = "Characters:\n" + "\n".join(appearance_lines)
-
+        appearance_block = ("Other characters in the scene:\n" + "\n".join(appearance_lines)
+                            if appearance_lines else "")
         text_block = f"\n\nFull scene text:\n{scene_full_text[:800]}" if scene_full_text else ""
         prompt = (
-            f"Create a Pixar-style 3D cartoon illustration for a children's fairy tale scene. "
-            f"The child in the attached photo is the MAIN CHARACTER — keep them RECOGNIZABLE. "
-            f"Same face shape, same hair color, same hair style, same eye color. "
-            f"The child and their parents must immediately recognize them in the illustration.\n\n"
+            "The attached photo is a real specific child — the MAIN CHARACTER of this scene. "
+            "Render that child preserving their identity so a parent instantly recognises them. "
+            "Study the photo and copy their EXACT hair (length, cut, color), face shape, cheeks, "
+            "eyes and apparent AGE. Do NOT age them up or down, do NOT restyle, lengthen or shorten "
+            "their hair. The photo is the ground truth for their appearance; the text only describes "
+            "the scene around them. If the photo contains other people or held objects, focus ONLY on "
+            "the main child's face and ignore everything else.\n\n"
             f"Scene: {scene.get('description', '')}\n"
             f"Setting: {scene.get('setting', 'forest')}\n"
             f"Mood: {scene.get('mood', 'magical')}\n"
             f"{appearance_block}{text_block}\n\n"
             f"{style_block}\n\n"
-            f"Wide landscape 16:9. Output ONLY the image. No text or words anywhere."
+            f"Wide landscape 16:9.\n{NO_TEXT_RULE}"
         )
-        # Photo FIRST, then text — model transforms the photo
+        # Photo FIRST — the model transforms the real child — then the scene text
         content = photo_content + [{"type": "text", "text": prompt}]
     else:
-        # No photo — use character bible only
+        # No photo — rely on character sheet (if any) + character bible text
         prompt = _build_scene_prompt(
             scene, scene_index, total_scenes, fairy_tale_title, characters_desc,
             character_appearances or {},
             previous_scene_desc, style_block,
-            "Pixar-style 3D render.",
+            "",
             scene_full_text=scene_full_text,
+            has_character_sheet=bool(sheet_content),
         )
-        content = [{"type": "text", "text": prompt}]
+        # Reference sheet FIRST (consistency anchor), then text
+        content = sheet_content + [{"type": "text", "text": prompt}]
 
-    img_bytes = await _call_image_api(content, scene_index, "pixar", story_id=story_id)
-
-    # Face swap disabled — moved to backlog (Segmind FaceSwap V3 with face_index)
+    img_bytes = await _call_image_api(content, scene_index, "scene", story_id=story_id)
 
     return img_bytes
 
@@ -588,15 +739,20 @@ async def generate_illustrations_batch(
     story_id: int = None,
     on_illustration_ready: Callable[[int, bytes], Awaitable[None]] | None = None,
     timeline_text: str | None = None,
+    style: str | None = None,
 ) -> list[bytes]:
-    """Generate all Pixar-style illustrations for a fairy tale.
+    """Generate all illustrations for a fairy tale in the chosen art style.
 
     Args:
+        style: art style key (painted/watercolor/realistic/pixar). Default: painted.
         on_illustration_ready: Callback fired for each illustration as it's generated.
             Receives (scene_index, image_bytes).
 
     Returns list of PNG bytes (may contain None for failed scenes).
     """
+    style_block = await _resolve_style_block(style)
+    has_photo = bool(reference_photo_b64 or (reference_photos and any(reference_photos)))
+
     # Step 1: Split into scenes (with timeline if available)
     scenes, character_appearances = await split_into_scenes(
         screenplay, story_id=story_id, timeline_text=timeline_text)
@@ -608,67 +764,109 @@ async def generate_illustrations_batch(
         if c["id"] != "narrator"
     )
 
-    # Step 2: Generate illustrations sequentially (for style consistency)
-    # Each scene receives the previous illustration as a visual reference
-    results = []
-    prev_desc = None
-    prev_illustration_b64 = None
-
     # Build character name lookup for full text extraction
     char_names = {c["id"]: c["name"] for c in screenplay.get("characters", [])}
     segments = screenplay.get("segments", [])
 
-    for i, scene in enumerate(scenes):
-        if on_progress:
-            result = on_progress(f"🎨 Рисую иллюстрацию {i + 1}/{len(scenes)}...")
-            if asyncio.iscoroutine(result):
-                await result
-
-        # Extract full text for this scene's segments
-        scene_full_text = ""
+    def _scene_text(scene: dict) -> str:
+        """Extract the full spoken/narrated text for a scene's segment range."""
         s_start = scene.get("segment_start", 0)
         s_end = scene.get("segment_end", len(segments))
-        if isinstance(s_start, int) and isinstance(s_end, int):
-            scene_lines = []
-            for si in range(max(0, s_start), min(s_end, len(segments))):
-                seg = segments[si]
-                speaker = char_names.get(seg.get("character_id", ""), "")
-                text_clean = re.sub(r'\[[\w\s]+\]', '', seg.get("text", "")).strip()
-                if text_clean:
-                    scene_lines.append(f"{speaker}: {text_clean}" if speaker else text_clean)
-            scene_full_text = "\n".join(scene_lines)
+        if not (isinstance(s_start, int) and isinstance(s_end, int)):
+            return ""
+        lines = []
+        for si in range(max(0, s_start), min(s_end, len(segments))):
+            seg = segments[si]
+            speaker = char_names.get(seg.get("character_id", ""), "")
+            text_clean = re.sub(r'\[[\w\s]+\]', '', seg.get("text", "")).strip()
+            if text_clean:
+                lines.append(f"{speaker}: {text_clean}" if speaker else text_clean)
+        return "\n".join(lines)
 
-        img_bytes = await generate_illustration(
-            scene=scene,
-            scene_index=i,
-            total_scenes=len(scenes),
-            reference_photo_b64=reference_photo_b64,
-            previous_scene_desc=prev_desc,
-            fairy_tale_title=title,
-            characters_desc=characters_desc,
-            character_appearances=character_appearances,
-            reference_photos=reference_photos,
-            story_id=story_id,
-            previous_illustration_b64=prev_illustration_b64,
-            scene_full_text=scene_full_text,
-        )
+    # Step 2: Character reference sheet (cast lineup) — the consistency anchor for the
+    # NO-PHOTO case. When a photo IS present we deliberately SKIP the sheet: the photo is
+    # a far stronger anchor for the child's face, and anchoring to a generic cartoon sheet
+    # was shown to drag the child's likeness toward a generic look. Scenes are independent
+    # either way, so they still run in parallel. Recurring cast = chars in >=2 scenes.
+    character_sheet_b64 = None
+    if not has_photo:
+        from collections import Counter
+        appearance_counts = Counter()
+        for sc in scenes:
+            for name in sc.get("characters_present", []):
+                appearance_counts[name] += 1
+        recurring = [n for n, c in appearance_counts.items()
+                     if c >= 2 and character_appearances.get(n)]
+        if not recurring:
+            recurring = [n for n in appearance_counts if character_appearances.get(n)]
+        recurring = recurring[:6]
 
-        results.append(img_bytes)
-        if img_bytes:
-            prev_illustration_b64 = base64.b64encode(img_bytes).decode("ascii")
-        prev_desc = scene.get("description", "")
-
-        logger.info(
-            "Illustration %d/%d: %s",
-            i + 1, len(scenes),
-            f"{len(img_bytes):,}b" if img_bytes else "FAILED",
-        )
-
-        if img_bytes and on_illustration_ready:
+        if recurring:
+            if on_progress:
+                r = on_progress("🎨 Рисую референс персонажей...")
+                if asyncio.iscoroutine(r):
+                    await r
             try:
-                await on_illustration_ready(i, img_bytes)
+                character_sheet_b64 = await generate_character_sheet(
+                    cast=recurring,
+                    character_appearances=character_appearances,
+                    reference_photo_b64=reference_photo_b64,
+                    reference_photos=reference_photos,
+                    fairy_tale_title=title,
+                    story_id=story_id,
+                    style_block=style_block,
+                )
+            except Exception as e:
+                logger.warning("Character sheet generation failed: %s", e)
+            logger.info("Character sheet: %s (cast: %s)",
+                        "ready" if character_sheet_b64 else "FAILED/skipped",
+                        ", ".join(recurring))
+
+    # Step 3: Generate all scene illustrations in parallel (bounded concurrency)
+    if on_progress:
+        r = on_progress(f"🎨 Рисую {len(scenes)} иллюстраций...")
+        if asyncio.iscoroutine(r):
+            await r
+
+    sem = asyncio.Semaphore(5)
+
+    async def _gen_one(i: int, scene: dict) -> bytes | None:
+        async with sem:
+            img = await generate_illustration(
+                scene=scene,
+                scene_index=i,
+                total_scenes=len(scenes),
+                reference_photo_b64=reference_photo_b64,
+                previous_scene_desc=None,
+                fairy_tale_title=title,
+                characters_desc=characters_desc,
+                character_appearances=character_appearances,
+                reference_photos=reference_photos,
+                story_id=story_id,
+                scene_full_text=_scene_text(scene),
+                character_sheet_b64=character_sheet_b64,
+                style_block=style_block,
+            )
+        logger.info("Illustration %d/%d: %s", i + 1, len(scenes),
+                    f"{len(img):,}b" if img else "FAILED")
+        if img and on_illustration_ready:
+            try:
+                await on_illustration_ready(i, img)
             except Exception as e:
                 logger.warning("on_illustration_ready callback failed for scene %d: %s", i, e)
+        return img
+
+    gathered = await asyncio.gather(
+        *[_gen_one(i, sc) for i, sc in enumerate(scenes)],
+        return_exceptions=True,
+    )
+    results = []
+    for i, r in enumerate(gathered):
+        if isinstance(r, BaseException):
+            logger.warning("Illustration scene %d raised: %s", i, r)
+            results.append(None)
+        else:
+            results.append(r)
 
     successful = sum(1 for r in results if r is not None)
     logger.info("Illustrations complete: %d/%d successful", successful, len(results))
