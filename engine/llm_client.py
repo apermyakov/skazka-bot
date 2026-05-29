@@ -41,17 +41,23 @@ async def _call_llm(system: str, user: str, max_retries: int = 3,
     }
 
     from engine.http_session import get_session
+    fallback_model = await cfg.get("model.llm_fallback", "google/gemini-2.5-flash")
+    per_call_timeout = float(await cfg.get("llm.call_timeout_sec", 75))
 
     for attempt in range(1, max_retries + 1):
+        # Primary model on the first attempt; if it stalls or errors, retries use
+        # a fast stable fallback so generation never hangs on a slow/preview model.
+        payload["model"] = model if attempt == 1 else fallback_model
         t0 = time.time()
         try:
             session = get_session()
-            async with session.post(OPENROUTER_URL, json=payload, headers=headers) as resp:
+            async with session.post(OPENROUTER_URL, json=payload, headers=headers,
+                                    timeout=aiohttp.ClientTimeout(total=per_call_timeout)) as resp:
                     if resp.status != 200:
                         body = await resp.text()
                         duration_ms = int((time.time() - t0) * 1000)
                         logger.warning("LLM HTTP %d (attempt %d): %s", resp.status, attempt, body[:300])
-                        fire(log_api_call(story_id=story_id, service="openrouter", model=model,
+                        fire(log_api_call(story_id=story_id, service="openrouter", model=payload["model"],
                                           purpose=purpose, status="failed", duration_ms=duration_ms,
                                           request_text=user[:10000], error=body[:1000]))
                         continue
@@ -62,7 +68,7 @@ async def _call_llm(system: str, user: str, max_retries: int = 3,
                     if not content or not content.strip():
                         logger.warning("LLM returned empty content (attempt %d)", attempt)
                         continue
-                    fire(log_api_call(story_id=story_id, service="openrouter", model=model,
+                    fire(log_api_call(story_id=story_id, service="openrouter", model=payload["model"],
                                       purpose=purpose, status="success", duration_ms=duration_ms,
                                       request_text=user[:10000], response_text=content[:10000],
                                       tokens_in=usage.get("prompt_tokens"),
@@ -71,7 +77,7 @@ async def _call_llm(system: str, user: str, max_retries: int = 3,
         except Exception as e:
             duration_ms = int((time.time() - t0) * 1000)
             logger.warning("LLM error (attempt %d): %s", attempt, e)
-            fire(log_api_call(story_id=story_id, service="openrouter", model=model,
+            fire(log_api_call(story_id=story_id, service="openrouter", model=payload["model"],
                               purpose=purpose, status="failed", duration_ms=duration_ms,
                               request_text=user[:10000], error=str(e)[:1000]))
 

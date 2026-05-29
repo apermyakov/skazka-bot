@@ -144,6 +144,8 @@ DEFAULTS = {
 
     # ── Models ──
     "model.llm": ("google/gemini-2.5-flash", "model", "Модель для генерации сценария"),
+    "model.llm_fallback": ("google/gemini-2.5-flash", "model", "Быстрая стабильная модель-фолбэк, если основная тормозит/падает"),
+    "llm.call_timeout_sec": (75, "llm", "Таймаут одного вызова LLM (сек) до перехода на фолбэк"),
     "model.image": ("google/gemini-2.5-flash-image", "model", "Модель для генерации иллюстраций"),
     "model.tts": ("eleven_v3", "model", "Модель ElevenLabs TTS"),
     "model.transcribe": ("google/gemini-2.5-flash", "model", "Модель для транскрипции голоса"),
