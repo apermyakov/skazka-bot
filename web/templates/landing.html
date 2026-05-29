@@ -45,6 +45,11 @@
   .gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:980px;margin:0 auto}
   .gallery img{width:100%;border-radius:14px;box-shadow:0 8px 24px rgba(43,35,80,.12);display:block}
   .gallery-sub{text-align:center;color:var(--muted);max-width:620px;margin:-10px auto 24px}
+  .compare{display:flex;align-items:center;justify-content:center;gap:18px;max-width:720px;margin:0 auto 26px;flex-wrap:wrap}
+  .compare figure{margin:0;text-align:center}
+  .compare img{width:230px;height:230px;object-fit:cover;border-radius:18px;box-shadow:0 8px 24px rgba(43,35,80,.14)}
+  .compare figcaption{margin-top:9px;color:var(--muted);font-size:14px;font-weight:700}
+  .compare .arrow{font-size:34px;color:var(--accent);font-weight:800}
   .trust{background:var(--card);border-radius:20px;padding:26px;box-shadow:0 6px 20px rgba(43,35,80,.06);
          display:flex;gap:18px;flex-wrap:wrap;justify-content:center}
   .trust div{flex:1;min-width:200px;text-align:center}
@@ -64,6 +69,7 @@
   @media(max-width:680px){
     .hero h1{font-size:29px}.steps{grid-template-columns:1fr}.gets{grid-template-columns:1fr}
     .gallery{grid-template-columns:1fr}
+    .compare .arrow{transform:rotate(90deg)}
   }
 </style>
 {{ metrika|safe }}
@@ -84,7 +90,12 @@
 
   <section>
     <h2>Примеры иллюстраций</h2>
-    <p class="gallery-sub">Каждая сказка — с тёплыми иллюстрациями в стиле живописи, где герой похож на вашего ребёнка.</p>
+    <p class="gallery-sub">Загрузите фото — и ребёнок становится героем сказки, узнаваемым с первого взгляда.</p>
+    <div class="compare">
+      <figure><img src="/static/examples/ref_photo.jpg" alt="Фото ребёнка" loading="lazy"><figcaption>Фото ребёнка</figcaption></figure>
+      <div class="arrow">→</div>
+      <figure><img src="/static/examples/ref_story.jpg" alt="Тот же ребёнок — герой сказки" loading="lazy"><figcaption>Герой сказки</figcaption></figure>
+    </div>
     <div class="gallery">
       <img src="/static/examples/ex1.jpg" alt="Пример иллюстрации к персональной сказке" loading="lazy">
       <img src="/static/examples/ex2.jpg" alt="Пример иллюстрации к персональной сказке" loading="lazy">
