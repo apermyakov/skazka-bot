@@ -22,6 +22,11 @@
   .muted{color:var(--muted)}
   .story{background:var(--soft);border-radius:14px;padding:18px 20px;max-height:380px;overflow:auto;margin:14px 0;overflow-wrap:break-word}
   .story p{margin:0 0 12px;text-indent:1.2em}.story p:first-child{text-indent:0}.story p:last-child{margin-bottom:0}
+  .stepper{display:flex;gap:6px;margin:14px 0 10px;justify-content:space-between}
+  .stepper .step{flex:1;text-align:center;padding:10px 4px;border-radius:12px;background:#f1ebff;color:var(--muted);font-size:12px;font-weight:700}
+  .stepper .step.active{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+  .stepper .step.done{background:#e0d4ff;color:var(--ink)}
+  .stepper .step .em{font-size:20px;display:block;margin-bottom:2px}
   .pbar{height:8px;background:#e4dcfb;border-radius:6px;overflow:hidden;margin-top:16px}
   .pbar > i{display:block;height:100%;width:2%;background:linear-gradient(90deg,var(--accent),var(--accent2));animation:fill 55s cubic-bezier(.2,.8,.3,1) forwards}
   @keyframes fill{to{width:97%}}
@@ -93,8 +98,19 @@ function render(d){
       '<div class="muted" style="margin-top:8px">Если вы ещё не оплатили — <a href="#" id="payagain">вернуться к оплате</a>.</div>';
     const pa = document.getElementById('payagain'); if(pa){ pa.onclick = function(e){e.preventDefault(); pay();}; }
   } else if(d.status === 'generating'){
-    box.innerHTML = '<span class="spin"></span> <b>'+esc(d.progress || 'Создаю сказку…')+'</b>'+
-      '<div class="muted" style="margin-top:8px">Озвучка, иллюстрации, видео — это 5–8 минут. Страницу можно не закрывать; ссылка также придёт на почту.</div>';
+    const stages = [{em:'🎙',name:'Озвучка'},{em:'🎨',name:'Иллюстрации'},{em:'🎬',name:'Видео'}];
+    const p = (d.progress || '').toLowerCase();
+    let cur = 0;
+    if (p.includes('рис') || p.includes('иллюс') || p.includes('размеч') || p.includes('референс')) cur = 1;
+    if (p.includes('видео') || p.includes('собира')) cur = 2;
+    const stepHtml = stages.map(function(s,i){
+      const cls = i < cur ? 'done' : (i === cur ? 'active' : '');
+      return '<div class="step '+cls+'"><span class="em">'+s.em+'</span>'+s.name+'</div>';
+    }).join('');
+    box.innerHTML = '<b>Собираю сказку…</b>'+
+      '<div class="stepper">'+stepHtml+'</div>'+
+      '<div class="muted" style="text-align:center"><span class="spin" style="width:18px;height:18px;border-width:3px;vertical-align:middle"></span> '+esc(d.progress || 'Готовим сказку…')+'</div>'+
+      '<div class="muted" style="margin-top:10px;text-align:center;font-size:13px">Это 5–8 минут. Страницу можно закрыть — ссылку пришлём на почту.</div>';
   } else if(d.status === 'done'){
     stop();
     let html = '<h1>'+esc(d.title||'Готово!')+' 🎉</h1>';
