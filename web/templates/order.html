@@ -100,17 +100,30 @@ function render(d){
     let html = '<h1>'+esc(d.title||'Готово!')+' 🎉</h1>';
     if(d.video_url){ html += '<video controls preload="metadata" src="'+d.video_url+'"></video>'; }
     if(d.audio_url){ html += '<audio controls src="'+d.audio_url+'"></audio>'; }
-    let dl = '';
+    let dl = '<button type="button" class="btn2" id="share">📤 Поделиться</button> ';
     if(d.video_url){ dl += '<a class="btn2" download href="'+d.video_url+'">⬇️ Скачать видео</a> '; }
     if(d.audio_url){ dl += '<a class="btn2" download href="'+d.audio_url+'">⬇️ Скачать аудио</a>'; }
-    if(dl){ html += '<div style="margin-top:14px">'+dl+'</div>'; }
+    html += '<div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:8px">'+dl+'</div>';
     html += '<a class="btn" style="margin-top:14px" href="/create">✨ Создать ещё одну сказку</a>';
     box.innerHTML = html;
+    const sh = document.getElementById('share');
+    if(sh) sh.onclick = shareStory;
   } else if(d.status === 'failed'){
     stop();
     box.innerHTML = '<h1 class="err">Что-то пошло не так</h1><p class="muted">'+esc(d.error||'')+'</p>'+
       '<a class="btn" href="/create" style="margin-top:10px">Попробовать снова</a>';
   }
+}
+
+async function shareStory(){
+  const url = window.location.href;
+  const h1 = document.querySelector('h1');
+  const title = (h1 ? h1.textContent.replace('🎉','').trim() : 'Моя сказка');
+  const text = title + ' — посмотри сказку';
+  try {
+    if (navigator.share) { await navigator.share({ title, text, url }); }
+    else { await navigator.clipboard.writeText(url); alert('Ссылка скопирована'); }
+  } catch (e) { /* user canceled */ }
 }
 
 async function pay(){
