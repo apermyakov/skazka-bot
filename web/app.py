@@ -346,12 +346,25 @@ async def feedback_submit(request: Request, name: str = Form(""), email: str = F
     return templates.TemplateResponse(request, "feedback.html", {"sent": True})
 
 
+async def _legal_ctx(title: str, body_tpl: str) -> dict:
+    from web import legal_content as lc
+    email = (await cfg.get("legal.email", "") or "").strip()
+    address = (await cfg.get("legal.address", "") or "").strip()
+    body = body_tpl.format(company=lc.COMPANY, service=lc.SERVICE, site=lc.SITE)
+    return {"title": title, "body": body, "edition": lc.EDITION_DATE,
+            "company": lc.COMPANY, "inn": lc.INN, "kpp": lc.KPP, "ogrn": lc.OGRN,
+            "email": email, "address": address}
+
+
 @app.get("/oferta", response_class=HTMLResponse)
-async def oferta_stub():
-    return _page("Оферта", "<h1>Публичная оферта</h1><p>Документ готовится.</p>")
+async def oferta(request: Request):
+    from web import legal_content as lc
+    return templates.TemplateResponse(request, "legal.html",
+                                      await _legal_ctx("Публичная оферта", lc.OFERTA_BODY))
 
 
 @app.get("/privacy", response_class=HTMLResponse)
-async def privacy_stub():
-    return _page("Политика конфиденциальности",
-                 "<h1>Политика конфиденциальности</h1><p>Документ готовится.</p>")
+async def privacy(request: Request):
+    from web import legal_content as lc
+    return templates.TemplateResponse(request, "legal.html",
+                                      await _legal_ctx("Политика конфиденциальности", lc.PRIVACY_BODY))

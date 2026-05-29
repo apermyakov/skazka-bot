@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} — Сказик</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<style>
+  :root{--bg:#fbf7ff;--ink:#2b2350;--muted:#6b6390;--accent:#7c5cff;--card:#fff}
+  *{box-sizing:border-box}
+  html,body{overflow-x:hidden;max-width:100%}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.6}
+  .wrap{max-width:760px;margin:0 auto;padding:0 20px 50px}
+  header{padding:18px 0}
+  .logo{font-weight:800;font-size:22px;text-decoration:none;color:var(--ink)}.logo span{color:var(--accent)}
+  h1{font-size:27px;margin:10px 0 6px}
+  .upd{color:var(--muted);font-size:13px;margin:0 0 20px}
+  .legal{background:var(--card);border-radius:16px;padding:24px 26px;box-shadow:0 6px 20px rgba(43,35,80,.06)}
+  .legal h3{font-size:17px;margin:22px 0 8px}
+  .legal p{margin:0 0 12px}
+  .legal a{color:var(--accent)}
+  .reqs{background:var(--card);border-radius:16px;padding:20px 26px;margin-top:16px;box-shadow:0 6px 20px rgba(43,35,80,.06);font-size:14px;color:var(--muted)}
+  .reqs h3{color:var(--ink);font-size:16px;margin:0 0 10px}
+  .reqs div{margin:3px 0}
+  .ftr{text-align:center;padding:26px 0 0;color:var(--muted);font-size:13px}.ftr a{color:var(--muted)}
+</style>
+{{ metrika|safe }}
+</head>
+<body>
+<div class="wrap">
+  <header><a class="logo" href="/">✨ Сказ<span>ик</span></a></header>
+  <h1>{{ title }}</h1>
+  <p class="upd">Редакция от {{ edition }}</p>
+  <div class="legal">{{ body|safe }}</div>
+  <div class="reqs">
+    <h3>Реквизиты</h3>
+    <div>{{ company }}</div>
+    <div>ИНН {{ inn }} · КПП {{ kpp }} · ОГРН {{ ogrn }}</div>
+    {% if address %}<div>Адрес: {{ address }}</div>{% endif %}
+    {% if email %}<div>E-mail: <a href="mailto:{{ email }}">{{ email }}</a></div>{% endif %}
+    <div>Telegram: <a href="https://t.me/SkazikBot">@SkazikBot</a></div>
+  </div>
+  <div class="ftr"><a href="/">На главную</a> · <a href="/feedback">Обратная связь</a></div>
+</div>
+</body>
+</html>

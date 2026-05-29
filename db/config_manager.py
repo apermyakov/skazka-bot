@@ -156,6 +156,8 @@ DEFAULTS = {
     "yukassa.vat_code": (1, "yukassa", "Код НДС для чека: 1=Без НДС, 2=0%, 3=10%, 4=20%, 5=10/110, 6=20/120"),
     "bot.payment_enabled": (False, "pricing", "Платная озвучка в Telegram-боте через YuKassa. False = бот бесплатный"),
     "bot.payment_return_url": ("https://t.me/SkazikBot", "pricing", "Куда вернуть пользователя после оплаты в боте"),
+    "legal.email": ("", "legal", "Контактный e-mail для оферты/политики (пусто = не показывать)"),
+    "legal.address": ("", "legal", "Юр. адрес для оферты/реквизитов (пусто = не показывать)"),
 
     # ── LLM parameters ──
     "llm.screenplay_temperature": (0.8, "llm", "Температура генерации сценария"),
