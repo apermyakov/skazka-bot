@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Создать сказку — Сказик</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<style>
+  :root{--bg:#fbf7ff;--ink:#2b2350;--muted:#6b6390;--accent:#7c5cff;--accent2:#ff7eb6;--card:#fff;--soft:#f1ebff}
+  *{box-sizing:border-box}
+  html,body{overflow-x:hidden;max-width:100%}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.55}
+  .wrap{max-width:640px;margin:0 auto;padding:0 20px}
+  header{padding:18px 0}.logo{font-weight:800;font-size:22px}.logo span{color:var(--accent)}
+  a.back{color:var(--muted);text-decoration:none;font-size:14px}
+  h1{font-size:28px;margin:16px 0 6px}
+  p.lead{color:var(--muted);margin:0 0 22px}
+  .card{background:var(--card);border-radius:18px;padding:22px;box-shadow:0 6px 20px rgba(43,35,80,.06)}
+  label{display:block;font-weight:700;margin:0 0 8px}
+  textarea{width:100%;min-height:120px;border:1.5px solid #e4dcfb;border-radius:12px;padding:13px;font:inherit;resize:vertical}
+  .hint{color:var(--muted);font-size:13px;margin:6px 0 18px}
+  .photo{margin:6px 0 6px;display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+  #photo{display:none}
+  .upload-btn{display:inline-flex;align-items:center;gap:8px;background:var(--soft);color:var(--ink);
+    border:1.5px dashed #c9b8ff;border-radius:12px;padding:12px 18px;font-weight:700;cursor:pointer}
+  .upload-btn:hover{background:#e9e0ff}
+  .fname{color:var(--muted);font-size:14px;overflow-wrap:anywhere}
+  .btn{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:0;
+       font-weight:800;font-size:18px;padding:15px;border-radius:14px;cursor:pointer}
+  .note{color:var(--muted);font-size:13px;text-align:center;margin-top:12px}
+  .ex{background:var(--soft);border-radius:10px;padding:10px 13px;color:var(--muted);font-size:14px;margin-bottom:18px}
+</style>
+{{ metrika|safe }}
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">✨ Сказ<span>ик</span></div>
+    <a class="back" href="/">← на главную</a>
+  </header>
+  <h1>Расскажите про сказку</h1>
+  <p class="lead">Сначала покажем текст — <b>бесплатно</b>. Озвучка, иллюстрации и видео — после оплаты.</p>
+  <div class="card">
+    <form method="post" action="/create" enctype="multipart/form-data">
+      <label for="topic">О чём сказка?</label>
+      <div class="ex">Например: «Сказка про Машу, 4 года, которая боится темноты. Пусть подружится с ночным светлячком и перестанет бояться.»</div>
+      <textarea id="topic" name="topic" maxlength="2000" required
+                placeholder="Имя и возраст ребёнка, тема, какие герои, чему учит..."></textarea>
+      <div class="hint">Чем подробнее — тем лучше получится сказка.</div>
+
+      <label for="photo">Фото ребёнка (по желанию)</label>
+      <div class="photo">
+        <label class="upload-btn" for="photo">📷 Прикрепить фото</label>
+        <span class="fname" id="fname"></span>
+        <input type="file" id="photo" name="photo" accept="image/*">
+      </div>
+      <div class="hint">С фото герой будет похож на вашего малыша. До 10 МБ, JPEG/PNG.</div>
+
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" required
+             style="width:100%;border:1.5px solid #e4dcfb;border-radius:12px;padding:13px;font:inherit"
+             placeholder="alex@mail.ru">
+      <div class="hint">Пришлём готовую сказку и чек об оплате.</div>
+
+      <button class="btn" type="submit">✨ Сочинить текст бесплатно</button>
+      <div class="note">Это займёт меньше минуты</div>
+    </form>
+  </div>
+</div>
+<script>
+  document.getElementById('photo').addEventListener('change', function(){
+    document.getElementById('fname').textContent =
+      (this.files && this.files[0]) ? '✓ ' + this.files[0].name : '';
+  });
+</script>
+</body>
+</html>

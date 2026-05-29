@@ -130,20 +130,28 @@ async def _show_story(message: types.Message, state: FSMContext, title: str, sto
     safe_title = _html.escape(_sanitize_text(title))
     full_text = f"\U0001f4d6 <b>{safe_title}</b>\n\n{display_text}"
 
-    # Split into chunks of ~3900 chars at paragraph boundaries
+    # Split into Telegram-safe chunks (<4096). Prefer paragraph breaks, then line
+    # breaks, then spaces — and hard-cut as a last resort — so a single long
+    # paragraph (story with only single \n) can never exceed the limit.
+    LIMIT = 4000
     chunks = []
-    current = ""
-    for para in full_text.split("\n\n"):
-        if len(current) + len(para) + 2 > 3900 and current:
-            chunks.append(current.strip())
-            current = para
-        else:
-            current = current + "\n\n" + para if current else para
-    if current.strip():
-        chunks.append(current.strip())
+    remaining = full_text
+    while len(remaining) > LIMIT:
+        window = remaining[:LIMIT]
+        cut = window.rfind("\n\n")
+        if cut < LIMIT // 2:
+            cut = window.rfind("\n")
+        if cut < LIMIT // 2:
+            cut = window.rfind(" ")
+        if cut <= 0:
+            cut = LIMIT
+        chunks.append(remaining[:cut].strip())
+        remaining = remaining[cut:].lstrip()
+    if remaining.strip():
+        chunks.append(remaining.strip())
 
     if not chunks:
-        chunks = [full_text[:3900]]
+        chunks = [full_text[:LIMIT]]
 
     # Send all chunks, buttons on the last one
     from bot.keyboards.inline import review_story

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ваша сказка — Сказик</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<style>
+  :root{--bg:#fbf7ff;--ink:#2b2350;--muted:#6b6390;--accent:#7c5cff;--accent2:#ff7eb6;--card:#fff;--soft:#f1ebff;--ok:#1faa59}
+  *{box-sizing:border-box}
+  html,body{overflow-x:hidden;max-width:100%}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.6}
+  .wrap{max-width:680px;margin:0 auto;padding:0 20px 50px}
+  header{padding:18px 0}.logo{font-weight:800;font-size:22px}.logo span{color:var(--accent)}
+  .card{background:var(--card);border-radius:18px;padding:24px;box-shadow:0 6px 20px rgba(43,35,80,.06);margin-top:14px}
+  h1{font-size:23px;margin:2px 0 12px;line-height:1.25}
+  .spin{display:inline-block;width:34px;height:34px;border:4px solid #e4dcfb;border-top-color:var(--accent);
+        border-radius:50%;animation:s 1s linear infinite;vertical-align:middle}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .muted{color:var(--muted)}
+  .story{background:var(--soft);border-radius:14px;padding:18px 20px;max-height:380px;overflow:auto;margin:14px 0;overflow-wrap:break-word}
+  .story p{margin:0 0 12px;text-indent:1.2em}.story p:first-child{text-indent:0}.story p:last-child{margin-bottom:0}
+  .pbar{height:8px;background:#e4dcfb;border-radius:6px;overflow:hidden;margin-top:16px}
+  .pbar > i{display:block;height:100%;width:2%;background:linear-gradient(90deg,var(--accent),var(--accent2));animation:fill 55s cubic-bezier(.2,.8,.3,1) forwards}
+  @keyframes fill{to{width:97%}}
+  .editbox{margin-top:14px}
+  .editbox textarea{width:100%;min-height:64px;border:1.5px solid #e4dcfb;border-radius:12px;padding:11px;font:inherit;resize:vertical}
+  .btn2{display:inline-block;margin-top:8px;background:#fff;color:var(--accent);border:1.5px solid var(--accent);
+        font-weight:700;font-size:15px;padding:11px 18px;border-radius:12px;cursor:pointer}
+  .btn{display:block;width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:0;
+       font-weight:800;font-size:18px;padding:16px;border-radius:14px;cursor:pointer;text-align:center;text-decoration:none}
+  .btn[disabled]{opacity:.6;cursor:default}
+  .ghost{display:inline-block;margin-top:10px;color:var(--muted);text-decoration:none;font-size:14px}
+  .lock{color:var(--muted);font-size:13px;text-align:center;margin-top:10px}
+  video{width:100%;border-radius:12px;margin:8px 0}
+  audio{width:100%;margin:8px 0}
+  .gallery{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  .gallery img{width:100%;border-radius:10px}
+  .err{color:#c0392b}
+</style>
+{{ metrika|safe }}
+</head>
+<body>
+<div class="wrap">
+  <header><div class="logo">✨ Сказ<span>ик</span></div></header>
+  <div class="card" id="box">
+    <div id="state"><span class="spin"></span> <span class="muted">Загрузка…</span></div>
+  </div>
+</div>
+
+<script>
+const OID = "{{ oid }}";
+const PRICE = {{ price }};
+const box = document.getElementById('state');
+let timer = null;
+let shownStatus = '';
+
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+
+function render(d){
+  if(d.status === 'composing' && shownStatus === 'composing') return;  // keep the progress bar
+  shownStatus = d.status;
+  if(d.status === 'composing'){
+    box.innerHTML = '<b>✨ Сочиняю текст сказки…</b><div class="pbar"><i></i></div>';
+  } else if(d.status === 'text_ready'){
+    stop();
+    box.innerHTML =
+      '<h1>'+esc(d.title||'Ваша сказка')+'</h1>'+
+      '<div class="story">'+(d.text_html||'')+'</div>'+
+      '<button class="btn" id="pay">💜 Оплатить '+PRICE+' ₽ и озвучить</button>'+
+      '<div class="lock">🔒 Оплата через ЮKassa · после оплаты соберём озвучку, иллюстрации и видео</div>'+
+      '<div class="editbox"><textarea id="comment" placeholder="Что изменить? Напр.: сделай короче, добавь маму, убери лису…"></textarea>'+
+      '<button class="btn2" id="edit">✏️ Переделать с правкой</button> '+
+      '<a class="ghost" href="/create">или новая сказка</a></div>';
+    document.getElementById('pay').onclick = pay;
+    document.getElementById('edit').onclick = editStory;
+  } else if(d.status === 'awaiting_payment'){
+    box.innerHTML = '<span class="spin"></span> <b>Проверяем оплату…</b>'+
+      '<div class="muted" style="margin-top:8px">Если вы ещё не оплатили — <a href="#" id="payagain">вернуться к оплате</a>.</div>';
+    const pa = document.getElementById('payagain'); if(pa){ pa.onclick = function(e){e.preventDefault(); pay();}; }
+  } else if(d.status === 'generating'){
+    box.innerHTML = '<span class="spin"></span> <b>'+esc(d.progress || 'Создаю сказку…')+'</b>'+
+      '<div class="muted" style="margin-top:8px">Озвучка, иллюстрации, видео — это 5–8 минут. Страницу можно не закрывать; ссылка также придёт на почту.</div>';
+  } else if(d.status === 'done'){
+    stop();
+    let html = '<h1>'+esc(d.title||'Готово!')+' 🎉</h1>';
+    if(d.video_url){ html += '<video controls preload="metadata" src="'+d.video_url+'"></video>'; }
+    if(d.audio_url){ html += '<audio controls src="'+d.audio_url+'"></audio>'; }
+    html += '<a class="btn" style="margin-top:16px" href="/create">✨ Создать ещё одну сказку</a>';
+    box.innerHTML = html;
+  } else if(d.status === 'failed'){
+    stop();
+    box.innerHTML = '<h1 class="err">Что-то пошло не так</h1><p class="muted">'+esc(d.error||'')+'</p>'+
+      '<a class="btn" href="/create" style="margin-top:10px">Попробовать снова</a>';
+  }
+}
+
+async function pay(){
+  const b = document.getElementById('pay');
+  if(b){ b.disabled = true; b.textContent = 'Перехожу к оплате…'; }
+  try{
+    const r = await fetch('/order/'+OID+'/pay', {method:'POST'});
+    const d = await r.json();
+    if(d.ok && d.confirmation_url){ window.location = d.confirmation_url; }
+    else { alert('Не удалось начать оплату, попробуйте ещё раз'); if(b){b.disabled=false; b.textContent='💜 Оплатить '+PRICE+' ₽ и озвучить';} }
+  }catch(e){ if(b){b.disabled=false; b.textContent='💜 Оплатить '+PRICE+' ₽ и озвучить';} }
+}
+
+async function editStory(){
+  const ta = document.getElementById('comment');
+  const c = (ta && ta.value || '').trim();
+  if(!c){ if(ta) ta.focus(); return; }
+  const b = document.getElementById('edit');
+  if(b){ b.disabled = true; b.textContent = 'Переделываю…'; }
+  try{
+    const fd = new FormData(); fd.append('comment', c);
+    const r = await fetch('/order/'+OID+'/edit', {method:'POST', body:fd});
+    if(r.ok){ shownStatus=''; start(); }
+    else { alert('Не получилось переделать'); if(b){b.disabled=false; b.textContent='✏️ Переделать с правкой';} }
+  }catch(e){ if(b){b.disabled=false; b.textContent='✏️ Переделать с правкой';} }
+}
+
+async function poll(){
+  try{
+    const r = await fetch('/order/'+OID+'/status');
+    if(r.ok){ render(await r.json()); }
+  }catch(e){}
+}
+function start(){ stop(); poll(); timer = setInterval(poll, 3000); }
+function stop(){ if(timer){clearInterval(timer); timer=null;} }
+start();
+</script>
+</body>
+</html>

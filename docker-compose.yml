@@ -10,6 +10,21 @@ services:
       postgres:
         condition: service_healthy
 
+  web:
+    build: .
+    container_name: skazik-web
+    restart: unless-stopped
+    env_file: .env
+    command: ["uvicorn", "web.app:app", "--host", "0.0.0.0", "--port", "8200", "--reload", "--reload-dir", "/app/web"]
+    ports:
+      - "127.0.0.1:8200:8200"
+    volumes:
+      - media_data:/app/media
+      - ./web:/app/web
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   postgres:
     image: postgres:16-alpine
     container_name: skazka-postgres

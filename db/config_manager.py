@@ -150,6 +150,8 @@ DEFAULTS = {
     "image.default_style": ("painted", "image", "Стиль иллюстраций по умолчанию: painted|watercolor|realistic|pixar"),
     "image.size": ("1K", "image", "Разрешение генерации картинок: 1K (для 720p, дёшево) | 2K | 4K"),
     "limit.stories_per_day": (2, "limit", "Лимит сказок в день на пользователя (админы без лимита)"),
+    "pricing.story_rub": (999, "pricing", "Цена одной сказки на сайте (рубли)"),
+    "yukassa.vat_code": (1, "yukassa", "Код НДС для чека: 1=Без НДС, 2=0%, 3=10%, 4=20%, 5=10/110, 6=20/120"),
 
     # ── LLM parameters ──
     "llm.screenplay_temperature": (0.8, "llm", "Температура генерации сценария"),
