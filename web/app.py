@@ -244,6 +244,7 @@ async def order_status(oid: str):
         "progress": o.get("progress"),
         "video_url": o.get("video_url"), "audio_url": o.get("audio_url"),
         "email": o.get("email"), "error": o.get("error"),
+        "paid": bool(o.get("paid_at")),
     })
 
 
@@ -258,6 +259,17 @@ async def order_edit(oid: str, comment: str = Form(...)):
     new_topic = (o["topic"] or "") + "\n\nИзменения: " + comment
     await update_order(oid, topic=new_topic, status="composing", progress=None)
     asyncio.create_task(_compose(oid, new_topic))
+    return JSONResponse({"ok": True})
+
+
+@app.post("/order/{oid}/retry")
+async def order_retry(oid: str):
+    """Re-run generation for a paid order that failed — no second payment."""
+    o = await get_order(oid)
+    if not o or o["status"] != "failed" or not o.get("paid_at"):
+        return JSONResponse({"ok": False, "error": "bad state"}, status_code=400)
+    await update_order(oid, status="generating", error=None, progress=None)
+    asyncio.create_task(_generate(oid))
     return JSONResponse({"ok": True})
 
 
