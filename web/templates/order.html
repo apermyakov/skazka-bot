@@ -11,7 +11,12 @@
   html,body{overflow-x:hidden;max-width:100%}
   body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.6}
   .wrap{max-width:680px;margin:0 auto;padding:0 20px 50px}
-  header{padding:18px 0}.logo{font-weight:800;font-size:22px}.logo span{color:var(--accent)}
+  header{padding:18px 0;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .logo{font-weight:800;font-size:22px;text-decoration:none;color:var(--ink)}.logo span{color:var(--accent)}
+  .nav{display:flex;gap:16px;align-items:center}
+  .nav a{color:var(--muted);text-decoration:none;font-weight:600;font-size:15px;white-space:nowrap}
+  .nav a:hover{color:var(--accent)}.nav a.active{color:var(--ink)}
+  @media(max-width:680px){.nav{gap:12px}.nav a{font-size:14px}}
   .card{background:var(--card);border-radius:18px;padding:24px;box-shadow:0 6px 20px rgba(43,35,80,.06);margin-top:14px}
   h1{font-size:23px;margin:2px 0 12px;line-height:1.25}
   .spin{display:inline-block;width:34px;height:34px;border:4px solid #e4dcfb;border-top-color:var(--accent);
@@ -42,7 +47,14 @@
 </head>
 <body>
 <div class="wrap">
-  <header><div class="logo">✨ Сказ<span>ик</span></div></header>
+  <header>
+    <a class="logo" href="/">✨ Сказ<span>ик</span></a>
+    <nav class="nav">
+      <a href="/">Главная</a>
+      <a href="/create">Создать</a>
+      <a href="/feedback">Обратная связь</a>
+    </nav>
+  </header>
   <div class="card" id="box">
     <div id="state"><span class="spin"></span> <span class="muted">Загрузка…</span></div>
   </div>
@@ -56,10 +68,19 @@ let timer = null;
 let shownStatus = '';
 
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+function goal(name, params){ try{ if(window.ym) ym(109494799,'reachGoal',name,params||{}); }catch(e){} }
+function once(key){ try{ if(localStorage.getItem(key)) return false; localStorage.setItem(key,'1'); return true; }catch(e){ return true; } }
 
 function render(d){
   if(d.status === 'composing' && shownStatus === 'composing') return;  // keep the progress bar
   shownStatus = d.status;
+  if(d.status === 'text_ready' && once('g_lead_'+OID)) goal('lead_text');
+  if((d.status === 'generating' || d.status === 'done') && once('g_purchase_'+OID)){
+    goal('purchase');
+    try{ (window.dataLayer=window.dataLayer||[]).push({ecommerce:{currencyCode:'RUB',
+      purchase:{actionField:{id:OID,revenue:PRICE},
+      products:[{id:'story',name:'Персональная сказка',price:PRICE,quantity:1}]}}}); }catch(e){}
+  }
   if(d.status === 'composing'){
     box.innerHTML = '<b>✨ Сочиняю текст сказки…</b><div class="pbar"><i></i></div>';
   } else if(d.status === 'text_ready'){
@@ -96,6 +117,7 @@ function render(d){
 }
 
 async function pay(){
+  goal('pay_click');
   const b = document.getElementById('pay');
   if(b){ b.disabled = true; b.textContent = 'Перехожу к оплате…'; }
   try{

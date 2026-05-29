@@ -26,11 +26,33 @@ CREATE TABLE IF NOT EXISTS web_orders (
 """
 
 
+FEEDBACK_SQL = """
+CREATE TABLE IF NOT EXISTS feedback (
+    id          SERIAL PRIMARY KEY,
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    name        TEXT,
+    email       TEXT,
+    message     TEXT,
+    status      TEXT DEFAULT 'new',
+    replied_at  TIMESTAMPTZ
+);
+"""
+
+
 async def init_orders():
     async with db_mod._pool.acquire() as c:
         await c.execute(CREATE_SQL)
         await c.execute("ALTER TABLE web_orders ADD COLUMN IF NOT EXISTS email TEXT")
         await c.execute("ALTER TABLE web_orders ADD COLUMN IF NOT EXISTS progress TEXT")
+        await c.execute(FEEDBACK_SQL)
+
+
+async def create_feedback(name: str | None, email: str | None, message: str) -> int:
+    async with db_mod._pool.acquire() as c:
+        row = await c.fetchrow(
+            "INSERT INTO feedback (name, email, message) VALUES ($1,$2,$3) RETURNING id",
+            name, email, message)
+    return row["id"]
 
 
 async def create_order(topic: str, photo_path: str | None = None, email: str | None = None) -> str:

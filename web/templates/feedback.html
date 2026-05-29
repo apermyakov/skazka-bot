@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Обратная связь — Сказик</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<style>
+  :root{--bg:#fbf7ff;--ink:#2b2350;--muted:#6b6390;--accent:#7c5cff;--accent2:#ff7eb6;--card:#fff;--soft:#f1ebff;--ok:#1faa59}
+  *{box-sizing:border-box}
+  html,body{overflow-x:hidden;max-width:100%}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.55}
+  .wrap{max-width:640px;margin:0 auto;padding:0 20px 50px}
+  header{padding:18px 0;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .logo{font-weight:800;font-size:22px;text-decoration:none;color:var(--ink)}.logo span{color:var(--accent)}
+  .nav{display:flex;gap:16px;align-items:center}
+  .nav a{color:var(--muted);text-decoration:none;font-weight:600;font-size:15px;white-space:nowrap}
+  .nav a:hover{color:var(--accent)}.nav a.active{color:var(--ink)}
+  h1{font-size:28px;margin:16px 0 6px}
+  p.lead{color:var(--muted);margin:0 0 22px}
+  .card{background:var(--card);border-radius:18px;padding:22px;box-shadow:0 6px 20px rgba(43,35,80,.06)}
+  label{display:block;font-weight:700;margin:0 0 8px}
+  input,textarea{width:100%;border:1.5px solid #e4dcfb;border-radius:12px;padding:13px;font:inherit}
+  textarea{min-height:120px;resize:vertical}
+  .hint{color:var(--muted);font-size:13px;margin:6px 0 18px}
+  .btn{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:0;
+       font-weight:800;font-size:18px;padding:15px;border-radius:14px;cursor:pointer}
+  .err{color:#c0392b;font-size:14px;margin:0 0 14px}
+  .ok{background:var(--soft);border-radius:14px;padding:22px;text-align:center}
+  .ok .em{font-size:42px}.ok h2{margin:10px 0 6px}.ok p{color:var(--muted);margin:0}
+  @media(max-width:680px){.nav{gap:12px}.nav a{font-size:14px}}
+</style>
+{{ metrika|safe }}
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="logo" href="/">✨ Сказ<span>ик</span></a>
+    <nav class="nav">
+      <a href="/">Главная</a>
+      <a href="/create">Создать</a>
+      <a class="active" href="/feedback">Обратная связь</a>
+    </nav>
+  </header>
+
+  {% if sent %}
+  <div class="card ok">
+    <div class="em">💜</div>
+    <h2>Спасибо за обратную связь!</h2>
+    <p>Мы прочитаем ваше сообщение и, если оставили почту, ответим письмом.</p>
+    <p style="margin-top:14px"><a href="/" style="color:var(--accent);font-weight:700;text-decoration:none">← на главную</a></p>
+  </div>
+  {% else %}
+  <h1>Обратная связь</h1>
+  <p class="lead">Вопрос, идея или что-то пошло не так? Напишите — мы читаем всё.</p>
+  <div class="card">
+    <form method="post" action="/feedback">
+      {% if error %}<p class="err">{{ error }}</p>{% endif %}
+      <label for="name">Как вас зовут?</label>
+      <input type="text" id="name" name="name" maxlength="200" placeholder="Имя (по желанию)">
+      <div class="hint">Необязательно.</div>
+
+      <label for="email">Email для ответа</label>
+      <input type="email" id="email" name="email" maxlength="200" placeholder="alex@mail.ru">
+      <div class="hint">Оставьте, если ждёте ответ.</div>
+
+      <label for="message">Сообщение</label>
+      <textarea id="message" name="message" maxlength="4000" required
+                placeholder="Расскажите, что хотите..."></textarea>
+      <div class="hint">До 4000 символов.</div>
+
+      <button class="btn" type="submit">Отправить</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+</body>
+</html>

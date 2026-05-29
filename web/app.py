@@ -23,7 +23,7 @@ from fastapi.templating import Jinja2Templates
 import db.database as db_mod
 from db.database import init_db
 from db.config_manager import cfg
-from web.orders import init_orders, create_order, get_order, update_order, claim_for_generation
+from web.orders import init_orders, create_order, get_order, update_order, claim_for_generation, create_feedback
 from web import yookassa_client
 from web.format import format_story_html
 
@@ -192,6 +192,20 @@ async def create_submit(topic: str = Form(...), email: str = Form(""), photo: Up
     return RedirectResponse(f"/order/{oid}", status_code=303)
 
 
+@app.post("/transcribe")
+async def transcribe(audio: UploadFile = File(...)):
+    data = await audio.read()
+    if not data or len(data) > 25 * 1024 * 1024:
+        return JSONResponse({"ok": False, "error": "bad audio"}, status_code=400)
+    try:
+        from engine.transcribe import transcribe_voice
+        text = await transcribe_voice(data)
+        return JSONResponse({"ok": True, "text": text})
+    except Exception as e:
+        logger.error("transcribe failed: %s", e, exc_info=True)
+        return JSONResponse({"ok": False, "error": "transcription failed"}, status_code=502)
+
+
 @app.get("/order/{oid}", response_class=HTMLResponse)
 async def order_page(request: Request, oid: str):
     o = await get_order(oid)
@@ -309,6 +323,27 @@ def _page(title: str, body: str) -> HTMLResponse:
         f"<title>{title} — Сказик</title><style>body{{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;"
         f"max-width:720px;margin:0 auto;padding:28px 20px;color:#2b2350;line-height:1.6}}a{{color:#7c5cff}}</style>"
         f"{METRIKA}</head><body><p><a href='/'>← На главную</a></p>{body}</body></html>")
+
+
+@app.get("/feedback", response_class=HTMLResponse)
+async def feedback_form(request: Request):
+    return templates.TemplateResponse(request, "feedback.html", {"sent": False})
+
+
+@app.post("/feedback", response_class=HTMLResponse)
+async def feedback_submit(request: Request, name: str = Form(""), email: str = Form(""),
+                          message: str = Form(...)):
+    name = (name or "").strip()[:200]
+    email = (email or "").strip()[:200]
+    message = (message or "").strip()[:4000]
+    if len(message) < 3:
+        return templates.TemplateResponse(request, "feedback.html",
+                                          {"sent": False, "error": "Напишите сообщение."})
+    fid = await create_feedback(name or None, email or None, message)
+    await notify_admin(
+        f"💬 Новая обратная связь #{fid}\n"
+        f"Имя: {name or '—'}\nEmail: {email or '—'}\n\n{message[:1000]}")
+    return templates.TemplateResponse(request, "feedback.html", {"sent": True})
 
 
 @app.get("/oferta", response_class=HTMLResponse)

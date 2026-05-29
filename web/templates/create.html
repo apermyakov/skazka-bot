@@ -11,8 +11,12 @@
   html,body{overflow-x:hidden;max-width:100%}
   body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.55}
   .wrap{max-width:640px;margin:0 auto;padding:0 20px}
-  header{padding:18px 0}.logo{font-weight:800;font-size:22px}.logo span{color:var(--accent)}
-  a.back{color:var(--muted);text-decoration:none;font-size:14px}
+  header{padding:18px 0;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .logo{font-weight:800;font-size:22px;text-decoration:none;color:var(--ink)}.logo span{color:var(--accent)}
+  .nav{display:flex;gap:16px;align-items:center}
+  .nav a{color:var(--muted);text-decoration:none;font-weight:600;font-size:15px;white-space:nowrap}
+  .nav a:hover{color:var(--accent)}.nav a.active{color:var(--ink)}
+  @media(max-width:680px){.nav{gap:12px}.nav a{font-size:14px}}
   h1{font-size:28px;margin:16px 0 6px}
   p.lead{color:var(--muted);margin:0 0 22px}
   .card{background:var(--card);border-radius:18px;padding:22px;box-shadow:0 6px 20px rgba(43,35,80,.06)}
@@ -29,14 +33,23 @@
        font-weight:800;font-size:18px;padding:15px;border-radius:14px;cursor:pointer}
   .note{color:var(--muted);font-size:13px;text-align:center;margin-top:12px}
   .ex{background:var(--soft);border-radius:10px;padding:10px 13px;color:var(--muted);font-size:14px;margin-bottom:18px}
+  .mic{display:inline-flex;align-items:center;gap:8px;background:var(--soft);color:var(--ink);
+    border:1.5px solid #c9b8ff;border-radius:12px;padding:10px 16px;font-weight:700;cursor:pointer;font:inherit;margin:8px 0 0}
+  .mic:hover{background:#e9e0ff}
+  .mic.rec{background:#ffe2ea;border-color:#ff9bbb;color:#c0392b}
+  .mic[disabled]{opacity:.6;cursor:default}
 </style>
 {{ metrika|safe }}
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div class="logo">✨ Сказ<span>ик</span></div>
-    <a class="back" href="/">← на главную</a>
+    <a class="logo" href="/">✨ Сказ<span>ик</span></a>
+    <nav class="nav">
+      <a href="/">Главная</a>
+      <a class="active" href="/create">Создать</a>
+      <a href="/feedback">Обратная связь</a>
+    </nav>
   </header>
   <h1>Расскажите про сказку</h1>
   <p class="lead">Сначала покажем текст — <b>бесплатно</b>. Озвучка, иллюстрации и видео — после оплаты.</p>
@@ -46,7 +59,8 @@
       <div class="ex">Например: «Сказка про Машу, 4 года, которая боится темноты. Пусть подружится с ночным светлячком и перестанет бояться.»</div>
       <textarea id="topic" name="topic" maxlength="2000" required
                 placeholder="Имя и возраст ребёнка, тема, какие герои, чему учит..."></textarea>
-      <div class="hint">Чем подробнее — тем лучше получится сказка.</div>
+      <div><button type="button" class="mic" id="mic">🎙 Записать голосом</button></div>
+      <div class="hint">Чем подробнее — тем лучше получится сказка. Можно надиктовать голосом.</div>
 
       <label for="photo">Фото ребёнка (по желанию)</label>
       <div class="photo">
@@ -72,6 +86,43 @@
     document.getElementById('fname').textContent =
       (this.files && this.files[0]) ? '✓ ' + this.files[0].name : '';
   });
+
+  // Voice input → /transcribe → fill topic textarea
+  (function(){
+    const mic = document.getElementById('mic');
+    const topic = document.getElementById('topic');
+    let rec = null, chunks = [], stream = null;
+    const idle = '🎙 Записать голосом';
+
+    mic.addEventListener('click', async function(){
+      if(rec && rec.state === 'recording'){ rec.stop(); return; }
+      if(!navigator.mediaDevices || !window.MediaRecorder){
+        alert('Голосовой ввод не поддерживается в этом браузере'); return;
+      }
+      try{ stream = await navigator.mediaDevices.getUserMedia({audio:true}); }
+      catch(e){ alert('Не получилось включить микрофон. Разрешите доступ к микрофону.'); return; }
+      chunks = [];
+      rec = new MediaRecorder(stream);
+      rec.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
+      rec.onstop = async function(){
+        stream.getTracks().forEach(t => t.stop());
+        mic.classList.remove('rec'); mic.disabled = true; mic.textContent = '⏳ Распознаю…';
+        try{
+          const blob = new Blob(chunks, {type: rec.mimeType || 'audio/webm'});
+          const fd = new FormData(); fd.append('audio', blob, 'voice.webm');
+          const r = await fetch('/transcribe', {method:'POST', body:fd});
+          const d = await r.json();
+          if(d.ok && d.text){
+            topic.value = (topic.value.trim() ? topic.value.trim() + ' ' : '') + d.text;
+            topic.focus();
+          } else { alert('Не удалось распознать. Попробуйте ещё раз.'); }
+        }catch(e){ alert('Ошибка распознавания, попробуйте ещё раз.'); }
+        finally{ mic.disabled = false; mic.textContent = idle; }
+      };
+      rec.start();
+      mic.classList.add('rec'); mic.textContent = '⏹ Остановить запись';
+    });
+  })();
 </script>
 </body>
 </html>
