@@ -3,8 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ваша сказка — Сказик</title>
+<title>«{{ story_title }}» — Сказик</title>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Сказик">
+<meta property="og:title" content="«{{ story_title }}» — персональная сказка">
+<meta property="og:description" content="Личная аудиосказка с иллюстрациями и видео, где главный герой — ребёнок.">
+<meta property="og:image" content="{{ og_image }}">
+<meta property="og:url" content="https://skazik.app/order/{{ oid }}">
+<meta name="twitter:card" content="summary_large_image">
 <style>
   :root{--bg:#fbf7ff;--ink:#2b2350;--muted:#6b6390;--accent:#7c5cff;--accent2:#ff7eb6;--card:#fff;--soft:#f1ebff;--ok:#1faa59}
   *{box-sizing:border-box}
