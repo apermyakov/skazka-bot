@@ -128,12 +128,30 @@ async def _generate(oid: str):
         async def on_status(msg: str):
             await update_order(oid, progress=msg)
 
-        screenplay = await convert_to_screenplay(o["title"], o["story_text"])
-        result = await generate_fairytale(
-            context=o["topic"], screenplay=screenplay,
-            reference_photo_b64=(photos[0] if photos else None),
-            reference_photos=photos, tempo=1.15, style="painted",
-            on_status=on_status)
+        async def _run_gen():
+            screenplay = await convert_to_screenplay(o["title"], o["story_text"])
+            return await generate_fairytale(
+                context=o["topic"], screenplay=screenplay,
+                reference_photo_b64=(photos[0] if photos else None),
+                reference_photos=photos, tempo=1.15, style="painted",
+                on_status=on_status)
+
+        # Auto-retry once on transient failure so users don't see "failed"
+        # for hiccups in TTS/image APIs. Both attempts must throw before we give up.
+        result = None
+        last_err = None
+        for attempt in (1, 2):
+            try:
+                result = await _run_gen()
+                break
+            except Exception as e:
+                last_err = e
+                logger.warning("order %s gen attempt %d failed: %s", oid, attempt, e)
+                if attempt == 1:
+                    await on_status("⚠️ Повторяю попытку...")
+                    await asyncio.sleep(3)
+        if result is None:
+            raise last_err
         mid = result.get("order_id")
         def url(p):
             # media_dir is "./media" → paths come back relative ("media/...") or
