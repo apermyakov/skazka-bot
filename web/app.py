@@ -151,6 +151,13 @@ async def _generate(oid: str):
         logger.info("order %s: generation done (%s)", oid, result.get("title"))
         vid = "видео" if result.get("video_path") else "только аудио"
         await notify_admin(f"✅ СКАЗКА ГОТОВА (оплачено)\n«{result.get('title')}» — {vid}\n{PUBLIC_BASE}/order/{oid}")
+        buyer_email = (o.get("email") or "").strip()
+        if buyer_email:
+            from web.mailer import send_story_ready
+            asyncio.create_task(send_story_ready(
+                buyer_email,
+                result.get("title") or "Ваша сказка",
+                f"{PUBLIC_BASE}/order/{oid}"))
     except Exception as e:
         logger.error("order %s generate failed: %s", oid, e, exc_info=True)
         await update_order(oid, status="failed", error=str(e)[:500])
