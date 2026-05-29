@@ -144,7 +144,7 @@ async def _generate(oid: str):
             return p
         illus = [url(p) for p in result.get("illustrations", []) if p]
         await update_order(
-            oid, status="done", media_order_id=mid,
+            oid, status="done", media_order_id=mid, error=None,
             video_url=(f"/media/{mid}/fairytale.mp4" if result.get("video_path") else None),
             audio_url=(url(result["file_path"]) if result.get("file_path") else None),
             illustrations=illus)
