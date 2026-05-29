@@ -13,10 +13,7 @@
   .wrap{max-width:680px;margin:0 auto;padding:0 20px 50px}
   header{padding:18px 0;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
   .logo{font-weight:800;font-size:22px;text-decoration:none;color:var(--ink)}.logo span{color:var(--accent)}
-  .nav{display:flex;gap:16px;align-items:center}
-  .nav a{color:var(--muted);text-decoration:none;font-weight:600;font-size:15px;white-space:nowrap}
-  .nav a:hover{color:var(--accent)}.nav a.active{color:var(--ink)}
-  @media(max-width:680px){.nav{gap:12px}.nav a{font-size:14px}}
+  .ftr{text-align:center;padding:26px 0 36px;color:var(--muted);font-size:13px}.ftr a{color:var(--muted)}
   .card{background:var(--card);border-radius:18px;padding:24px;box-shadow:0 6px 20px rgba(43,35,80,.06);margin-top:14px}
   h1{font-size:23px;margin:2px 0 12px;line-height:1.25}
   .spin{display:inline-block;width:34px;height:34px;border:4px solid #e4dcfb;border-top-color:var(--accent);
@@ -49,16 +46,12 @@
 <div class="wrap">
   <header>
     <a class="logo" href="/">✨ Сказ<span>ик</span></a>
-    <nav class="nav">
-      <a href="/">Главная</a>
-      <a href="/create">Создать</a>
-      <a href="/feedback">Обратная связь</a>
-    </nav>
   </header>
   <div class="card" id="box">
     <div id="state"><span class="spin"></span> <span class="muted">Загрузка…</span></div>
   </div>
 </div>
+<footer class="ftr"><a href="/feedback">Обратная связь</a></footer>
 
 <script>
 const OID = "{{ oid }}";

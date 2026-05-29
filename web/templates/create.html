@@ -13,10 +13,7 @@
   .wrap{max-width:640px;margin:0 auto;padding:0 20px}
   header{padding:18px 0;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
   .logo{font-weight:800;font-size:22px;text-decoration:none;color:var(--ink)}.logo span{color:var(--accent)}
-  .nav{display:flex;gap:16px;align-items:center}
-  .nav a{color:var(--muted);text-decoration:none;font-weight:600;font-size:15px;white-space:nowrap}
-  .nav a:hover{color:var(--accent)}.nav a.active{color:var(--ink)}
-  @media(max-width:680px){.nav{gap:12px}.nav a{font-size:14px}}
+  .ftr{text-align:center;padding:26px 0 36px;color:var(--muted);font-size:13px}.ftr a{color:var(--muted)}
   h1{font-size:28px;margin:16px 0 6px}
   p.lead{color:var(--muted);margin:0 0 22px}
   .card{background:var(--card);border-radius:18px;padding:22px;box-shadow:0 6px 20px rgba(43,35,80,.06)}
@@ -45,11 +42,6 @@
 <div class="wrap">
   <header>
     <a class="logo" href="/">✨ Сказ<span>ик</span></a>
-    <nav class="nav">
-      <a href="/">Главная</a>
-      <a class="active" href="/create">Создать</a>
-      <a href="/feedback">Обратная связь</a>
-    </nav>
   </header>
   <h1>Расскажите про сказку</h1>
   <p class="lead">Сначала покажем текст — <b>бесплатно</b>. Озвучка, иллюстрации и видео — после оплаты.</p>
@@ -81,6 +73,7 @@
     </form>
   </div>
 </div>
+<footer class="ftr"><a href="/feedback">Обратная связь</a></footer>
 <script>
   document.getElementById('photo').addEventListener('change', function(){
     document.getElementById('fname').textContent =
