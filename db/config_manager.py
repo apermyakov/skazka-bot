@@ -152,6 +152,8 @@ DEFAULTS = {
     "limit.stories_per_day": (2, "limit", "Лимит сказок в день на пользователя (админы без лимита)"),
     "pricing.story_rub": (999, "pricing", "Цена одной сказки на сайте (рубли)"),
     "yukassa.vat_code": (1, "yukassa", "Код НДС для чека: 1=Без НДС, 2=0%, 3=10%, 4=20%, 5=10/110, 6=20/120"),
+    "bot.payment_enabled": (False, "pricing", "Платная озвучка в Telegram-боте через YuKassa. False = бот бесплатный"),
+    "bot.payment_return_url": ("https://t.me/SkazikBot", "pricing", "Куда вернуть пользователя после оплаты в боте"),
 
     # ── LLM parameters ──
     "llm.screenplay_temperature": (0.8, "llm", "Температура генерации сценария"),

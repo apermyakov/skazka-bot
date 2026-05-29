@@ -5,12 +5,13 @@ import base64
 import json
 import logging
 import os
+import re
 import traceback as tb_mod
 from io import BytesIO
 
 from aiogram import Router, types, F, Bot
 from aiogram.fsm.context import FSMContext
-from aiogram.types import FSInputFile
+from aiogram.types import FSInputFile, InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot.config import settings
 from bot.states.create import CreateFairyTale
@@ -138,8 +139,22 @@ async def on_skip_photo(callback: types.CallbackQuery, state: FSMContext):
 
 async def _start_generation(message: types.Message, state: FSMContext):
     """Run the full pipeline: convert text -> screenplay JSON -> audio + illustrations."""
-    await state.set_state(CreateFairyTale.generating)
+    from db.config_manager import cfg
     data = await state.get_data()
+
+    # Paywall (behind a config flag; default off): require email + payment before
+    # the expensive voice/illustration generation. Re-enters here once paid=True.
+    if await cfg.get("bot.payment_enabled", False) and not data.get("paid"):
+        if not data.get("buyer_email"):
+            await message.answer(await _msg(
+                "msg.pay_ask_email",
+                "📧 Введите ваш email — на него отправим чек об оплате:"))
+            await state.set_state(CreateFairyTale.waiting_email)
+            return
+        await _send_payment_link(message, state)
+        return
+
+    await state.set_state(CreateFairyTale.generating)
     context = data["context"]
     story_title = data.get("story_title", "Сказка")
     story_text = data.get("story_text", "")
@@ -365,6 +380,112 @@ async def _start_generation(message: types.Message, state: FSMContext):
             reply_markup=main_menu(),
         )
         await state.clear()
+
+
+# -- 8d. Paid bot: email for receipt -> payment link -> confirm --
+def _valid_email(s: str) -> bool:
+    return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", (s or "").strip()))
+
+
+async def _send_payment_link(message: types.Message, state: FSMContext):
+    """Create a YuKassa payment for the bot order and send the pay link + confirm button."""
+    from db.config_manager import cfg
+    data = await state.get_data()
+    price = await cfg.get("pricing.story_rub", 999)
+    title = data.get("story_title", "сказка")
+    email = data.get("buyer_email")
+    vat = int(await cfg.get("yukassa.vat_code", 1))
+    return_url = await cfg.get("bot.payment_return_url", "https://t.me/SkazikBot")
+    receipt = {
+        "customer": {"email": email},
+        "items": [{
+            "description": (f"Сказка «{title}»")[:128],
+            "quantity": "1.00",
+            "amount": {"value": f"{float(price):.2f}", "currency": "RUB"},
+            "vat_code": vat,
+            "payment_mode": "full_payment",
+            "payment_subject": "service",
+        }],
+    }
+    try:
+        from web import yookassa_client
+        payment = await yookassa_client.create_payment(
+            amount_rub=price,
+            description=f"Сказка: {title}",
+            return_url=return_url,
+            metadata={"channel": "bot", "chat_id": str(message.chat.id),
+                      "story_id": str(data.get("db_story_id") or "")},
+            receipt=receipt)
+        url = (payment.get("confirmation") or {}).get("confirmation_url")
+        pid = payment.get("id")
+        if not url or not pid:
+            logger.error("bot payment: no confirmation_url: %s", payment)
+            await message.answer("😔 Не удалось создать оплату. Попробуйте позже.", reply_markup=main_menu())
+            await state.clear()
+            return
+        await state.update_data(payment_id=pid, paid=False, _checking=False)
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=f"💳 Оплатить {int(float(price))} ₽", url=url)],
+            [InlineKeyboardButton(text="✅ Я оплатил", callback_data="paycheck")],
+        ])
+        await message.answer(
+            await _msg("msg.pay_link",
+                       "💜 Чтобы озвучить сказку «{title}», оплатите {price} ₽.\n"
+                       "После оплаты вернитесь сюда и нажмите «✅ Я оплатил».",
+                       title=title, price=int(float(price))),
+            reply_markup=kb)
+        await state.set_state(CreateFairyTale.waiting_payment)
+    except Exception as e:
+        logger.error("bot payment create failed: %s", e, exc_info=True)
+        await message.answer("😔 Ошибка при создании оплаты. Попробуйте позже.", reply_markup=main_menu())
+        await state.clear()
+
+
+@router.message(CreateFairyTale.waiting_email)
+async def on_email_received(message: types.Message, state: FSMContext):
+    email = (message.text or "").strip()
+    if not _valid_email(email):
+        await message.answer(await _msg(
+            "msg.pay_email_invalid",
+            "Похоже, это не email. Введите адрес вида alex@mail.ru"))
+        return
+    await state.update_data(buyer_email=email[:200])
+    await _send_payment_link(message, state)
+
+
+@router.callback_query(CreateFairyTale.waiting_payment, F.data == "paycheck")
+async def on_payment_check(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    pid = data.get("payment_id")
+    if not pid:
+        await callback.answer("Нет данных об оплате", show_alert=True)
+        return
+    if data.get("_checking"):
+        await callback.answer("Проверяю оплату…")
+        return
+    await state.update_data(_checking=True)
+    try:
+        from web import yookassa_client
+        payment = await yookassa_client.get_payment(pid)
+    except Exception as e:
+        logger.error("bot paycheck failed: %s", e)
+        await state.update_data(_checking=False)
+        await callback.answer("Не удалось проверить оплату, попробуйте ещё раз", show_alert=True)
+        return
+    if payment.get("status") == "succeeded":
+        await state.update_data(paid=True, _checking=False)
+        try:
+            await callback.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        await callback.answer(await _msg("msg.pay_ok", "Оплата получена! Собираю сказку…"))
+        await _start_generation(callback.message, state)
+    else:
+        await state.update_data(_checking=False)
+        await callback.answer(await _msg(
+            "msg.pay_pending",
+            "Оплата пока не поступила. Если вы только что оплатили — подождите минуту и нажмите ещё раз."),
+            show_alert=True)
 
 
 # -- 9. Feedback --

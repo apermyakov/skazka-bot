@@ -10,4 +10,6 @@ class CreateFairyTale(StatesGroup):
     reviewing_story = State()     # User reviews story text
     waiting_edits = State()       # User sends edits
     waiting_photo = State()       # User sends child photo for illustrations
+    waiting_email = State()       # User enters email for the receipt (paid bot)
+    waiting_payment = State()     # Payment link sent, awaiting confirmation
     generating = State()          # Audio + illustration generation in progress
