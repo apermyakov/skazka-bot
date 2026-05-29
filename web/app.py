@@ -9,7 +9,9 @@ import asyncio
 import base64
 import logging
 import os
+import time
 import uuid
+from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -50,6 +52,30 @@ WEB_DIR = Path(__file__).parent
 MEDIA_DIR = Path("/app/media")
 UPLOAD_DIR = MEDIA_DIR / "_web_uploads"
 MAX_PHOTO = 10 * 1024 * 1024
+
+# Simple in-memory per-IP rate limiter for /create — protects free-preview LLM
+# spend from bot abuse. Window 1h, configurable via limit.creates_per_hour_per_ip.
+_create_log: dict[str, deque] = {}
+_create_log_lock = asyncio.Lock()
+
+
+def _client_ip(request: Request) -> str:
+    fwd = request.headers.get("x-forwarded-for", "")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return request.client.host if request.client else "0.0.0.0"
+
+
+async def _check_rate_limit(ip: str, limit: int, window: int = 3600) -> bool:
+    now = time.time()
+    async with _create_log_lock:
+        dq = _create_log.setdefault(ip, deque())
+        while dq and dq[0] < now - window:
+            dq.popleft()
+        if len(dq) >= limit:
+            return False
+        dq.append(now)
+        return True
 
 
 @asynccontextmanager
@@ -201,11 +227,20 @@ async def create_form(request: Request):
 
 
 @app.post("/create")
-async def create_submit(topic: str = Form(...), email: str = Form(""), photo: UploadFile = File(None)):
+async def create_submit(request: Request, topic: str = Form(...), email: str = Form(""),
+                        photo: UploadFile = File(None)):
     topic = (topic or "").strip()[:2000]
     email = (email or "").strip()[:200]
     if len(topic) < 3:
         return RedirectResponse("/create", status_code=303)
+    limit = int(await cfg.get("limit.creates_per_hour_per_ip", 5))
+    if not await _check_rate_limit(_client_ip(request), limit):
+        logger.info("create rate-limited for ip=%s", _client_ip(request))
+        return _page("Слишком часто",
+            f"<h1>Слишком много запросов</h1>"
+            f"<p>Вы создали более {limit} сказок за последний час. "
+            f"Попробуйте чуть позже — это защита от спама.</p>"
+            f"<p><a href='/'>На главную</a></p>")
     photo_path = None
     if photo is not None and photo.filename:
         data = await photo.read()
