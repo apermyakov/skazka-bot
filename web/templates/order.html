@@ -100,7 +100,11 @@ function render(d){
     let html = '<h1>'+esc(d.title||'Готово!')+' 🎉</h1>';
     if(d.video_url){ html += '<video controls preload="metadata" src="'+d.video_url+'"></video>'; }
     if(d.audio_url){ html += '<audio controls src="'+d.audio_url+'"></audio>'; }
-    html += '<a class="btn" style="margin-top:16px" href="/create">✨ Создать ещё одну сказку</a>';
+    let dl = '';
+    if(d.video_url){ dl += '<a class="btn2" download href="'+d.video_url+'">⬇️ Скачать видео</a> '; }
+    if(d.audio_url){ dl += '<a class="btn2" download href="'+d.audio_url+'">⬇️ Скачать аудио</a>'; }
+    if(dl){ html += '<div style="margin-top:14px">'+dl+'</div>'; }
+    html += '<a class="btn" style="margin-top:14px" href="/create">✨ Создать ещё одну сказку</a>';
     box.innerHTML = html;
   } else if(d.status === 'failed'){
     stop();
