@@ -161,6 +161,11 @@ async def generate_fairytale(
         primary_ambient = "forest"
         if scenes:
             primary_ambient = scenes[0].get("ambient", "forest")
+        # LLM sometimes returns ambient as a list (e.g. ["forest","night"]) — coerce to a hashable str
+        if isinstance(primary_ambient, list):
+            primary_ambient = primary_ambient[0] if primary_ambient else "forest"
+        if not isinstance(primary_ambient, str):
+            primary_ambient = "forest"
         ambient_name = AMBIENT_MAP.get(primary_ambient, "forest_ambience.mp3")
         ambient_path = assets_dir / ambient_name
 
