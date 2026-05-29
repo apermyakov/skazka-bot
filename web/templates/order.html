@@ -194,14 +194,32 @@ async function editStory(){
   }catch(e){ if(b){b.disabled=false; b.textContent='✏️ Переделать с правкой';} }
 }
 
+// Progressive poll backoff: tight at start so a status flip (paid, done) is caught
+// fast, then relaxed so a long generation doesn't hammer the server.
+let polling = false, pollAgeMs = 0, lastPolledStatus = '';
+function nextPollDelay(){
+  if (pollAgeMs < 60000) return 3000;
+  if (pollAgeMs < 180000) return 6000;
+  return 10000;
+}
 async function poll(){
+  if(!polling) return;
   try{
     const r = await fetch('/order/'+OID+'/status');
-    if(r.ok){ render(await r.json()); }
+    if(r.ok){
+      const d = await r.json();
+      if(d.status !== lastPolledStatus){ pollAgeMs = 0; lastPolledStatus = d.status; }
+      render(d);
+    }
   }catch(e){}
+  if(polling){
+    const dly = nextPollDelay();
+    pollAgeMs += dly;
+    timer = setTimeout(poll, dly);
+  }
 }
-function start(){ stop(); poll(); timer = setInterval(poll, 3000); }
-function stop(){ if(timer){clearInterval(timer); timer=null;} }
+function start(){ stop(); polling = true; pollAgeMs = 0; lastPolledStatus = ''; poll(); }
+function stop(){ polling = false; if(timer){ clearTimeout(timer); timer=null; } }
 start();
 </script>
 </body>
