@@ -264,13 +264,19 @@ async function retryGen(){
 }
 
 async function shareStory(){
+  goal('share_click');
   const url = window.location.href;
   const h1 = document.querySelector('h1');
-  const title = (h1 ? h1.textContent.replace('🎉','').trim() : 'Моя сказка');
-  const text = title + ' — посмотри сказку';
+  const title = (h1 ? h1.textContent.replace('🎉','').trim() : 'Сказка');
+  const text = 'Сделал персональную сказку для своего ребёнка — «' + title + '». Послушай!';
   try {
     if (navigator.share) { await navigator.share({ title, text, url }); }
-    else { await navigator.clipboard.writeText(url); alert('Ссылка скопирована'); }
+    else {
+      await navigator.clipboard.writeText(text + '\n' + url);
+      const sh = document.getElementById('share');
+      if (sh) { const o = sh.textContent; sh.textContent = '✓ Скопировано'; setTimeout(()=>{sh.textContent=o;}, 1800); }
+      else { alert('Ссылка скопирована'); }
+    }
   } catch (e) { /* user canceled */ }
 }
 
