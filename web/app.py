@@ -270,12 +270,12 @@ async def _generate(oid: str):
 
 
 # ── pages ──
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health():
     return JSONResponse({"ok": True})
 
 
-@app.get("/healthz")
+@app.api_route("/healthz", methods=["GET", "HEAD"])
 async def healthz():
     """Deep health: DB roundtrip + email queue not stuck + recent activity.
     Returns 200 if all green, 503 otherwise. For UptimeRobot / pinging."""
