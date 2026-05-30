@@ -140,9 +140,9 @@
   .get span{color:var(--muted);font-size:14px}
   .gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:980px;margin:0 auto}
   .gallery img{width:100%;border-radius:14px;box-shadow:0 8px 24px rgba(43,35,80,.12);display:block}
-  .audiowrap{max-width:560px;margin:0 auto;background:var(--card);border-radius:16px;padding:18px 22px;box-shadow:0 6px 20px rgba(43,35,80,.06);text-align:center}
-  .audiowrap audio{width:100%;max-width:480px;margin:0 auto;display:block}
-  .audiohint{color:var(--muted);font-size:13px;margin-top:8px}
+  .videowrap{max-width:680px;margin:0 auto;background:var(--card);border-radius:16px;padding:14px;box-shadow:0 6px 20px rgba(43,35,80,.06);text-align:center}
+  .videowrap video{width:100%;max-width:660px;border-radius:12px;display:block;background:#000;aspect-ratio:16/9;object-fit:contain}
+  .videohint{color:var(--muted);font-size:13px;margin-top:10px}
   .audiotr{margin-top:10px;text-align:left}
   .audiotr summary{cursor:pointer;color:var(--accent);font-size:14px;font-weight:600}
   .audiotr p{margin:8px 0 0;color:var(--muted);font-size:14px;font-style:italic}
@@ -218,16 +218,14 @@
   </section>
 
   <section>
-    <h2>Послушайте, как звучит</h2>
-    <p class="gallery-sub">Короткий отрывок — тёплый женский голос, мягкая интонация для чтения на ночь.</p>
-    <div class="audiowrap">
-      <audio controls preload="none" src="/static/examples/demo.mp3" onplay="try{ym(109494799,'reachGoal','demo_play')}catch(e){}">
-        Ваш браузер не поддерживает аудио.
-      </audio>
-      <div class="audiohint">19 секунд · MP3 · голос Kate, ElevenLabs</div>
-      <details class="audiotr"><summary>Текст отрывка</summary>
-        <p>«Жил-был маленький дракончик. Он был добрый, любопытный и очень любил приключения. Каждое утро он расправлял свои нежные крылышки и летел туда, где небо встречается с лесом. Там его уже ждали друзья — мудрая сова и весёлая белочка.»</p>
-      </details>
+    <h2>Вот что вы получите</h2>
+    <p class="gallery-sub">Видеосказка с тёплой озвучкой и иллюстрациями + отдельный аудиофайл. Смотреть вместе, слушать на ночь.</p>
+    <div class="videowrap">
+      <video controls preload="metadata" poster="/static/sample/scene_1.webp"
+             src="/static/sample/sample.mp4"
+             onplay="try{ym(109494799,'reachGoal','demo_play')}catch(e){}"></video>
+      <div class="videohint">«София и светлячок Лучик» · 3 мин · полный пример сказки</div>
+      <div style="margin-top:8px"><a href="/sample" style="color:var(--accent);font-weight:600;text-decoration:none;font-size:14px">→ Открыть пример отдельной страницей</a></div>
     </div>
   </section>
 
