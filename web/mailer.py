@@ -48,22 +48,56 @@ async def send_email(to_addr: str, subject: str, body: str, html: str | None = N
     return await asyncio.to_thread(_send_sync, to_addr, subject, body, html)
 
 
-async def send_story_ready(to_addr: str, title: str, order_url: str) -> bool:
+def _esc(s: str) -> str:
+    return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+
+async def send_story_ready(
+    to_addr: str, title: str, order_url: str, cover_url: str | None = None
+) -> bool:
     title = (title or "Сказка").strip()
     subject = f"«{title}» — ваша сказка готова"
     body = (
         f"Здравствуйте!\n\n"
         f"«{title}» готова к просмотру:\n{order_url}\n\n"
         f"На странице — видео, аудио и кнопки «Скачать».\n\n"
-        f"— Сказик"
+        f"С теплом,\nкоманда Сказика\nhttps://skazik.app"
     )
+    t = _esc(title)
+    cover_block = ""
+    if cover_url:
+        cover_block = (
+            f'<tr><td style="padding:0 0 16px"><img src="{_esc(cover_url)}" alt="Иллюстрация" '
+            f'style="display:block;width:100%;max-width:560px;border-radius:14px"></td></tr>'
+        )
     html = (
-        f"<div style=\"font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#2b2350;line-height:1.6\">"
-        f"<p>Здравствуйте!</p>"
-        f"<p><b>«{title}»</b> готова к просмотру:</p>"
-        f"<p><a href=\"{order_url}\" style=\"color:#7c5cff;font-weight:700\">{order_url}</a></p>"
-        f"<p>На странице — видео, аудио и кнопки «Скачать».</p>"
-        f"<p style=\"color:#6b6390\">— Сказик</p>"
-        f"</div>"
+        '<!DOCTYPE html><html><head><meta charset="utf-8">'
+        f'<title>{t}</title></head>'
+        '<body style="margin:0;padding:0;background:#fbf7ff;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#2b2350;line-height:1.55">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fbf7ff;padding:24px 12px">'
+        '<tr><td align="center">'
+        '<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" '
+        'style="max-width:560px;background:#ffffff;border-radius:18px;padding:28px 26px;box-shadow:0 6px 22px rgba(43,35,80,.06)">'
+        '<tr><td style="padding:0 0 14px">'
+        '<a href="https://skazik.app/" style="text-decoration:none;color:#2b2350;font-weight:800;font-size:22px">✨ Сказ<span style="color:#7c5cff">ик</span></a>'
+        '</td></tr>'
+        f'<tr><td style="padding:0 0 8px;font-size:24px;font-weight:800;line-height:1.25">🎉 «{t}» готова!</td></tr>'
+        '<tr><td style="padding:0 0 18px;color:#6b6390;font-size:15px">Видео, аудио и иллюстрации уже ждут на странице сказки.</td></tr>'
+        f'{cover_block}'
+        '<tr><td style="padding:0 0 18px" align="center">'
+        f'<a href="{_esc(order_url)}" '
+        'style="display:inline-block;background:linear-gradient(135deg,#7c5cff,#ff7eb6);color:#ffffff;'
+        'text-decoration:none;font-weight:800;font-size:17px;padding:14px 26px;border-radius:14px">'
+        '🎬 Открыть сказку</a></td></tr>'
+        '<tr><td style="padding:0 0 6px;color:#6b6390;font-size:13px">Или ссылка:</td></tr>'
+        f'<tr><td style="padding:0 0 18px;word-break:break-all"><a href="{_esc(order_url)}" '
+        f'style="color:#7c5cff">{_esc(order_url)}</a></td></tr>'
+        '<tr><td style="padding:14px 0 0;border-top:1px solid #ece6fb;color:#6b6390;font-size:13px">'
+        'Можно скачать видео/аудио прямо на телефон — удобно слушать на ночь без интернета.'
+        '</td></tr>'
+        '<tr><td style="padding:10px 0 0;color:#6b6390;font-size:13px">'
+        'С теплом,<br>команда <a href="https://skazik.app/" style="color:#6b6390">Сказика</a>'
+        '</td></tr>'
+        '</table></td></tr></table></body></html>'
     )
     return await send_email(to_addr, subject, body, html)

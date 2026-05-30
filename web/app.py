@@ -198,10 +198,15 @@ async def _generate(oid: str):
         buyer_email = (o.get("email") or "").strip()
         if buyer_email:
             from web.mailer import send_story_ready
+            cover = None
+            if illus and isinstance(illus, list) and illus:
+                first = illus[0]
+                cover = (PUBLIC_BASE + first) if isinstance(first, str) and first.startswith("/") else first
             asyncio.create_task(send_story_ready(
                 buyer_email,
                 result.get("title") or "Ваша сказка",
-                f"{PUBLIC_BASE}/order/{oid}"))
+                f"{PUBLIC_BASE}/order/{oid}",
+                cover_url=cover))
     except Exception as e:
         logger.error("order %s generate failed: %s", oid, e, exc_info=True)
         await update_order(oid, status="failed", error=str(e)[:500])
