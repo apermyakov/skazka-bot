@@ -198,14 +198,22 @@ function render(d){
   } else if(d.status === 'failed'){
     stop();
     if(d.paid){
-      box.innerHTML = '<h1 class="err">Что-то пошло не так</h1>'+
-        '<p class="muted">Не волнуйтесь — оплата принята. Перезапустим сборку сказки.</p>'+
-        '<button class="btn" id="retry" style="margin-top:10px">🔄 Повторить попытку</button>';
+      box.innerHTML =
+        '<h1 class="err">Сборка прервалась</h1>'+
+        '<p style="margin:6px 0 10px"><b>Деньги уже у нас — сказку точно соберём.</b></p>'+
+        '<p class="muted">Иногда генератор иллюстраций отвечает не с первого раза. Нажмите «Повторить» — обычно со второй попытки получается.</p>'+
+        '<button class="btn" id="retry" style="margin-top:14px">🔄 Повторить попытку</button>'+
+        '<div class="muted" style="margin-top:14px;padding:12px 14px;background:var(--soft);border-radius:10px;font-size:14px">'+
+          'Если не получится снова — напишите нам через '+
+          '<a href="/feedback" target="_blank">форму обратной связи</a>, '+
+          'сразу вернём деньги. ID заказа: <code style="font-family:ui-monospace,monospace">'+esc(OID)+'</code>'+
+        '</div>';
       const r = document.getElementById('retry');
       if(r) r.onclick = retryGen;
     } else {
-      box.innerHTML = '<h1 class="err">Что-то пошло не так</h1>'+
-        '<p class="muted">Это случается редко. Попробуйте ещё раз.</p>'+
+      box.innerHTML =
+        '<h1 class="err">Что-то пошло не так</h1>'+
+        '<p class="muted">Это случается редко. Попробуйте начать заново — деньги не списаны.</p>'+
         '<a class="btn" href="/create" style="margin-top:10px">Попробовать снова</a>';
     }
   }
