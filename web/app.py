@@ -680,6 +680,28 @@ async def admin_stats(request: Request, token: str = ""):
             LIMIT 20
         """)
         fb_count = await c.fetchval("SELECT COUNT(*) FROM feedback WHERE status='new'")
+        # Email queue health
+        try:
+            email_stats = await c.fetchrow("""
+                SELECT
+                  COUNT(*) FILTER (WHERE status='queued')  AS queued,
+                  COUNT(*) FILTER (WHERE status='sent')    AS sent,
+                  COUNT(*) FILTER (WHERE status='failed')  AS failed,
+                  COUNT(*) FILTER (WHERE status='queued' AND next_try_at < NOW() - INTERVAL '5 minutes') AS overdue,
+                  MAX(sent_at)                             AS last_sent
+                FROM email_outbox
+            """)
+        except Exception:
+            email_stats = {"queued": 0, "sent": 0, "failed": 0, "overdue": 0, "last_sent": None}
+        # Recent errors (last 24h)
+        try:
+            err_count = await c.fetchval(
+                "SELECT COUNT(*) FROM errors WHERE created_at > NOW() - INTERVAL '24 hours'") or 0
+        except Exception:
+            err_count = 0
+        # Total revenue (paid orders × current price)
+        price = await cfg.get("pricing.story_rub", 999)
+        revenue = int(funnel["paid"] or 0) * int(price)
     rows_utm = "\n".join(
         f"<tr><td>{r['src']}</td><td>{r['camp']}</td>"
         f"<td>{r['visits']}</td><td>{r['lead']}</td><td>{r['paid']}</td>"
@@ -712,7 +734,17 @@ code{{font-family:ui-monospace,monospace;font-size:12px}}
   <div class="kpi"><b>{funnel['failed']}</b><span>Failed</span></div>
   <div class="kpi"><b>{funnel['last_24h']}</b><span>За 24ч</span></div>
   <div class="kpi"><b>{funnel['paid_24h']}</b><span>Оплат за 24ч</span></div>
+  <div class="kpi"><b>{revenue:,}₽</b><span>Выручка (всего)</span></div>
   <div class="kpi"><b>{fb_count}</b><span>Новых отзывов</span></div>
+</div>
+
+<h2>Email queue · Errors</h2>
+<div class="kpis">
+  <div class="kpi"><b>{email_stats['queued']}</b><span>В очереди{' ⚠️' if email_stats['overdue'] else ''}</span></div>
+  <div class="kpi"><b>{email_stats['sent']}</b><span>Отправлено</span></div>
+  <div class="kpi"><b>{email_stats['failed']}</b><span>Failed</span></div>
+  <div class="kpi"><b>{(email_stats['last_sent'].strftime('%H:%M') if email_stats['last_sent'] else '—')}</b><span>Последнее письмо</span></div>
+  <div class="kpi"><b>{err_count}</b><span>Ошибок за 24ч</span></div>
 </div>
 <h2>UTM-кампании (30 дней)</h2>
 <table><tr><th>source</th><th>campaign</th><th>visits</th><th>lead</th><th>paid</th><th>CR</th></tr>
