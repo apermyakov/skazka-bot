@@ -37,6 +37,10 @@
   .pbar{height:8px;background:#e4dcfb;border-radius:6px;overflow:hidden;margin-top:16px}
   .pbar > i{display:block;height:100%;width:2%;background:linear-gradient(90deg,var(--accent),var(--accent2));animation:fill 55s cubic-bezier(.2,.8,.3,1) forwards}
   @keyframes fill{to{width:97%}}
+  .etabar{height:10px;background:#e4dcfb;border-radius:6px;overflow:hidden;margin:8px 0 6px}
+  .etabar > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .8s linear}
+  .eta-text{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+  .eta-text b{color:var(--ink)}
   .editbox{margin-top:14px}
   .editbox textarea{width:100%;min-height:64px;border:1.5px solid #e4dcfb;border-radius:12px;padding:11px;font:inherit;resize:vertical}
   .btn2{display:inline-block;margin-top:8px;background:#fff;color:var(--accent);border:1.5px solid var(--accent);
@@ -73,11 +77,54 @@ let timer = null;
 let shownStatus = '';
 
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+function fmtTime(sec){
+  sec = Math.max(0, Math.round(sec));
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return m + ':' + (s < 10 ? '0' + s : s);
+}
+let etaTimer = null;
+function stopEta(){ if(etaTimer){ clearInterval(etaTimer); etaTimer = null; } }
+function startEta(startedMs){
+  stopEta();
+  const EST = 5 * 60; // expected ~5 min
+  function tick(){
+    const fill = document.getElementById('etafill');
+    const left = document.getElementById('etaleft');
+    const elapsedEl = document.getElementById('etaelapsed');
+    if(!fill || !left || !elapsedEl){ stopEta(); return; }
+    const elapsedSec = (Date.now() - startedMs) / 1000;
+    const pct = Math.min(96, (elapsedSec / EST) * 96); // cap at 96% to avoid "100% but not done" feel
+    fill.style.width = pct.toFixed(1) + '%';
+    const remain = EST - elapsedSec;
+    if(remain > 5){
+      left.innerHTML = 'Осталось ~<b>' + fmtTime(remain) + '</b>';
+    } else {
+      left.innerHTML = '<b>Почти готово…</b>';
+    }
+    elapsedEl.textContent = 'прошло ' + fmtTime(elapsedSec);
+  }
+  tick();
+  etaTimer = setInterval(tick, 1000);
+}
 function goal(name, params){ try{ if(window.ym) ym(109494799,'reachGoal',name,params||{}); }catch(e){} }
 function once(key){ try{ if(localStorage.getItem(key)) return false; localStorage.setItem(key,'1'); return true; }catch(e){ return true; } }
 
 function render(d){
   if(d.status === 'composing' && shownStatus === 'composing') return;  // keep the progress bar
+  if(d.status === 'generating' && shownStatus === 'generating'){
+    // status unchanged → just refresh stage + progress text in place, keep ETA bar smooth
+    const p = (d.progress || '').toLowerCase();
+    let cur = 0;
+    if (p.includes('рис') || p.includes('иллюс') || p.includes('размеч') || p.includes('референс')) cur = 1;
+    if (p.includes('видео') || p.includes('собира')) cur = 2;
+    document.querySelectorAll('.stepper .step').forEach(function(el, i){
+      el.classList.toggle('done', i < cur);
+      el.classList.toggle('active', i === cur);
+    });
+    const pt = document.getElementById('progtext');
+    if(pt) pt.textContent = d.progress || 'Готовим сказку…';
+    return;
+  }
   shownStatus = d.status;
   if(d.status === 'text_ready' && once('g_lead_'+OID)) goal('lead_text');
   if((d.status === 'generating' || d.status === 'done') && once('g_purchase_'+OID)){
@@ -114,12 +161,20 @@ function render(d){
       const cls = i < cur ? 'done' : (i === cur ? 'active' : '');
       return '<div class="step '+cls+'"><span class="em">'+s.em+'</span>'+s.name+'</div>';
     }).join('');
+    // ETA: persist start time per-order so reloads keep counting from real start
+    const KEY = 'gen_started_'+OID;
+    let started = parseInt(localStorage.getItem(KEY) || '0', 10);
+    if(!started){ started = Date.now(); try{ localStorage.setItem(KEY, String(started)); }catch(e){} }
     box.innerHTML = '<b>Собираю сказку…</b>'+
       '<div class="stepper">'+stepHtml+'</div>'+
-      '<div class="muted" style="text-align:center"><span class="spin" style="width:18px;height:18px;border-width:3px;vertical-align:middle"></span> '+esc(d.progress || 'Готовим сказку…')+'</div>'+
-      '<div class="muted" style="margin-top:10px;text-align:center;font-size:13px">Это 5–8 минут. Страницу можно закрыть — ссылку пришлём на почту.</div>';
+      '<div class="etabar"><i id="etafill" style="width:0%"></i></div>'+
+      '<div class="eta-text"><span id="etaleft">расчёт…</span><span id="etaelapsed"></span></div>'+
+      '<div class="muted" style="margin-top:10px;text-align:center"><span class="spin" style="width:16px;height:16px;border-width:3px;vertical-align:middle"></span> <span id="progtext">'+esc(d.progress || 'Готовим сказку…')+'</span></div>'+
+      '<div class="muted" style="margin-top:10px;text-align:center;font-size:13px">Страницу можно закрыть — ссылку пришлём на почту.</div>';
+    startEta(started);
   } else if(d.status === 'done'){
     stop();
+    try{ localStorage.removeItem('gen_started_'+OID); }catch(e){}
     let html = '<h1>'+esc(d.title||'Готово!')+' 🎉</h1>';
     if(d.video_url){ html += '<video controls preload="metadata" src="'+d.video_url+'"></video>'; }
     if(d.audio_url){ html += '<audio controls src="'+d.audio_url+'"></audio>'; }
@@ -219,7 +274,7 @@ async function poll(){
   }
 }
 function start(){ stop(); polling = true; pollAgeMs = 0; lastPolledStatus = ''; poll(); }
-function stop(){ polling = false; if(timer){ clearTimeout(timer); timer=null; } }
+function stop(){ polling = false; if(timer){ clearTimeout(timer); timer=null; } stopEta(); }
 start();
 </script>
 </body>
