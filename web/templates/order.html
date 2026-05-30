@@ -182,6 +182,10 @@ function render(d){
     if(d.video_url){ dl += '<a class="btn2" download href="'+d.video_url+'">⬇️ Скачать видео</a> '; }
     if(d.audio_url){ dl += '<a class="btn2" download href="'+d.audio_url+'">⬇️ Скачать аудио</a>'; }
     html += '<div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:8px">'+dl+'</div>';
+    if(d.email){
+      html += '<div class="muted" style="margin-top:14px;padding:10px 14px;background:var(--soft);border-radius:10px;font-size:14px">'+
+              '📧 Ссылка отправлена на <b>'+esc(d.email)+'</b> — можно открыть с любого устройства.</div>';
+    }
     html += '<a class="btn" style="margin-top:14px" href="/create">✨ Создать ещё одну сказку</a>';
     box.innerHTML = html;
     const sh = document.getElementById('share');
