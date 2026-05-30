@@ -271,7 +271,12 @@ async def create_submit(request: Request, topic: str = Form(...), email: str = F
                         photo: UploadFile = File(None),
                         utm_source: str = Form(""), utm_medium: str = Form(""),
                         utm_campaign: str = Form(""), utm_term: str = Form(""),
-                        utm_content: str = Form(""), ref: str = Form("")):
+                        utm_content: str = Form(""), ref: str = Form(""),
+                        website: str = Form("")):
+    # Honeypot: humans can't see the field, bots fill anything → silently 200.
+    if (website or "").strip():
+        logger.info("create honeypot triggered ip=%s", _client_ip(request))
+        return RedirectResponse("/", status_code=303)
     topic = (topic or "").strip()[:2000]
     email = (email or "").strip()[:200]
     if len(topic) < 3:
@@ -461,7 +466,10 @@ async def feedback_form(request: Request):
 
 @app.post("/feedback", response_class=HTMLResponse)
 async def feedback_submit(request: Request, name: str = Form(""), email: str = Form(""),
-                          message: str = Form(...)):
+                          message: str = Form(...), website: str = Form("")):
+    if (website or "").strip():
+        logger.info("feedback honeypot triggered ip=%s", _client_ip(request))
+        return templates.TemplateResponse(request, "feedback.html", {"sent": True})
     name = (name or "").strip()[:200]
     email = (email or "").strip()[:200]
     message = (message or "").strip()[:4000]
