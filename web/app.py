@@ -254,10 +254,35 @@ async def sitemap():
     return Response(content=xml, media_type="application/xml")
 
 
+_stats_cache = {"v": None, "ts": 0.0}
+
+async def _landing_stats() -> dict:
+    """Cached counts for landing social proof (5-min TTL)."""
+    now = time.time()
+    if _stats_cache["v"] and now - _stats_cache["ts"] < 300:
+        return _stats_cache["v"]
+    try:
+        async with db_mod._pool.acquire() as c:
+            # Bot stories (the bigger pool — both channels share the engine)
+            bot_done = await c.fetchval("SELECT COUNT(*) FROM stories WHERE status='completed'") or 0
+            web_done = await c.fetchval("SELECT COUNT(*) FROM web_orders WHERE status='done'") or 0
+        # Round down to a friendlier number; never decrease across page loads
+        total = int(bot_done) + int(web_done)
+        v = {"total": total}
+    except Exception as e:
+        logger.warning("landing stats failed: %s", e)
+        v = {"total": 0}
+    _stats_cache["v"] = v
+    _stats_cache["ts"] = now
+    return v
+
+
 @app.get("/", response_class=HTMLResponse)
 async def landing(request: Request):
     price = await cfg.get("pricing.story_rub", 999)
-    return templates.TemplateResponse(request, "landing.html", {"price": price})
+    stats = await _landing_stats()
+    return templates.TemplateResponse(request, "landing.html",
+                                      {"price": price, "stories_total": stats["total"]})
 
 
 @app.get("/create", response_class=HTMLResponse)

@@ -94,6 +94,8 @@
   .cta-tg svg{width:20px;height:20px;flex-shrink:0}
   .price-line{margin-top:14px;color:var(--muted);font-size:15px}
   .price-line b{color:var(--ink);font-size:17px}
+  .proofline{display:inline-block;margin-top:14px;color:var(--ink);background:#fff5d6;
+    padding:8px 16px;border-radius:999px;font-size:14px;font-weight:600;border:1px solid #ffe091}
   section{padding:34px 0}
   h2{font-size:27px;text-align:center;margin:0 0 26px;font-weight:800}
   .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
@@ -174,6 +176,9 @@
       </a>
     </div>
     <div class="price-line">Текст сказки — <b>бесплатно</b>. Оплата — только если понравится.</div>
+    {% if stories_total and stories_total >= 30 %}
+    <div class="proofline">⭐ Уже создано более {{ (stories_total // 10) * 10 }} сказок для детей</div>
+    {% endif %}
   </section>
 
   <section>
