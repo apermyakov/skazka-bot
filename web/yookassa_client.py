@@ -11,8 +11,9 @@ API = "https://api.yookassa.ru/v3"
 
 
 def _headers(idempotent: bool = True) -> dict:
-    sid = os.environ.get("YUKASSA_SHOP_ID", "")
-    sk = os.environ.get("YUKASSA_SECRET_KEY", "")
+    # Correct brand name is YooKassa — fall back to legacy YUKASSA_* if still in .env
+    sid = os.environ.get("YOOKASSA_SHOP_ID") or os.environ.get("YUKASSA_SHOP_ID", "")
+    sk = os.environ.get("YOOKASSA_SECRET_KEY") or os.environ.get("YUKASSA_SECRET_KEY", "")
     h = {
         "Authorization": "Basic " + base64.b64encode(f"{sid}:{sk}".encode()).decode(),
         "Content-Type": "application/json",
