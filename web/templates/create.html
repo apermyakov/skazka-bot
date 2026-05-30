@@ -18,7 +18,11 @@
   p.lead{color:var(--muted);margin:0 0 22px}
   .card{background:var(--card);border-radius:18px;padding:22px;box-shadow:0 6px 20px rgba(43,35,80,.06)}
   label{display:block;font-weight:700;margin:0 0 8px}
-  textarea{width:100%;min-height:120px;border:1.5px solid #e4dcfb;border-radius:12px;padding:13px;font:inherit;resize:vertical}
+  textarea{width:100%;min-height:120px;border:1.5px solid #e4dcfb;border-radius:12px;padding:13px;font:inherit;resize:vertical;overflow:hidden}
+  .row-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:8px 0 0}
+  .counter{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .counter.near{color:#c7800f}
+  .counter.full{color:#c0392b;font-weight:700}
   .hint{color:var(--muted);font-size:13px;margin:6px 0 18px}
   .photo{margin:6px 0 6px;display:flex;align-items:center;flex-wrap:wrap;gap:4px}
   #photo{display:none}
@@ -63,7 +67,10 @@
       </div>
       <textarea id="topic" name="topic" maxlength="2000" required
                 placeholder="Имя и возраст ребёнка, тема, какие герои, чему учит..."></textarea>
-      <div><button type="button" class="mic" id="mic">🎙 Записать голосом</button></div>
+      <div class="row-meta">
+        <button type="button" class="mic" id="mic">🎙 Записать голосом</button>
+        <span class="counter" id="counter">0 / 2000</span>
+      </div>
       <div class="hint">Чем подробнее — тем лучше получится сказка. Можно надиктовать голосом.</div>
 
       <label for="photo">Фото ребёнка (по желанию)</label>
@@ -87,15 +94,29 @@
 </div>
 <footer class="ftr"><a href="/feedback">Обратная связь</a></footer>
 <script>
+  // Topic textarea: auto-grow + char counter
+  const topicEl = document.getElementById('topic');
+  const counterEl = document.getElementById('counter');
+  function refreshTopic(){
+    topicEl.style.height = 'auto';
+    topicEl.style.height = Math.max(120, topicEl.scrollHeight) + 'px';
+    const n = topicEl.value.length, max = 2000;
+    counterEl.textContent = n + ' / ' + max;
+    counterEl.classList.toggle('near', n >= max * 0.85 && n < max);
+    counterEl.classList.toggle('full', n >= max);
+  }
+  topicEl.addEventListener('input', refreshTopic);
+  refreshTopic();
+
   // Topic suggestion chips → prefill textarea + auto-select [имя, возраст] for replace
   document.getElementById('chips').addEventListener('click', function(e){
     const b = e.target.closest('.chip');
     if(!b) return;
-    const t = document.getElementById('topic');
-    t.value = b.dataset.topic;
-    t.focus();
-    const i = t.value.indexOf('[имя'), j = t.value.indexOf(']');
-    if(i >= 0 && j > i) t.setSelectionRange(i, j + 1);
+    topicEl.value = b.dataset.topic;
+    refreshTopic();
+    topicEl.focus();
+    const i = topicEl.value.indexOf('[имя'), j = topicEl.value.indexOf(']');
+    if(i >= 0 && j > i) topicEl.setSelectionRange(i, j + 1);
   });
 
   document.getElementById('photo').addEventListener('change', function(){
@@ -130,6 +151,7 @@
           const d = await r.json();
           if(d.ok && d.text){
             topic.value = (topic.value.trim() ? topic.value.trim() + ' ' : '') + d.text;
+            refreshTopic();
             topic.focus();
           } else { alert('Не удалось распознать. Попробуйте ещё раз.'); }
         }catch(e){ alert('Ошибка распознавания, попробуйте ещё раз.'); }
