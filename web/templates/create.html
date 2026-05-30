@@ -141,9 +141,16 @@
   }
   topicEl.addEventListener('input', function(){ refreshTopic(); saveDraft(); });
   if(emailEl) emailEl.addEventListener('input', saveDraft);
-  // Clear draft on successful submit
-  document.querySelector('form').addEventListener('submit', function(){
+  // Submit: disable button + loading state + clear draft
+  document.querySelector('form').addEventListener('submit', function(e){
     try{ localStorage.removeItem(DRAFT_KEY); }catch(e){}
+    const btn = e.target.querySelector('button[type="submit"]');
+    if(btn && !btn.disabled){
+      btn.disabled = true;
+      btn.dataset.orig = btn.textContent;
+      btn.textContent = '⏳ Сочиняю…';
+      btn.style.opacity = '0.85';
+    }
   });
   refreshTopic();
 
