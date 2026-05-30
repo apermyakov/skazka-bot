@@ -53,7 +53,7 @@
   {% if has_media %}
     {% if title %}<div class="card"><h2 style="margin:0 0 10px;font-size:22px">«{{ title }}»</h2><p style="margin:0;color:var(--muted)">{{ context }}</p></div>{% endif %}
 
-    {% if video %}<div class="card"><video controls preload="metadata" poster="/static/sample/scene_1.png" src="/static/sample/sample.mp4"></video></div>{% endif %}
+    {% if video %}<div class="card"><video controls preload="metadata" poster="/static/sample/scene_1.webp" src="/static/sample/sample.mp4"></video></div>{% endif %}
 
     <div class="card">
       <h3 style="margin:0 0 8px">🎙 Только аудио</h3>
@@ -65,7 +65,7 @@
     <div class="card">
       <h3 style="margin:0 0 8px">🎨 Иллюстрации</h3>
       <div class="gallery">
-        {% for n in illustrations %}<img src="/static/sample/scene_{{ n }}.png" alt="Сцена {{ n }}" loading="lazy">{% endfor %}
+        {% for n in illustrations %}<img src="/static/sample/scene_{{ n }}.webp" alt="Сцена {{ n }}" loading="lazy">{% endfor %}
       </div>
     </div>
     {% endif %}

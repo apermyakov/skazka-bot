@@ -389,7 +389,7 @@ async def sample(request: Request):
             meta = _json.loads(meta_path.read_text())
         except Exception:
             pass
-    illustrations = sorted(int(p.stem.split("_")[1]) for p in sample_dir.glob("scene_*.png")) if sample_dir.exists() else []
+    illustrations = sorted(int(p.stem.split("_")[1]) for p in sample_dir.glob("scene_*.webp")) if sample_dir.exists() else []
     return templates.TemplateResponse(request, "sample.html", {
         "has_media": has_audio,
         "video": has_video,
