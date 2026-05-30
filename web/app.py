@@ -313,7 +313,7 @@ async def order_page(request: Request, oid: str):
         return _page("Заказ не найден", "<h1>Заказ не найден</h1><p><a href='/'>На главную</a></p>")
     price = await cfg.get("pricing.story_rub", 999)
     illus = o.get("illustrations") if isinstance(o.get("illustrations"), list) else None
-    og_image = (illus[0] if illus else "/static/examples/ex1.jpg")
+    og_image = (illus[0] if illus else "/static/og_card.jpg")
     if og_image.startswith("/"):
         og_image = PUBLIC_BASE + og_image
     return templates.TemplateResponse(request, "order.html", {
