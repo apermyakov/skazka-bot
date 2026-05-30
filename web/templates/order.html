@@ -27,8 +27,13 @@
         border-radius:50%;animation:s 1s linear infinite;vertical-align:middle}
   @keyframes s{to{transform:rotate(360deg)}}
   .muted{color:var(--muted)}
-  .story{background:var(--soft);border-radius:14px;padding:18px 20px;max-height:380px;overflow:auto;margin:14px 0;overflow-wrap:break-word}
-  .story p{margin:0 0 12px;text-indent:1.2em}.story p:first-child{text-indent:0}.story p:last-child{margin-bottom:0}
+  .story{background:var(--soft);border-radius:14px;padding:22px 24px;max-height:420px;overflow:auto;margin:14px 0;overflow-wrap:break-word;
+         font-family:'Iowan Old Style','Charter','PT Serif',Georgia,serif;font-size:17px;line-height:1.7;color:#3a2f6b}
+  .story p{margin:0 0 14px;text-indent:1.4em}.story p:first-child{text-indent:0}.story p:last-child{margin-bottom:0}
+  .story::-webkit-scrollbar{width:8px}
+  .story::-webkit-scrollbar-track{background:transparent}
+  .story::-webkit-scrollbar-thumb{background:#c9b8ff;border-radius:4px}
+  @media(min-width:680px){ .story{font-size:18px;padding:26px 30px;max-height:460px} }
   .stepper{display:flex;gap:6px;margin:14px 0 10px;justify-content:space-between}
   .stepper .step{flex:1;text-align:center;padding:10px 4px;border-radius:12px;background:#f1ebff;color:var(--muted);font-size:12px;font-weight:700}
   .stepper .step.active{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
