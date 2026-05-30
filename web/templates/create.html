@@ -251,36 +251,83 @@
     const mic = document.getElementById('mic');
     const topic = document.getElementById('topic');
     let rec = null, chunks = [], stream = null;
+    let busy = false;  // hard lock against double-clicks during any async transition
     const idle = '🎙 Записать голосом';
 
+    function setBusy(label){
+      busy = true;
+      mic.disabled = true;
+      mic.textContent = label;
+    }
+    function setRecording(){
+      busy = false;
+      mic.disabled = false;
+      mic.classList.add('rec');
+      mic.textContent = '⏹ Остановить запись';
+    }
+    function setIdle(){
+      busy = false;
+      mic.disabled = false;
+      mic.classList.remove('rec');
+      mic.textContent = idle;
+    }
+
     mic.addEventListener('click', async function(){
-      if(rec && rec.state === 'recording'){ rec.stop(); return; }
-      if(!navigator.mediaDevices || !window.MediaRecorder){
-        alert('Голосовой ввод не поддерживается в этом браузере'); return;
+      if(busy) return;  // ignore extra taps during any transition
+      // STOP path — recording in progress
+      if(rec && rec.state === 'recording'){
+        setBusy('⏳ Останавливаю…');
+        try { rec.stop(); } catch(e) { setIdle(); }
+        return;
       }
-      try{ stream = await navigator.mediaDevices.getUserMedia({audio:true}); }
-      catch(e){ alert('Не получилось включить микрофон. Разрешите доступ к микрофону.'); return; }
+      // START path
+      if(!navigator.mediaDevices || !window.MediaRecorder){
+        alert('Голосовой ввод не поддерживается в этом браузере');
+        return;
+      }
+      setBusy('⏳ Включаю микрофон…');
+      try{
+        stream = await navigator.mediaDevices.getUserMedia({audio:true});
+      } catch(e){
+        setIdle();
+        alert('Не получилось включить микрофон. Разрешите доступ к микрофону.');
+        return;
+      }
       chunks = [];
-      rec = new MediaRecorder(stream);
+      try {
+        rec = new MediaRecorder(stream);
+      } catch(e){
+        try{ stream.getTracks().forEach(t => t.stop()); }catch(_){}
+        setIdle();
+        alert('Браузер отказался начать запись.');
+        return;
+      }
       rec.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
       rec.onstop = async function(){
-        stream.getTracks().forEach(t => t.stop());
-        mic.classList.remove('rec'); mic.disabled = true; mic.textContent = '⏳ Распознаю…';
+        try{ stream.getTracks().forEach(t => t.stop()); }catch(_){}
+        setBusy('⏳ Распознаю…');
+        mic.classList.remove('rec');
         try{
           const blob = new Blob(chunks, {type: rec.mimeType || 'audio/webm'});
           const fd = new FormData(); fd.append('audio', blob, 'voice.webm');
           const r = await fetch('/transcribe', {method:'POST', body:fd});
           const d = await r.json();
-          if(d.ok && d.text){
+          if(d && d.ok && d.text){
             topic.value = (topic.value.trim() ? topic.value.trim() + ' ' : '') + d.text;
             refreshTopic();
             topic.focus();
-          } else { alert('Не удалось распознать. Попробуйте ещё раз.'); }
-        }catch(e){ alert('Ошибка распознавания, попробуйте ещё раз.'); }
-        finally{ mic.disabled = false; mic.textContent = idle; }
+          } else {
+            alert('Не удалось распознать. Попробуйте ещё раз.');
+          }
+        } catch(e){
+          alert('Ошибка распознавания, попробуйте ещё раз.');
+        } finally {
+          rec = null;
+          setIdle();
+        }
       };
       rec.start();
-      mic.classList.add('rec'); mic.textContent = '⏹ Остановить запись';
+      setRecording();
     });
   })();
 </script>
