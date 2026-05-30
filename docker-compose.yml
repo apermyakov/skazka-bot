@@ -6,6 +6,11 @@ services:
     env_file: .env
     volumes:
       - media_data:/app/media
+      - ./bot:/app/bot
+      - ./engine:/app/engine
+      - ./db:/app/db
+      - ./scripts:/app/scripts
+      - ./assets:/app/assets
     depends_on:
       postgres:
         condition: service_healthy
