@@ -95,7 +95,10 @@ async def send_feedback_ack(to_addr: str, name: str, message: str) -> bool:
         '</td></tr>'
         '</table></td></tr></table></body></html>'
     )
-    return await send_email(to_addr, subject, body, html)
+    # Persist to queue first; worker picks it up. Survives container restart.
+    from web.email_queue import enqueue_email
+    await enqueue_email(to_addr, subject, body, html)
+    return True
 
 
 def _esc(s: str) -> str:
@@ -152,4 +155,7 @@ async def send_story_ready(
         '</td></tr>'
         '</table></td></tr></table></body></html>'
     )
-    return await send_email(to_addr, subject, body, html)
+    # Persist to queue first; worker picks it up. Survives container restart.
+    from web.email_queue import enqueue_email
+    await enqueue_email(to_addr, subject, body, html)
+    return True

@@ -109,6 +109,13 @@ async def lifespan(app: FastAPI):
     await cfg.seed_defaults()
     await init_orders()
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    # Email outbox: persistent queue + background worker
+    try:
+        from web.email_queue import init_email_queue, start_worker
+        await init_email_queue()
+        start_worker()
+    except Exception as e:
+        logger.warning("email queue init failed: %s", e)
     # Resume both kinds of in-flight orders interrupted by restart/deploy/crash:
     # 'generating' (paid pipeline) and 'composing' (free text gen). Otherwise
     # they sit in the DB forever and the user sees a spinner that never finishes.
