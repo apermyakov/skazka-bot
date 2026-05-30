@@ -79,6 +79,9 @@
   .get span{color:var(--muted);font-size:14px}
   .gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:980px;margin:0 auto}
   .gallery img{width:100%;border-radius:14px;box-shadow:0 8px 24px rgba(43,35,80,.12);display:block}
+  .audiowrap{max-width:560px;margin:0 auto;background:var(--card);border-radius:16px;padding:18px 22px;box-shadow:0 6px 20px rgba(43,35,80,.06);text-align:center}
+  .audiowrap audio{width:100%;max-width:480px;margin:0 auto;display:block}
+  .audiohint{color:var(--muted);font-size:13px;margin-top:8px}
   .gallery-sub{text-align:center;color:var(--muted);max-width:620px;margin:-10px auto 24px}
   .compare{display:flex;align-items:center;justify-content:center;gap:18px;max-width:720px;margin:0 auto 26px;flex-wrap:wrap}
   .compare figure{margin:0;text-align:center}
@@ -138,6 +141,17 @@
       </a>
     </div>
     <div class="price-line">Текст сказки — <b>бесплатно</b>. Оплата — только если понравится.</div>
+  </section>
+
+  <section>
+    <h2>Послушайте, как звучит</h2>
+    <p class="gallery-sub">Короткий отрывок — тёплый женский голос, мягкая интонация для чтения на ночь.</p>
+    <div class="audiowrap">
+      <audio controls preload="none" src="/static/examples/demo.mp3" onplay="try{ym(109494799,'reachGoal','demo_play')}catch(e){}">
+        Ваш браузер не поддерживает аудио.
+      </audio>
+      <div class="audiohint">19 секунд · MP3</div>
+    </div>
   </section>
 
   <section>
