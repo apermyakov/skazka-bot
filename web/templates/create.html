@@ -104,9 +104,11 @@
 </div>
 <footer class="ftr"><a href="/feedback">Обратная связь</a></footer>
 <script>
-  // Topic textarea: auto-grow + char counter
+  // Topic textarea: auto-grow + char counter + draft auto-save
   const topicEl = document.getElementById('topic');
+  const emailEl = document.getElementById('email');
   const counterEl = document.getElementById('counter');
+  const DRAFT_KEY = 'skazik_draft_v1';
   function refreshTopic(){
     topicEl.style.height = 'auto';
     topicEl.style.height = Math.max(120, topicEl.scrollHeight) + 'px';
@@ -115,7 +117,31 @@
     counterEl.classList.toggle('near', n >= max * 0.85 && n < max);
     counterEl.classList.toggle('full', n >= max);
   }
-  topicEl.addEventListener('input', refreshTopic);
+  // Restore draft (24h freshness)
+  try{
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if(raw){
+      const d = JSON.parse(raw);
+      if(d && d.ts && Date.now() - d.ts < 86400000){
+        if(d.topic && !topicEl.value) topicEl.value = d.topic;
+        if(d.email && emailEl && !emailEl.value) emailEl.value = d.email;
+      }
+    }
+  }catch(e){}
+  function saveDraft(){
+    try{
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        topic: topicEl.value, email: emailEl ? emailEl.value : '',
+        ts: Date.now()
+      }));
+    }catch(e){}
+  }
+  topicEl.addEventListener('input', function(){ refreshTopic(); saveDraft(); });
+  if(emailEl) emailEl.addEventListener('input', saveDraft);
+  // Clear draft on successful submit
+  document.querySelector('form').addEventListener('submit', function(){
+    try{ localStorage.removeItem(DRAFT_KEY); }catch(e){}
+  });
   refreshTopic();
 
   // Topic suggestion chips → prefill textarea + auto-select [имя, возраст] for replace
