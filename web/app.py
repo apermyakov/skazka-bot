@@ -42,7 +42,31 @@ METRIKA = """<!-- Yandex.Metrika counter -->
     ym(109494799, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
 </script>
 <noscript><div><img src="https://mc.yandex.ru/watch/109494799" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
-<!-- /Yandex.Metrika counter -->"""
+<!-- /Yandex.Metrika counter -->
+<!-- Cookie/analytics consent notice (152-ФЗ informational; persists in localStorage) -->
+<style>
+  #ck-notice{position:fixed;left:12px;right:12px;bottom:12px;max-width:560px;margin:0 auto;
+    background:#fff;color:#2b2350;border-radius:14px;padding:14px 16px;font:14px/1.45 -apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    box-shadow:0 10px 28px rgba(43,35,80,.16);border:1px solid #ece6fb;z-index:50;display:none}
+  #ck-notice.on{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  #ck-notice p{margin:0;flex:1;min-width:220px}
+  #ck-notice a{color:#7c5cff}
+  #ck-notice button{background:linear-gradient(135deg,#7c5cff,#ff7eb6);color:#fff;border:0;
+    font-weight:700;font-size:14px;padding:9px 18px;border-radius:10px;cursor:pointer;font-family:inherit}
+</style>
+<div id="ck-notice" role="dialog" aria-label="Уведомление о cookies">
+  <p>Сайт использует cookie и Яндекс.Метрику для аналитики. Подробнее в <a href="/privacy">политике</a>.</p>
+  <button type="button" onclick="try{localStorage.setItem('ck_ok','1')}catch(e){};document.getElementById('ck-notice').classList.remove('on')">Хорошо</button>
+</div>
+<script>
+(function(){
+  try { if (!localStorage.getItem('ck_ok')) {
+    document.addEventListener('DOMContentLoaded', function(){
+      const n = document.getElementById('ck-notice'); if(n) n.classList.add('on');
+    });
+  }} catch(e){}
+})();
+</script>"""
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s")
