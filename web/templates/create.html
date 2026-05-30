@@ -68,11 +68,19 @@
   .phototips summary{cursor:pointer;padding:10px 14px;font-weight:600;font-size:14px;color:var(--accent);list-style:none;user-select:none}
   .phototips summary::-webkit-details-marker{display:none}
   .phototips[open] summary{border-bottom:1px solid #e4dcfb}
-  .tips-body{padding:10px 14px 12px}
-  .tip{font-size:13.5px;color:var(--ink);margin:4px 0;display:flex;gap:8px;align-items:flex-start}
-  .tip .ok{color:#1faa59;font-weight:700;flex-shrink:0}
-  .tip .bad{color:#c0392b;font-weight:700;flex-shrink:0}
-  .tips-note{margin-top:8px;padding-top:8px;border-top:1px dashed #c9b8ff;color:var(--muted);font-size:12.5px}
+  .tips-body{padding:12px 14px 14px}
+  .tips-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .tip-card{margin:0;background:#fff;border-radius:12px;overflow:hidden;border:1.5px solid #e4dcfb}
+  .tip-card.good{border-color:#9fd9ad}
+  .tip-card.bad{border-color:#e8a2a2}
+  .tip-card img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
+  .tip-card figcaption{padding:8px 10px;font-size:12px}
+  .tip-card .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-weight:700;font-size:11.5px;margin-bottom:4px}
+  .tip-card .badge.ok{background:#dff5e4;color:#0d6e30}
+  .tip-card .badge.no{background:#ffe2e2;color:#a02020}
+  .tip-card .why{display:block;color:var(--muted);line-height:1.35}
+  .tips-note{margin-top:12px;padding-top:10px;border-top:1px dashed #c9b8ff;color:var(--muted);font-size:12.5px}
+  @media(max-width:480px){ .tips-grid{grid-template-columns:1fr 1fr;gap:8px} }
   .btn{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:0;
        font-weight:800;font-size:18px;padding:15px;border-radius:14px;cursor:pointer}
   .note{color:var(--muted);font-size:13px;text-align:center;margin-top:12px}
@@ -137,12 +145,24 @@
       <details class="phototips">
         <summary>📸 Какое фото подойдёт лучше</summary>
         <div class="tips-body">
-          <div class="tip"><span class="ok">✓</span> Хорошо видно лицо, ребёнок смотрит близко к камере</div>
-          <div class="tip"><span class="ok">✓</span> Дневной свет, без сильных теней</div>
-          <div class="tip"><span class="ok">✓</span> Один ребёнок в кадре (без других людей)</div>
-          <div class="tip"><span class="ok">✓</span> Чёткое, не размыто, лицо занимает 30-60% кадра</div>
-          <div class="tip"><span class="bad">✗</span> Не подойдёт: групповое фото, маска/очки на лице, фото в полный рост издалека</div>
-          <div class="tip"><span class="bad">✗</span> Слишком тёмное, контровый свет, размытое</div>
+          <div class="tips-grid">
+            <figure class="tip-card good">
+              <img src="/static/photo_tips/good.webp" alt="Хорошее фото" loading="lazy">
+              <figcaption><span class="badge ok">✓ Подходит</span><span class="why">Чёткое лицо, дневной свет, смотрит в камеру</span></figcaption>
+            </figure>
+            <figure class="tip-card bad">
+              <img src="/static/photo_tips/bad_far.webp" alt="Издалека" loading="lazy">
+              <figcaption><span class="badge no">✗ Издалека</span><span class="why">Лицо слишком мелкое в кадре</span></figcaption>
+            </figure>
+            <figure class="tip-card bad">
+              <img src="/static/photo_tips/bad_dark.webp" alt="Темно" loading="lazy">
+              <figcaption><span class="badge no">✗ Темно</span><span class="why">Половина лица в тени</span></figcaption>
+            </figure>
+            <figure class="tip-card bad">
+              <img src="/static/photo_tips/bad_group.webp" alt="Группа" loading="lazy">
+              <figcaption><span class="badge no">✗ Несколько детей</span><span class="why">Один ребёнок в кадре, без других людей</span></figcaption>
+            </figure>
+          </div>
           <div class="tips-note">Чем лучше исходное фото — тем точнее герой будет похож на ребёнка.</div>
         </div>
       </details>
