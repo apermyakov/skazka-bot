@@ -463,6 +463,9 @@ async def feedback_submit(request: Request, name: str = Form(""), email: str = F
     await notify_admin(
         f"💬 Новая обратная связь #{fid}\n"
         f"Имя: {name or '—'}\nEmail: {email or '—'}\n\n{message[:1000]}")
+    if email and "@" in email:
+        from web.mailer import send_feedback_ack
+        asyncio.create_task(send_feedback_ack(email, name, message))
     return templates.TemplateResponse(request, "feedback.html", {"sent": True})
 
 
