@@ -268,7 +268,10 @@ async def create_form(request: Request):
 
 @app.post("/create")
 async def create_submit(request: Request, topic: str = Form(...), email: str = Form(""),
-                        photo: UploadFile = File(None)):
+                        photo: UploadFile = File(None),
+                        utm_source: str = Form(""), utm_medium: str = Form(""),
+                        utm_campaign: str = Form(""), utm_term: str = Form(""),
+                        utm_content: str = Form(""), ref: str = Form("")):
     topic = (topic or "").strip()[:2000]
     email = (email or "").strip()[:200]
     if len(topic) < 3:
@@ -287,7 +290,13 @@ async def create_submit(request: Request, topic: str = Form(...), email: str = F
         if len(data) <= MAX_PHOTO and (photo.content_type or "").startswith("image/"):
             photo_path = str(UPLOAD_DIR / f"{uuid.uuid4().hex}.jpg")
             Path(photo_path).write_bytes(data)
-    oid = await create_order(topic, photo_path, email or None)
+    # UTM/referrer attribution — passed from client via hidden form fields
+    utm_data = {k: (v or "").strip()[:200] or None for k, v in
+                (("source", utm_source), ("medium", utm_medium),
+                 ("campaign", utm_campaign), ("term", utm_term),
+                 ("content", utm_content))}
+    oid = await create_order(topic, photo_path, email or None,
+                             utm=utm_data, referrer=(ref or "").strip()[:500] or None)
     asyncio.create_task(_compose(oid, topic))
     return RedirectResponse(f"/order/{oid}", status_code=303)
 

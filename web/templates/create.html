@@ -100,6 +100,13 @@
              placeholder="alex@mail.ru">
       <div class="hint">Пришлём готовую сказку и чек об оплате.</div>
 
+      <input type="hidden" name="utm_source"   id="utm_source">
+      <input type="hidden" name="utm_medium"   id="utm_medium">
+      <input type="hidden" name="utm_campaign" id="utm_campaign">
+      <input type="hidden" name="utm_term"     id="utm_term">
+      <input type="hidden" name="utm_content"  id="utm_content">
+      <input type="hidden" name="ref"          id="ref">
+
       <button class="btn" type="submit">✨ Сочинить текст бесплатно</button>
       <div class="note">Это займёт меньше минуты</div>
     </form>
@@ -107,6 +114,29 @@
 </div>
 <footer class="ftr"><a href="/feedback">Обратная связь</a></footer>
 <script>
+  // UTM attribution: read from URL, persist 30 days, restore on revisits.
+  (function(){
+    const KEYS = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content'];
+    const STORE = 'skazik_utm_v1';
+    const url = new URLSearchParams(location.search);
+    let urlHas = false;
+    const data = {};
+    KEYS.forEach(k => { const v = url.get(k); if(v){ data[k] = v.slice(0,200); urlHas = true; } });
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(STORE) || '{}'); } catch(e){}
+    if(urlHas && (!saved.ts || Date.now() - saved.ts > 30*86400000)){
+      // First touch or stale — overwrite store
+      saved = {data, ts: Date.now()};
+      try { localStorage.setItem(STORE, JSON.stringify(saved)); } catch(e){}
+    } else if(urlHas){
+      // Only overwrite if last-touch is more aggressive; keep first-touch by default (skip)
+    }
+    const final = (saved && saved.data) || data;
+    KEYS.forEach(k => { const el = document.getElementById(k); if(el && final[k]) el.value = final[k]; });
+    const ref = document.getElementById('ref');
+    if(ref && document.referrer) ref.value = document.referrer.slice(0,500);
+  })();
+
   // Topic textarea: auto-grow + char counter + draft auto-save
   const topicEl = document.getElementById('topic');
   const emailEl = document.getElementById('email');

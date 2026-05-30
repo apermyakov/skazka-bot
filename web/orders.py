@@ -44,6 +44,12 @@ async def init_orders():
         await c.execute(CREATE_SQL)
         await c.execute("ALTER TABLE web_orders ADD COLUMN IF NOT EXISTS email TEXT")
         await c.execute("ALTER TABLE web_orders ADD COLUMN IF NOT EXISTS progress TEXT")
+        await c.execute("ALTER TABLE web_orders ADD COLUMN IF NOT EXISTS utm_source TEXT")
+        await c.execute("ALTER TABLE web_orders ADD COLUMN IF NOT EXISTS utm_medium TEXT")
+        await c.execute("ALTER TABLE web_orders ADD COLUMN IF NOT EXISTS utm_campaign TEXT")
+        await c.execute("ALTER TABLE web_orders ADD COLUMN IF NOT EXISTS utm_term TEXT")
+        await c.execute("ALTER TABLE web_orders ADD COLUMN IF NOT EXISTS utm_content TEXT")
+        await c.execute("ALTER TABLE web_orders ADD COLUMN IF NOT EXISTS referrer TEXT")
         await c.execute(FEEDBACK_SQL)
 
 
@@ -55,12 +61,18 @@ async def create_feedback(name: str | None, email: str | None, message: str) -> 
     return row["id"]
 
 
-async def create_order(topic: str, photo_path: str | None = None, email: str | None = None) -> str:
+async def create_order(topic: str, photo_path: str | None = None, email: str | None = None,
+                       utm: dict | None = None, referrer: str | None = None) -> str:
     oid = uuid.uuid4().hex[:16]
+    utm = utm or {}
     async with db_mod._pool.acquire() as c:
         await c.execute(
-            "INSERT INTO web_orders (id, topic, photo_path, email) VALUES ($1,$2,$3,$4)",
-            oid, topic, photo_path, email)
+            "INSERT INTO web_orders (id, topic, photo_path, email, "
+            "utm_source, utm_medium, utm_campaign, utm_term, utm_content, referrer) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
+            oid, topic, photo_path, email,
+            utm.get("source"), utm.get("medium"), utm.get("campaign"),
+            utm.get("term"), utm.get("content"), referrer)
     return oid
 
 
