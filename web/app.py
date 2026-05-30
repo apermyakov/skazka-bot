@@ -268,6 +268,30 @@ async def health():
     return JSONResponse({"ok": True})
 
 
+@app.get("/healthz")
+async def healthz():
+    """Deep health: DB roundtrip + email queue not stuck + recent activity.
+    Returns 200 if all green, 503 otherwise. For UptimeRobot / pinging."""
+    status = {"db": False, "email_queue": True, "ok": True}
+    try:
+        async with db_mod._pool.acquire() as c:
+            await c.fetchval("SELECT 1")
+            status["db"] = True
+            # Detect stuck email queue: queued rows overdue by >15 min
+            stuck = await c.fetchval(
+                "SELECT COUNT(*) FROM email_outbox "
+                "WHERE status='queued' AND next_try_at < NOW() - INTERVAL '15 minutes'") or 0
+            status["email_queue"] = stuck == 0
+            if stuck:
+                status["email_stuck_count"] = stuck
+    except Exception as e:
+        status["error"] = str(e)[:200]
+        status["ok"] = False
+    code = 200 if (status["db"] and status["email_queue"]) else 503
+    status["ok"] = code == 200
+    return JSONResponse(status, status_code=code)
+
+
 @app.get("/robots.txt", response_class=PlainTextResponse)
 async def robots():
     return (
