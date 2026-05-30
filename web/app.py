@@ -299,6 +299,18 @@ async def healthz():
     return JSONResponse(status, status_code=code)
 
 
+@app.get("/yandex_d335fc8db349d42d.html", response_class=HTMLResponse)
+async def yandex_webmaster_verify():
+    """Site ownership confirmation file for Yandex.Webmaster.
+    Code matches the existing DNS TXT 'yandex-verification' on skazik.app."""
+    return HTMLResponse(
+        '<html>\n    <head>\n'
+        '        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">\n'
+        '    </head>\n'
+        '    <body>Verification: d335fc8db349d42d</body>\n'
+        '</html>')
+
+
 @app.get("/robots.txt", response_class=PlainTextResponse)
 async def robots():
     return (
