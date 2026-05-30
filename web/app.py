@@ -317,7 +317,9 @@ async def robots():
         "User-agent: *\n"
         "Allow: /\n"
         "Disallow: /order/\n"
+        "Disallow: /admin/\n"
         "Disallow: /yookassa/\n"
+        "Disallow: /healthz\n"
         f"Sitemap: {PUBLIC_BASE}/sitemap.xml\n"
     )
 
@@ -714,8 +716,9 @@ async def admin_stats(request: Request, token: str = ""):
     """Lightweight founder dashboard: orders + conversion + UTM ROI.
     Excludes orders from founder/test emails so KPIs reflect real customers only."""
     expected = os.environ.get("ADMIN_TOKEN", "")
+    noindex_headers = {"X-Robots-Tag": "noindex, nofollow, noarchive"}
     if not expected or token != expected:
-        return HTMLResponse("forbidden", status_code=403)
+        return HTMLResponse("forbidden", status_code=403, headers=noindex_headers)
     # Founder + test emails to exclude from counts (real-customer view)
     excluded = [e.strip().lower() for e in
                 os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()]
@@ -795,8 +798,9 @@ async def admin_stats(request: Request, token: str = ""):
     excl_note = (f"<div style='color:#6b6390;font-size:13px;margin:6px 0 14px'>"
                  f"⚙️ Исключено из счёта: <b>{excl_count}</b> заказ(ов) от {len(excluded)} email-ов "
                  f"(основатель/тесты, через .env ADMIN_EMAILS)</div>") if excl_count else ""
-    return HTMLResponse(
+    return HTMLResponse(headers=noindex_headers, content=
         f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Admin · Stats</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
 <style>body{{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:1100px;margin:0 auto;padding:20px;color:#2b2350;background:#fbf7ff}}
 h1{{margin:0 0 14px}}h2{{margin:24px 0 10px;font-size:18px}}
 .kpis{{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}}
