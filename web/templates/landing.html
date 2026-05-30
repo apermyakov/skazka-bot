@@ -106,6 +106,17 @@
     .gallery{grid-template-columns:1fr}
     .compare .arrow{transform:rotate(90deg)}
   }
+  /* Sticky bottom CTA on mobile after user scrolls past hero */
+  .stickycta{position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.96);
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    border-top:1px solid #ece6fb;padding:10px 14px env(safe-area-inset-bottom,10px);
+    display:none;z-index:20;box-shadow:0 -6px 18px rgba(43,35,80,.08)}
+  .stickycta.on{display:block}
+  .stickycta a{display:block;width:100%;max-width:540px;margin:0 auto;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;
+    text-decoration:none;font-weight:800;font-size:17px;padding:14px;
+    border-radius:14px;text-align:center;box-shadow:0 8px 22px rgba(124,92,255,.32)}
+  @media(min-width:681px){ .stickycta{display:none!important} }
 </style>
 {{ metrika|safe }}
 </head>
@@ -218,5 +229,17 @@
     </div>
   </footer>
 </div>
+<div class="stickycta" id="stickycta"><a href="/create">✨ Создать сказку — бесплатно</a></div>
+<script>
+(function(){
+  const s = document.getElementById('stickycta');
+  const hero = document.querySelector('.hero');
+  if(!s || !hero) return;
+  const io = new IntersectionObserver(function(entries){
+    s.classList.toggle('on', entries[0].intersectionRatio < 0.1);
+  }, {threshold:[0, 0.1]});
+  io.observe(hero);
+})();
+</script>
 </body>
 </html>
