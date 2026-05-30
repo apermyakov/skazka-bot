@@ -316,6 +316,7 @@ async def sitemap():
     urls = [
         ("/", "1.0", "weekly"),
         ("/create", "0.9", "weekly"),
+        ("/sample", "0.8", "monthly"),
         ("/about", "0.7", "monthly"),
         ("/feedback", "0.4", "monthly"),
         ("/oferta", "0.3", "yearly"),
@@ -372,6 +373,31 @@ async def landing(request: Request):
 @app.get("/about", response_class=HTMLResponse)
 async def about(request: Request):
     return templates.TemplateResponse(request, "about.html", {})
+
+
+@app.get("/sample", response_class=HTMLResponse)
+async def sample(request: Request):
+    """Demo story page — looks at /static/sample/ to decide what to show."""
+    sample_dir = WEB_DIR / "static" / "sample"
+    has_audio = (sample_dir / "sample.mp3").exists()
+    has_video = (sample_dir / "sample.mp4").exists()
+    meta = {}
+    meta_path = sample_dir / "meta.json"
+    if meta_path.exists():
+        try:
+            import json as _json
+            meta = _json.loads(meta_path.read_text())
+        except Exception:
+            pass
+    illustrations = sorted(int(p.stem.split("_")[1]) for p in sample_dir.glob("scene_*.png")) if sample_dir.exists() else []
+    return templates.TemplateResponse(request, "sample.html", {
+        "has_media": has_audio,
+        "video": has_video,
+        "title": meta.get("title"),
+        "context": meta.get("context"),
+        "duration": int(meta.get("duration", 0)) if meta.get("duration") else None,
+        "illustrations": illustrations,
+    })
 
 
 @app.get("/create", response_class=HTMLResponse)
