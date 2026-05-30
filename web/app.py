@@ -711,10 +711,14 @@ async def privacy(request: Request):
 
 @app.get("/admin/stats", response_class=HTMLResponse)
 async def admin_stats(request: Request, token: str = ""):
-    """Lightweight founder dashboard: orders + conversion + UTM ROI."""
+    """Lightweight founder dashboard: orders + conversion + UTM ROI.
+    Excludes orders from founder/test emails so KPIs reflect real customers only."""
     expected = os.environ.get("ADMIN_TOKEN", "")
     if not expected or token != expected:
         return HTMLResponse("forbidden", status_code=403)
+    # Founder + test emails to exclude from counts (real-customer view)
+    excluded = [e.strip().lower() for e in
+                os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()]
     async with db_mod._pool.acquire() as c:
         funnel = await c.fetchrow("""
             SELECT
@@ -727,7 +731,8 @@ async def admin_stats(request: Request, token: str = ""):
               COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours') AS last_24h,
               COUNT(*) FILTER (WHERE paid_at > NOW() - INTERVAL '24 hours')    AS paid_24h
             FROM web_orders
-        """)
+            WHERE NOT (LOWER(COALESCE(email,'')) = ANY($1::text[]))
+        """, excluded)
         utm = await c.fetch("""
             SELECT
               COALESCE(utm_source, '(direct)')        AS src,
@@ -737,10 +742,11 @@ async def admin_stats(request: Request, token: str = ""):
               COUNT(*) FILTER (WHERE paid_at IS NOT NULL) AS paid
             FROM web_orders
             WHERE created_at > NOW() - INTERVAL '30 days'
+              AND NOT (LOWER(COALESCE(email,'')) = ANY($1::text[]))
             GROUP BY src, camp
             ORDER BY paid DESC, visits DESC
             LIMIT 30
-        """)
+        """, excluded)
         recent = await c.fetch("""
             SELECT id, created_at, status, title, COALESCE(email,'—') AS email,
                    paid_at IS NOT NULL AS paid
@@ -748,6 +754,10 @@ async def admin_stats(request: Request, token: str = ""):
             ORDER BY created_at DESC
             LIMIT 20
         """)
+        # Founder/test orders count — shown separately so we know they exist
+        excl_count = await c.fetchval(
+            "SELECT COUNT(*) FROM web_orders WHERE LOWER(COALESCE(email,'')) = ANY($1::text[])",
+            excluded) or 0
         fb_count = await c.fetchval("SELECT COUNT(*) FROM feedback WHERE status='new'")
         # Email queue health
         try:
@@ -782,6 +792,9 @@ async def admin_stats(request: Request, token: str = ""):
         f"<td>{(r['title'] or '—')[:40]}</td><td>{r['email']}</td></tr>"
         for r in recent)
     cr = (funnel['paid']*100//funnel['total']) if funnel['total'] else 0
+    excl_note = (f"<div style='color:#6b6390;font-size:13px;margin:6px 0 14px'>"
+                 f"⚙️ Исключено из счёта: <b>{excl_count}</b> заказ(ов) от {len(excluded)} email-ов "
+                 f"(основатель/тесты, через .env ADMIN_EMAILS)</div>") if excl_count else ""
     return HTMLResponse(
         f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Admin · Stats</title>
 <style>body{{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:1100px;margin:0 auto;padding:20px;color:#2b2350;background:#fbf7ff}}
@@ -796,6 +809,7 @@ tr:last-child td{{border-bottom:0}}
 code{{font-family:ui-monospace,monospace;font-size:12px}}
 </style></head><body>
 <h1>📊 Skazik · admin</h1>
+{excl_note}
 <div class="kpis">
   <div class="kpi"><b>{funnel['total']}</b><span>Всего заказов</span></div>
   <div class="kpi"><b>{funnel['paid']}</b><span>Оплачено · CR {cr}%</span></div>
