@@ -109,15 +109,21 @@ async def lifespan(app: FastAPI):
     await cfg.seed_defaults()
     await init_orders()
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    # Resume generations interrupted by a process restart (reload/deploy/crash):
-    # any order left in 'generating' gets its pipeline re-launched.
+    # Resume both kinds of in-flight orders interrupted by restart/deploy/crash:
+    # 'generating' (paid pipeline) and 'composing' (free text gen). Otherwise
+    # they sit in the DB forever and the user sees a spinner that never finishes.
     try:
         async with db_mod._pool.acquire() as c:
-            stuck = await c.fetch("SELECT id FROM web_orders WHERE status='generating'")
-        for r in stuck:
+            stuck_gen = await c.fetch("SELECT id FROM web_orders WHERE status='generating'")
+            stuck_comp = await c.fetch("SELECT id, topic FROM web_orders WHERE status='composing'")
+        for r in stuck_gen:
             asyncio.create_task(_generate(r["id"]))
-        if stuck:
-            logger.info("resuming %d interrupted generation(s)", len(stuck))
+        for r in stuck_comp:
+            if r["topic"]:
+                asyncio.create_task(_compose(r["id"], r["topic"]))
+        if stuck_gen or stuck_comp:
+            logger.info("resuming after restart: %d generating + %d composing",
+                        len(stuck_gen), len(stuck_comp))
     except Exception as e:
         logger.warning("resume scan failed: %s", e)
     logger.info("skazik web started")
