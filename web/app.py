@@ -128,17 +128,29 @@ async def notify_admin(text: str):
 
 # ── background workers ──
 async def _compose(oid: str, topic: str):
-    try:
-        from engine.llm_client import generate_story_text
-        res = await generate_story_text(topic)
-        await update_order(oid, status="text_ready", title=res["title"], story_text=res["text"])
-        logger.info("order %s: text ready (%s)", oid, res["title"])
-        o = await get_order(oid)
-        await notify_admin(f"📝 Текст сказки готов\n«{res['title']}»\nemail: {(o or {}).get('email') or '—'}\n{PUBLIC_BASE}/order/{oid}")
-    except Exception as e:
-        logger.error("order %s compose failed: %s", oid, e, exc_info=True)
-        await update_order(oid, status="failed", error=str(e)[:500])
-        await notify_admin(f"⚠️ Текст НЕ сгенерировался (заказ {oid}): {str(e)[:200]}")
+    from engine.llm_client import generate_story_text
+    res = None
+    last_err = None
+    for attempt in (1, 2):
+        try:
+            res = await generate_story_text(topic)
+            if attempt > 1:
+                logger.info("order %s: text gen succeeded on attempt %d", oid, attempt)
+            break
+        except Exception as e:
+            last_err = e
+            logger.warning("order %s compose attempt %d failed: %s", oid, attempt, e)
+            if attempt == 1:
+                await asyncio.sleep(2)
+    if res is None:
+        logger.error("order %s compose failed after retries: %s", oid, last_err, exc_info=True)
+        await update_order(oid, status="failed", error=str(last_err)[:500])
+        await notify_admin(f"⚠️ Текст НЕ сгенерировался (заказ {oid}): {str(last_err)[:200]}")
+        return
+    await update_order(oid, status="text_ready", title=res["title"], story_text=res["text"])
+    logger.info("order %s: text ready (%s)", oid, res["title"])
+    o = await get_order(oid)
+    await notify_admin(f"📝 Текст сказки готов\n«{res['title']}»\nemail: {(o or {}).get('email') or '—'}\n{PUBLIC_BASE}/order/{oid}")
 
 
 async def _generate(oid: str):
