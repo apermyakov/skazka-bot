@@ -82,6 +82,9 @@
   .audiowrap{max-width:560px;margin:0 auto;background:var(--card);border-radius:16px;padding:18px 22px;box-shadow:0 6px 20px rgba(43,35,80,.06);text-align:center}
   .audiowrap audio{width:100%;max-width:480px;margin:0 auto;display:block}
   .audiohint{color:var(--muted);font-size:13px;margin-top:8px}
+  .audiotr{margin-top:10px;text-align:left}
+  .audiotr summary{cursor:pointer;color:var(--accent);font-size:14px;font-weight:600}
+  .audiotr p{margin:8px 0 0;color:var(--muted);font-size:14px;font-style:italic}
   .gallery-sub{text-align:center;color:var(--muted);max-width:620px;margin:-10px auto 24px}
   .compare{display:flex;align-items:center;justify-content:center;gap:18px;max-width:720px;margin:0 auto 26px;flex-wrap:wrap}
   .compare figure{margin:0;text-align:center}
@@ -150,7 +153,10 @@
       <audio controls preload="none" src="/static/examples/demo.mp3" onplay="try{ym(109494799,'reachGoal','demo_play')}catch(e){}">
         Ваш браузер не поддерживает аудио.
       </audio>
-      <div class="audiohint">19 секунд · MP3</div>
+      <div class="audiohint">19 секунд · MP3 · голос Kate, ElevenLabs</div>
+      <details class="audiotr"><summary>Текст отрывка</summary>
+        <p>«Жил-был маленький дракончик. Он был добрый, любопытный и очень любил приключения. Каждое утро он расправлял свои нежные крылышки и летел туда, где небо встречается с лесом. Там его уже ждали друзья — мудрая сова и весёлая белочка.»</p>
+      </details>
     </div>
   </section>
 
