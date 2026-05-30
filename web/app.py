@@ -502,3 +502,86 @@ async def privacy(request: Request):
     ctx = await _legal_ctx("Политика конфиденциальности", lc.PRIVACY_BODY)
     ctx["canonical"] = f"{PUBLIC_BASE}/privacy"
     return templates.TemplateResponse(request, "legal.html", ctx)
+
+
+@app.get("/admin/stats", response_class=HTMLResponse)
+async def admin_stats(request: Request, token: str = ""):
+    """Lightweight founder dashboard: orders + conversion + UTM ROI."""
+    expected = os.environ.get("ADMIN_TOKEN", "")
+    if not expected or token != expected:
+        return HTMLResponse("forbidden", status_code=403)
+    async with db_mod._pool.acquire() as c:
+        funnel = await c.fetchrow("""
+            SELECT
+              COUNT(*)                                           AS total,
+              COUNT(*) FILTER (WHERE status='text_ready')        AS text_ready,
+              COUNT(*) FILTER (WHERE status='generating')        AS generating,
+              COUNT(*) FILTER (WHERE status='done')              AS done,
+              COUNT(*) FILTER (WHERE status='failed')            AS failed,
+              COUNT(*) FILTER (WHERE paid_at IS NOT NULL)        AS paid,
+              COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours') AS last_24h,
+              COUNT(*) FILTER (WHERE paid_at > NOW() - INTERVAL '24 hours')    AS paid_24h
+            FROM web_orders
+        """)
+        utm = await c.fetch("""
+            SELECT
+              COALESCE(utm_source, '(direct)')        AS src,
+              COALESCE(utm_campaign, '—')             AS camp,
+              COUNT(*)                                AS visits,
+              COUNT(*) FILTER (WHERE status='text_ready' OR paid_at IS NOT NULL) AS lead,
+              COUNT(*) FILTER (WHERE paid_at IS NOT NULL) AS paid
+            FROM web_orders
+            WHERE created_at > NOW() - INTERVAL '30 days'
+            GROUP BY src, camp
+            ORDER BY paid DESC, visits DESC
+            LIMIT 30
+        """)
+        recent = await c.fetch("""
+            SELECT id, created_at, status, title, COALESCE(email,'—') AS email,
+                   paid_at IS NOT NULL AS paid
+            FROM web_orders
+            ORDER BY created_at DESC
+            LIMIT 20
+        """)
+        fb_count = await c.fetchval("SELECT COUNT(*) FROM feedback WHERE status='new'")
+    rows_utm = "\n".join(
+        f"<tr><td>{r['src']}</td><td>{r['camp']}</td>"
+        f"<td>{r['visits']}</td><td>{r['lead']}</td><td>{r['paid']}</td>"
+        f"<td>{(r['paid']*100//r['visits']) if r['visits'] else 0}%</td></tr>"
+        for r in utm)
+    rows_recent = "\n".join(
+        f"<tr><td>{r['id']}</td><td>{r['created_at'].strftime('%Y-%m-%d %H:%M')}</td>"
+        f"<td>{r['status']}{'  💜' if r['paid'] else ''}</td>"
+        f"<td>{(r['title'] or '—')[:40]}</td><td>{r['email']}</td></tr>"
+        for r in recent)
+    cr = (funnel['paid']*100//funnel['total']) if funnel['total'] else 0
+    return HTMLResponse(
+        f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Admin · Stats</title>
+<style>body{{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:1100px;margin:0 auto;padding:20px;color:#2b2350;background:#fbf7ff}}
+h1{{margin:0 0 14px}}h2{{margin:24px 0 10px;font-size:18px}}
+.kpis{{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}}
+.kpi{{background:#fff;border-radius:12px;padding:14px;box-shadow:0 4px 12px rgba(0,0,0,.04)}}
+.kpi b{{display:block;font-size:24px}}.kpi span{{color:#6b6390;font-size:13px}}
+table{{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.04)}}
+th,td{{padding:8px 12px;text-align:left;font-size:14px;border-bottom:1px solid #ece6fb}}
+th{{background:#f1ebff;color:#2b2350;font-weight:700}}
+tr:last-child td{{border-bottom:0}}
+code{{font-family:ui-monospace,monospace;font-size:12px}}
+</style></head><body>
+<h1>📊 Skazik · admin</h1>
+<div class="kpis">
+  <div class="kpi"><b>{funnel['total']}</b><span>Всего заказов</span></div>
+  <div class="kpi"><b>{funnel['paid']}</b><span>Оплачено · CR {cr}%</span></div>
+  <div class="kpi"><b>{funnel['done']}</b><span>Сказок собрано</span></div>
+  <div class="kpi"><b>{funnel['failed']}</b><span>Failed</span></div>
+  <div class="kpi"><b>{funnel['last_24h']}</b><span>За 24ч</span></div>
+  <div class="kpi"><b>{funnel['paid_24h']}</b><span>Оплат за 24ч</span></div>
+  <div class="kpi"><b>{fb_count}</b><span>Новых отзывов</span></div>
+</div>
+<h2>UTM-кампании (30 дней)</h2>
+<table><tr><th>source</th><th>campaign</th><th>visits</th><th>lead</th><th>paid</th><th>CR</th></tr>
+{rows_utm or '<tr><td colspan="6">пока нет данных</td></tr>'}</table>
+<h2>Последние заказы</h2>
+<table><tr><th>id</th><th>создан</th><th>status</th><th>title</th><th>email</th></tr>
+{rows_recent}</table>
+</body></html>""")
