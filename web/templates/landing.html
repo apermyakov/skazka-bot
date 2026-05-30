@@ -56,6 +56,12 @@
        color:#fff;text-decoration:none;font-weight:800;font-size:19px;padding:16px 34px;
        border-radius:16px;box-shadow:0 10px 30px rgba(124,92,255,.35)}
   .cta:hover{transform:translateY(-1px)}
+  .cta-row{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;align-items:center}
+  .cta-tg{display:inline-flex;align-items:center;gap:8px;background:#fff;color:#229ED9;
+       text-decoration:none;font-weight:700;font-size:16px;padding:14px 22px;border-radius:16px;
+       border:1.5px solid #cce6f7;box-shadow:0 6px 18px rgba(34,158,217,.10)}
+  .cta-tg:hover{background:#f1f9ff}
+  .cta-tg svg{width:20px;height:20px;flex-shrink:0}
   .price-line{margin-top:14px;color:var(--muted);font-size:15px}
   .price-line b{color:var(--ink);font-size:17px}
   section{padding:34px 0}
@@ -113,7 +119,13 @@
     <h1>Сказка, где главный герой — <b>ваш ребёнок</b></h1>
     <p class="sub">Загрузите фото и тему — и получите волшебную аудиосказку с иллюстрациями
        и видео, где малыш узнаёт себя. Тёплая озвучка, картинки в стиле живописи — идеально на ночь.</p>
-    <a class="cta" href="/create">✨ Создать сказку</a>
+    <div class="cta-row">
+      <a class="cta" href="/create">✨ Создать сказку</a>
+      <a class="cta-tg" href="https://t.me/SkazikBot" target="_blank" rel="noopener" onclick="try{ym(109494799,'reachGoal','tg_click')}catch(e){}">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.24 3.64 11.95c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
+        Открыть в Telegram
+      </a>
+    </div>
     <div class="price-line">Текст сказки — <b>бесплатно</b>. Оплата — только если понравится.</div>
   </section>
 
