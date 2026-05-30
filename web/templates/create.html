@@ -63,6 +63,15 @@
     background:#fff;border:1.5px solid #e4dcfb;color:var(--ink);font-size:14px;font-weight:700;
     cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.08);line-height:1;padding:0;z-index:2}
   .phoclear:hover{background:#ffe2ea;color:#c0392b;border-color:#ff9bbb}
+  .phototips{margin:6px 0 8px;background:var(--soft);border-radius:12px;padding:0}
+  .phototips summary{cursor:pointer;padding:10px 14px;font-weight:600;font-size:14px;color:var(--accent);list-style:none;user-select:none}
+  .phototips summary::-webkit-details-marker{display:none}
+  .phototips[open] summary{border-bottom:1px solid #e4dcfb}
+  .tips-body{padding:10px 14px 12px}
+  .tip{font-size:13.5px;color:var(--ink);margin:4px 0;display:flex;gap:8px;align-items:flex-start}
+  .tip .ok{color:#1faa59;font-weight:700;flex-shrink:0}
+  .tip .bad{color:#c0392b;font-weight:700;flex-shrink:0}
+  .tips-note{margin-top:8px;padding-top:8px;border-top:1px dashed #c9b8ff;color:var(--muted);font-size:12.5px}
   .btn{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:0;
        font-weight:800;font-size:18px;padding:15px;border-radius:14px;cursor:pointer}
   .note{color:var(--muted);font-size:13px;text-align:center;margin-top:12px}
@@ -124,6 +133,18 @@
         <button type="button" class="phoclear" id="phoclear" aria-label="Убрать фото">✕</button>
       </div>
       <div class="hint">С фото герой будет похож на вашего малыша. До 10 МБ, JPEG/PNG.</div>
+      <details class="phototips">
+        <summary>📸 Какое фото подойдёт лучше</summary>
+        <div class="tips-body">
+          <div class="tip"><span class="ok">✓</span> Хорошо видно лицо, ребёнок смотрит близко к камере</div>
+          <div class="tip"><span class="ok">✓</span> Дневной свет, без сильных теней</div>
+          <div class="tip"><span class="ok">✓</span> Один ребёнок в кадре (без других людей)</div>
+          <div class="tip"><span class="ok">✓</span> Чёткое, не размыто, лицо занимает 30-60% кадра</div>
+          <div class="tip"><span class="bad">✗</span> Не подойдёт: групповое фото, маска/очки на лице, фото в полный рост издалека</div>
+          <div class="tip"><span class="bad">✗</span> Слишком тёмное, контровый свет, размытое</div>
+          <div class="tips-note">Чем лучше исходное фото — тем точнее герой будет похож на ребёнка.</div>
+        </div>
+      </details>
 
       <label for="email">Email</label>
       <input type="email" id="email" name="email" required
