@@ -4,7 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>«{{ story_title }}» — Сказик</title>
-<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon-180.png">
+<meta name="theme-color" content="#7c5cff">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Сказик">
 <meta property="og:title" content="«{{ story_title }}» — персональная сказка">
@@ -66,7 +69,7 @@
 <body>
 <div class="wrap">
   <header>
-    <a class="logo" href="/">✨ Сказ<span>ик</span></a>
+    <a class="logo" href="/" aria-label="Сказик"><img src="/static/logo_horizontal.png" alt="Сказик" width="144" height="32" style="display:block;height:32px;width:auto"></a>
   </header>
   <div class="card" id="box">
     <div id="state"><span class="spin"></span> <span class="muted">Загрузка…</span></div>

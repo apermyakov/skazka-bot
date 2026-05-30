@@ -4,8 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Сказик — персональная аудиосказка, где герой ваш ребёнок</title>
-<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-<link rel="apple-touch-icon" href="/static/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon-180.png">
+<link rel="manifest" href="/static/site.webmanifest">
+<meta name="theme-color" content="#7c5cff">
 <meta name="description" content="Волшебная аудиосказка с иллюстрациями и видео, где главный герой — ваш ребёнок. По фото и теме. Озвучка, картинки в стиле живописи, видео на ночь.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Сказик">
@@ -62,7 +65,7 @@
   "@type": "Organization",
   "name": "Сказик",
   "url": "https://skazik.app/",
-  "logo": "https://skazik.app/static/favicon.svg",
+  "logo": "https://skazik.app/static/icon-512.png",
   "sameAs": ["https://t.me/SkazikBot"]
 }
 </script>
@@ -76,8 +79,8 @@
        color:var(--ink);background:var(--bg);line-height:1.55;-webkit-font-smoothing:antialiased}
   .wrap{max-width:920px;margin:0 auto;padding:0 20px}
   header{display:flex;align-items:center;justify-content:space-between;padding:18px 0}
-  .logo{font-weight:800;font-size:22px;letter-spacing:.2px;text-decoration:none;color:var(--ink)}
-  .logo span{color:var(--accent)}
+  .logo{display:inline-flex;align-items:center;text-decoration:none}
+  .logo img{display:block;height:34px;width:auto}
   .hdrcta{background:var(--soft);color:var(--accent);text-decoration:none;font-weight:700;font-size:14px;
     padding:8px 16px;border-radius:999px;border:1.5px solid #e4dcfb;transition:all .15s}
   .hdrcta:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -164,7 +167,7 @@
 <body>
 <div class="wrap">
   <header>
-    <a class="logo" href="/">✨ Сказ<span>ик</span></a>
+    <a class="logo" href="/" aria-label="Сказик"><img src="/static/logo_horizontal.png" alt="Сказик" width="153" height="34"></a>
     <a class="hdrcta" href="/create">Создать сказку</a>
   </header>
 
