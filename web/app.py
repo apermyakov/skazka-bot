@@ -474,12 +474,14 @@ async def _legal_ctx(title: str, body_tpl: str) -> dict:
 @app.get("/oferta", response_class=HTMLResponse)
 async def oferta(request: Request):
     from web import legal_content as lc
-    return templates.TemplateResponse(request, "legal.html",
-                                      await _legal_ctx("Публичная оферта", lc.OFERTA_BODY))
+    ctx = await _legal_ctx("Публичная оферта", lc.OFERTA_BODY)
+    ctx["canonical"] = f"{PUBLIC_BASE}/oferta"
+    return templates.TemplateResponse(request, "legal.html", ctx)
 
 
 @app.get("/privacy", response_class=HTMLResponse)
 async def privacy(request: Request):
     from web import legal_content as lc
-    return templates.TemplateResponse(request, "legal.html",
-                                      await _legal_ctx("Политика конфиденциальности", lc.PRIVACY_BODY))
+    ctx = await _legal_ctx("Политика конфиденциальности", lc.PRIVACY_BODY)
+    ctx["canonical"] = f"{PUBLIC_BASE}/privacy"
+    return templates.TemplateResponse(request, "legal.html", ctx)

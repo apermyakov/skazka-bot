@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ title }} — Сказик</title>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+{% if canonical %}<link rel="canonical" href="{{ canonical }}">{% endif %}
+<meta name="robots" content="index, follow">
 <style>
   :root{--bg:#fbf7ff;--ink:#2b2350;--muted:#6b6390;--accent:#7c5cff;--card:#fff}
   *{box-sizing:border-box}
