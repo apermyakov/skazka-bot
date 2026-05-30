@@ -116,6 +116,13 @@ async def lifespan(app: FastAPI):
         start_worker()
     except Exception as e:
         logger.warning("email queue init failed: %s", e)
+    # Abandoned-cart: remind 1h, mark abandoned at 24h
+    try:
+        from web.abandoned_cart import init_schema as init_cart, start_worker as start_cart
+        await init_cart()
+        start_cart(PUBLIC_BASE)
+    except Exception as e:
+        logger.warning("abandoned cart init failed: %s", e)
     # Resume both kinds of in-flight orders interrupted by restart/deploy/crash:
     # 'generating' (paid pipeline) and 'composing' (free text gen). Otherwise
     # they sit in the DB forever and the user sees a spinner that never finishes.
