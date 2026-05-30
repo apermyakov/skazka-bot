@@ -18,7 +18,7 @@ from pathlib import Path
 
 import aiohttp
 from fastapi import FastAPI, Request, Form, File, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -212,6 +212,41 @@ async def _generate(oid: str):
 @app.get("/health")
 async def health():
     return JSONResponse({"ok": True})
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+async def robots():
+    return (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /order/\n"
+        "Disallow: /yookassa/\n"
+        f"Sitemap: {PUBLIC_BASE}/sitemap.xml\n"
+    )
+
+
+@app.get("/sitemap.xml", response_class=Response)
+async def sitemap():
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    urls = [
+        ("/", "1.0", "weekly"),
+        ("/create", "0.9", "weekly"),
+        ("/feedback", "0.4", "monthly"),
+        ("/oferta", "0.3", "yearly"),
+        ("/privacy", "0.3", "yearly"),
+    ]
+    items = "\n".join(
+        f"  <url><loc>{PUBLIC_BASE}{u}</loc><lastmod>{today}</lastmod>"
+        f"<changefreq>{cf}</changefreq><priority>{p}</priority></url>"
+        for u, p, cf in urls
+    )
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"{items}\n"
+        '</urlset>\n'
+    )
+    return Response(content=xml, media_type="application/xml")
 
 
 @app.get("/", response_class=HTMLResponse)
