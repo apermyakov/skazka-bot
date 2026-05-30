@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>О сервисе — Сказик</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon-180.png">
+<link rel="canonical" href="https://skazik.app/about">
+<meta name="description" content="Как работает Сказик: технология персональных аудиосказок с иллюстрациями и видео по фото ребёнка. Тёплая озвучка, бесплатный текст.">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="article">
+<meta property="og:title" content="О сервисе персональных сказок Сказик">
+<meta property="og:description" content="Технология, голоса, иллюстрации — что внутри. Прозрачно про то, как делаем сказку именно про вашего ребёнка.">
+<meta property="og:image" content="https://skazik.app/static/og_card.jpg">
+<meta property="og:url" content="https://skazik.app/about">
+<meta name="theme-color" content="#7c5cff">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#fbf7ff;--ink:#2b2350;--muted:#6b6390;--accent:#7c5cff;--accent2:#ff7eb6;--card:#fff;--soft:#f1ebff}
+  *{box-sizing:border-box}
+  html,body{overflow-x:hidden;max-width:100%}
+  body{margin:0;font-family:'Manrope',-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.65;letter-spacing:-0.01em}
+  .wrap{max-width:760px;margin:0 auto;padding:0 20px 60px}
+  header{display:flex;align-items:center;justify-content:space-between;padding:18px 0}
+  .logo{display:inline-flex;align-items:center;text-decoration:none}
+  .logo img{display:block;height:32px;width:auto}
+  .hdrcta{background:var(--soft);color:var(--accent);text-decoration:none;font-weight:700;font-size:14px;padding:8px 16px;border-radius:999px;border:1.5px solid #e4dcfb}
+  h1{font-size:34px;margin:18px 0 6px;line-height:1.18;letter-spacing:-0.02em}
+  h1 b{color:var(--accent);background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  p.lead{color:var(--muted);margin:0 0 28px;font-size:18px}
+  h2{font-size:22px;margin:30px 0 10px;letter-spacing:-0.01em}
+  .card{background:var(--card);border-radius:18px;padding:22px 24px;box-shadow:0 6px 20px rgba(43,35,80,.06);margin:0 0 18px}
+  .card p{margin:0 0 10px}.card p:last-child{margin-bottom:0}
+  .pillrow{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0}
+  .pill{background:var(--soft);color:var(--ink);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:600}
+  .cta{display:block;width:100%;max-width:380px;margin:30px auto 0;background:linear-gradient(135deg,var(--accent),var(--accent2));
+       color:#fff;text-decoration:none;font-weight:800;font-size:17px;padding:15px;border-radius:14px;text-align:center;
+       box-shadow:0 10px 26px rgba(124,92,255,.32)}
+  footer{text-align:center;padding:22px 0 40px;color:var(--muted);font-size:13px}
+  footer a{color:var(--muted)}
+  ul{padding-left:18px;margin:8px 0}
+  ul li{margin:6px 0}
+</style>
+{{ metrika|safe }}
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="logo" href="/" aria-label="Сказик"><img src="/static/logo_horizontal.png" alt="Сказик" width="144" height="32"></a>
+    <a class="hdrcta" href="/create">Создать сказку</a>
+  </header>
+
+  <h1>Что такое <b>Сказик</b></h1>
+  <p class="lead">Сервис персональных детских аудиосказок. По имени, возрасту, фотографии — собираем сказку именно про вашего ребёнка. С тёплой озвучкой, иллюстрациями в стиле живописи и видео.</p>
+
+  <h2>Как это работает</h2>
+  <div class="card">
+    <p><b>Шаг 1.</b> Вы рассказываете о ребёнке (имя, возраст, что любит, чему хотите научить) и при желании прикрепляете одну фотографию.</p>
+    <p><b>Шаг 2.</b> За минуту мы пишем текст сказки и показываем его — бесплатно. Если что-то хочется поменять, отправьте правку («сделай короче», «добавь маму», «убери лису») — переделаем.</p>
+    <p><b>Шаг 3.</b> Когда текст нравится — оплачиваете 999 ₽ через ЮKassa. Дальше идёт «волшебная кухня»: озвучка, иллюстрации, видео.</p>
+    <p><b>Шаг 4.</b> Через 5-8 минут получаете готовую сказку: MP4-видео с озвучкой и иллюстрациями + отдельный MP3-аудио на ночь. Ссылку дублируем на ваш email.</p>
+  </div>
+
+  <h2>Почему именно про вашего ребёнка</h2>
+  <div class="card">
+    <p>Когда герой сказки — тёзка ребёнка, того же возраста, в похожей ситуации, она работает совсем не как обычная книжка с полки. Ребёнок узнаёт себя — внимательно слушает, лучше запоминает мораль, легче засыпает.</p>
+    <p>Если вы прикрепили фотографию, мы используем её как референс для иллюстраций — герой получается узнаваемо похожим, хоть и в стилизованной живописной манере.</p>
+  </div>
+
+  <h2>Из чего состоит сказка</h2>
+  <div class="card">
+    <ul>
+      <li>Текст сказки на 3-5 минут чтения — добрый сюжет, мягкая мораль, счастливый финал. Без страшилок.</li>
+      <li>Аудио (~5-8 минут) — тёплая женская озвучка с эмоциями, разные голоса для героев, фоновые звуки (лес, дождь, морской бриз — под настроение сцены).</li>
+      <li>4 иллюстрации в стиле живописи — на ключевые моменты сцены.</li>
+      <li>Видео MP4 (1920×1080) — изображения под аудио, готово для телевизора, телефона или проектора.</li>
+    </ul>
+    <div class="pillrow">
+      <span class="pill">🎙 60+ голосов</span>
+      <span class="pill">🎨 Pixar-style иллюстрации</span>
+      <span class="pill">🎬 MP4 + MP3</span>
+      <span class="pill">📧 Ссылка на email</span>
+    </div>
+  </div>
+
+  <h2>Безопасно ли</h2>
+  <div class="card">
+    <p>Фотография используется только для создания иллюстраций именно к вашей сказке. Мы не публикуем фото нигде и не передаём третьим лицам.</p>
+    <p>Все детали — в <a href="/privacy">политике конфиденциальности</a> и <a href="/oferta">оферте</a>. Платежи — через ЮKassa, чек на почту. Если сказка не понравится — вернём деньги.</p>
+  </div>
+
+  <h2>Кто стоит за сервисом</h2>
+  <div class="card">
+    <p>Команда из ML-инженеров и родителей. Используем лучшие на сегодня технологии: <b>ElevenLabs</b> для голоса, <b>Gemini 3 Pro Image</b> для иллюстраций, проверенные LLM для сюжета. Каждая сказка проходит автоматическую проверку перед отправкой.</p>
+    <p>Вопросы и идеи — на <a href="/feedback">форму обратной связи</a>. Отвечаем лично, обычно в течение дня.</p>
+  </div>
+
+  <a class="cta" href="/create">✨ Создать сказку</a>
+</div>
+
+<footer>
+  <div>© Сказик · персональные детские аудиосказки</div>
+  <div style="margin-top:6px">
+    <a href="/feedback">Обратная связь</a> · <a href="/oferta">Оферта</a> · <a href="/privacy">Политика конфиденциальности</a> · <a href="https://t.me/SkazikBot">Telegram-бот</a>
+  </div>
+</footer>
+</body>
+</html>

@@ -285,6 +285,7 @@ async def sitemap():
     urls = [
         ("/", "1.0", "weekly"),
         ("/create", "0.9", "weekly"),
+        ("/about", "0.7", "monthly"),
         ("/feedback", "0.4", "monthly"),
         ("/oferta", "0.3", "yearly"),
         ("/privacy", "0.3", "yearly"),
@@ -335,6 +336,11 @@ async def landing(request: Request):
     stats = await _landing_stats()
     return templates.TemplateResponse(request, "landing.html",
                                       {"price": price, "stories_total": stats["total"]})
+
+
+@app.get("/about", response_class=HTMLResponse)
+async def about(request: Request):
+    return templates.TemplateResponse(request, "about.html", {})
 
 
 @app.get("/create", response_class=HTMLResponse)
