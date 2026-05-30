@@ -45,6 +45,13 @@
     border:1.5px dashed #c9b8ff;border-radius:12px;padding:12px 18px;font-weight:700;cursor:pointer}
   .upload-btn:hover{background:#e9e0ff}
   .fname{color:var(--muted);font-size:14px;overflow-wrap:anywhere}
+  .phoview{position:relative;display:inline-block;margin:10px 0 0}
+  .phoview img{display:block;width:140px;height:140px;object-fit:cover;border-radius:14px;
+    box-shadow:0 4px 14px rgba(43,35,80,.12)}
+  .phoclear{position:absolute;top:-8px;right:-8px;width:28px;height:28px;border-radius:50%;
+    background:#fff;border:1.5px solid #e4dcfb;color:var(--ink);font-size:14px;font-weight:700;
+    cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.08);line-height:1;padding:0}
+  .phoclear:hover{background:#ffe2ea;color:#c0392b;border-color:#ff9bbb}
   .btn{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:0;
        font-weight:800;font-size:18px;padding:15px;border-radius:14px;cursor:pointer}
   .note{color:var(--muted);font-size:13px;text-align:center;margin-top:12px}
@@ -93,6 +100,10 @@
         <label class="upload-btn" for="photo">📷 Прикрепить фото</label>
         <span class="fname" id="fname"></span>
         <input type="file" id="photo" name="photo" accept="image/*">
+      </div>
+      <div class="phoview" id="phoview" hidden>
+        <img id="phoimg" alt="Превью фото">
+        <button type="button" class="phoclear" id="phoclear" aria-label="Убрать фото">✕</button>
       </div>
       <div class="hint">С фото герой будет похож на вашего малыша. До 10 МБ, JPEG/PNG.</div>
 
@@ -241,10 +252,31 @@
     if(i >= 0 && j > i) topicEl.setSelectionRange(i, j + 1);
   });
 
-  document.getElementById('photo').addEventListener('change', function(){
-    document.getElementById('fname').textContent =
-      (this.files && this.files[0]) ? '✓ ' + this.files[0].name : '';
-  });
+  (function(){
+    const ph = document.getElementById('photo');
+    const fname = document.getElementById('fname');
+    const view = document.getElementById('phoview');
+    const img = document.getElementById('phoimg');
+    const clr = document.getElementById('phoclear');
+    let lastUrl = null;
+    function clear(){
+      ph.value = '';
+      fname.textContent = '';
+      if(lastUrl){ URL.revokeObjectURL(lastUrl); lastUrl = null; }
+      view.hidden = true;
+      img.removeAttribute('src');
+    }
+    ph.addEventListener('change', function(){
+      const f = this.files && this.files[0];
+      if(!f){ clear(); return; }
+      fname.textContent = '✓ ' + f.name;
+      if(lastUrl) URL.revokeObjectURL(lastUrl);
+      lastUrl = URL.createObjectURL(f);
+      img.src = lastUrl;
+      view.hidden = false;
+    });
+    clr.addEventListener('click', clear);
+  })();
 
   // Voice input → /transcribe → fill topic textarea
   (function(){
