@@ -293,18 +293,21 @@ async def sitemap():
 _stats_cache = {"v": None, "ts": 0.0}
 
 async def _landing_stats() -> dict:
-    """Cached counts for landing social proof (5-min TTL)."""
+    """Cached counts for landing social proof (5-min TTL).
+    `proof.base_count` config key is added to the real number — lets us start
+    from a meaningful round number when launching ads, growing organically
+    after that. Configurable without redeploy.
+    """
     now = time.time()
     if _stats_cache["v"] and now - _stats_cache["ts"] < 300:
         return _stats_cache["v"]
     try:
         async with db_mod._pool.acquire() as c:
-            # Bot stories (the bigger pool — both channels share the engine)
             bot_done = await c.fetchval("SELECT COUNT(*) FROM stories WHERE status='completed'") or 0
             web_done = await c.fetchval("SELECT COUNT(*) FROM web_orders WHERE status='done'") or 0
-        # Round down to a friendlier number; never decrease across page loads
-        total = int(bot_done) + int(web_done)
-        v = {"total": total}
+        real = int(bot_done) + int(web_done)
+        base = int(await cfg.get("proof.base_count", 0))
+        v = {"total": real + base}
     except Exception as e:
         logger.warning("landing stats failed: %s", e)
         v = {"total": 0}

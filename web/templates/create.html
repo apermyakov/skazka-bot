@@ -46,20 +46,25 @@
   .upload-btn:hover{background:#e9e0ff}
   .fname{color:var(--muted);font-size:14px;overflow-wrap:anywhere}
   .phoview{position:relative;display:inline-block;margin:10px 0 0}
-  .phoview img{display:block;width:140px;height:140px;object-fit:cover;border-radius:14px;
+  .phoview img,.phoview .pho-fb{display:block;width:140px;height:140px;object-fit:cover;border-radius:14px;
     box-shadow:0 4px 14px rgba(43,35,80,.12)}
+  .pho-fb{background:var(--soft);display:flex;align-items:center;justify-content:center;
+    flex-direction:column;color:var(--accent);font-size:13px;font-weight:600;text-align:center;padding:8px}
+  .pho-fb .em{font-size:32px;margin-bottom:6px}
   .phoclear{position:absolute;top:-8px;right:-8px;width:28px;height:28px;border-radius:50%;
     background:#fff;border:1.5px solid #e4dcfb;color:var(--ink);font-size:14px;font-weight:700;
-    cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.08);line-height:1;padding:0}
+    cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.08);line-height:1;padding:0;z-index:2}
   .phoclear:hover{background:#ffe2ea;color:#c0392b;border-color:#ff9bbb}
   .btn{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:0;
        font-weight:800;font-size:18px;padding:15px;border-radius:14px;cursor:pointer}
   .note{color:var(--muted);font-size:13px;text-align:center;margin-top:12px}
   .ex{background:var(--soft);border-radius:10px;padding:10px 13px;color:var(--muted);font-size:14px;margin-bottom:14px}
-  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
-  .chip{background:var(--soft);border:1.5px solid #e4dcfb;color:var(--ink);
-    border-radius:999px;padding:8px 14px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+  .chip{background:var(--soft);border:1px solid #e4dcfb;color:var(--ink);
+    border-radius:999px;padding:5px 11px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;line-height:1.35;
+    transition:background .12s, border-color .12s, color .12s}
   .chip:hover{background:#e9e0ff;border-color:#c9b8ff}
+  .chip.active{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-color:var(--accent)}
   .mic{display:inline-flex;align-items:center;gap:8px;background:var(--soft);color:var(--ink);
     border:1.5px solid #c9b8ff;border-radius:12px;padding:10px 16px;font-weight:700;cursor:pointer;font:inherit;margin:8px 0 0}
   .mic:hover{background:#e9e0ff}
@@ -80,13 +85,14 @@
       <label for="topic">О чём сказка?</label>
       <div class="ex">Например: «Сказка про Машу, 4 года, которая боится темноты. Пусть подружится с ночным светлячком и перестанет бояться.»</div>
       <div class="chips" id="chips">
-        <button type="button" class="chip" data-topic="Сказка про ребёнка [имя, возраст], который боится темноты и не хочет засыпать один. Пусть подружится с ночным светлячком и поймёт, что ночью тоже бывает уютно.">🌙 Боится темноты</button>
-        <button type="button" class="chip" data-topic="Сказка про ребёнка [имя, возраст], который не любит чистить зубы. Пусть подружится с доброй зубной феей и поймёт, как важно заботиться о зубах.">🦷 Не любит чистить зубы</button>
-        <button type="button" class="chip" data-topic="Сказка про ребёнка [имя, возраст], который боится идти к врачу. Пусть подружится с весёлым доктором-зайцем и увидит, что осмотр — это не страшно.">🏥 Боится врачей</button>
-        <button type="button" class="chip" data-topic="Сказка про ребёнка [имя, возраст], который очень хочет завести щенка. Пусть встретит маленького пёсика и научится заботиться о питомце.">🐶 Хочет щенка</button>
-        <button type="button" class="chip" data-topic="Сказка про ребёнка [имя, возраст], который первый раз идёт в детский сад и переживает. Пусть найдёт нового друга и поймёт, что в саду интересно.">🎒 Идёт в сад</button>
-        <button type="button" class="chip" data-topic="Сказка про ребёнка [имя, возраст], который учится плавать и пока боится воды. Пусть подружится с золотой рыбкой и почувствует, что вода — друг.">🏊 Учится плавать</button>
+        <button type="button" class="chip" data-theme="боится темноты и не хочет засыпать один">🌙 Боится темноты</button>
+        <button type="button" class="chip" data-theme="не любит чистить зубы">🦷 Не любит чистить зубы</button>
+        <button type="button" class="chip" data-theme="боится идти к врачу">🏥 Боится врачей</button>
+        <button type="button" class="chip" data-theme="очень хочет завести щенка">🐶 Хочет щенка</button>
+        <button type="button" class="chip" data-theme="первый раз идёт в детский сад и переживает">🎒 Идёт в сад</button>
+        <button type="button" class="chip" data-theme="учится плавать и пока боится воды">🏊 Учится плавать</button>
       </div>
+      <div class="hint" style="margin:-8px 0 12px">Можно выбрать несколько — соберём в одну сказку. После — допишите вручную (имя, возраст, детали).</div>
       <textarea id="topic" name="topic" maxlength="2000" minlength="10" required
                 placeholder="Имя и возраст ребёнка, тема, какие герои, чему учит..."></textarea>
       <div class="row-meta">
@@ -103,6 +109,10 @@
       </div>
       <div class="phoview" id="phoview" hidden>
         <img id="phoimg" alt="Превью фото">
+        <div class="pho-fb" id="phofb" style="display:none">
+          <div class="em">📷</div>
+          <div>Фото прикреплено</div>
+        </div>
         <button type="button" class="phoclear" id="phoclear" aria-label="Убрать фото">✕</button>
       </div>
       <div class="hint">С фото герой будет похож на вашего малыша. До 10 МБ, JPEG/PNG.</div>
@@ -241,15 +251,42 @@
   });
   refreshTopic();
 
-  // Topic suggestion chips → prefill textarea + auto-select [имя, возраст] for replace
-  document.getElementById('chips').addEventListener('click', function(e){
-    const b = e.target.closest('.chip');
-    if(!b) return;
-    topicEl.value = b.dataset.topic;
+  // Topic chips — multi-select; rebuild textarea from selected themes.
+  // User can still freely edit textarea afterwards.
+  const chipsRoot = document.getElementById('chips');
+  const selectedThemes = [];
+  function joinThemes(arr){
+    if(arr.length === 0) return '';
+    if(arr.length === 1) return arr[0];
+    if(arr.length === 2) return arr[0] + ' и ' + arr[1];
+    return arr.slice(0, -1).join(', ') + ', а ещё ' + arr[arr.length - 1];
+  }
+  function rebuildTopicFromChips(){
+    if(selectedThemes.length === 0) return;
+    const body = joinThemes(selectedThemes);
+    topicEl.value = 'Сказка про ребёнка [имя, возраст], который ' + body +
+                    '. Пусть найдёт добрых друзей и научится с этим справляться.';
     refreshTopic();
+    saveDraft();
     topicEl.focus();
     const i = topicEl.value.indexOf('[имя'), j = topicEl.value.indexOf(']');
     if(i >= 0 && j > i) topicEl.setSelectionRange(i, j + 1);
+  }
+  chipsRoot.addEventListener('click', function(e){
+    const b = e.target.closest('.chip');
+    if(!b) return;
+    const t = b.dataset.theme;
+    const idx = selectedThemes.indexOf(t);
+    if(idx >= 0){
+      selectedThemes.splice(idx, 1);
+      b.classList.remove('active');
+    } else {
+      selectedThemes.push(t);
+      b.classList.add('active');
+    }
+    if(selectedThemes.length > 0) rebuildTopicFromChips();
+    // If user deselected everything, leave whatever's in the textarea alone
+    // (they may have edited it; don't wipe their work).
   });
 
   (function(){
@@ -257,6 +294,7 @@
     const fname = document.getElementById('fname');
     const view = document.getElementById('phoview');
     const img = document.getElementById('phoimg');
+    const fb = document.getElementById('phofb');
     const clr = document.getElementById('phoclear');
     let lastUrl = null;
     function clear(){
@@ -265,15 +303,32 @@
       if(lastUrl){ URL.revokeObjectURL(lastUrl); lastUrl = null; }
       view.hidden = true;
       img.removeAttribute('src');
+      img.style.display = '';
+      fb.style.display = 'none';
     }
+    function showFallback(){
+      img.style.display = 'none';
+      fb.style.display = 'flex';
+    }
+    img.addEventListener('error', showFallback);
+    img.addEventListener('load', function(){
+      // Some HEIC files load but render 0x0 — treat that as failure too
+      if(img.naturalWidth === 0 || img.naturalHeight === 0) showFallback();
+    });
     ph.addEventListener('change', function(){
       const f = this.files && this.files[0];
       if(!f){ clear(); return; }
       fname.textContent = '✓ ' + f.name;
       if(lastUrl) URL.revokeObjectURL(lastUrl);
       lastUrl = URL.createObjectURL(f);
+      // Reset display state, then load — onload/onerror decide what to show
+      img.style.display = '';
+      fb.style.display = 'none';
       img.src = lastUrl;
       view.hidden = false;
+      // HEIC almost always fails to render — show fallback eagerly for that ext
+      const name = (f.name || '').toLowerCase();
+      if(name.endsWith('.heic') || name.endsWith('.heif')) showFallback();
     });
     clr.addEventListener('click', clear);
   })();

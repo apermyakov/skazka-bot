@@ -181,7 +181,7 @@
     </div>
     <div class="price-line">Текст сказки — <b>бесплатно</b>. Оплата — только если понравится.</div>
     {% if stories_total and stories_total >= 30 %}
-    <div class="proofline">⭐ Уже создано более {{ (stories_total // 10) * 10 }} сказок для детей</div>
+    <div class="proofline">⭐ Уже создано <b>{{ "{:,}".format(stories_total).replace(",", " ") }}</b> сказок для детей</div>
     {% endif %}
   </section>
 
