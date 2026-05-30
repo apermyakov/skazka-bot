@@ -186,7 +186,9 @@ function render(d){
       '<h1>'+esc(d.title||'Ваша сказка')+'</h1>'+
       '<div class="story">'+(d.text_html||'')+'</div>'+
       '<button class="btn" id="pay">💜 Оплатить '+PRICE+' ₽ и озвучить</button>'+
-      '<div class="lock">🔒 Оплата через ЮKassa · после оплаты соберём озвучку, иллюстрации и видео</div>'+
+      '<div class="lock">🔒 Оплата через ЮKassa · 5-8 мин — и придёт готовое видео + аудио + 4 иллюстрации</div>'+
+      '<div class="muted" style="margin-top:10px;text-align:center;font-size:13.5px">'+
+        'Не уверены, как это будет звучать? <a href="/sample" target="_blank" style="color:var(--accent);font-weight:600">Посмотрите готовый пример</a></div>'+
       '<div class="editbox"><textarea id="comment" placeholder="Что изменить? Напр.: сделай короче, добавь маму, убери лису…"></textarea>'+
       '<button class="btn2" id="edit">✏️ Переделать с правкой</button> '+
       '<a class="ghost" href="/create">или новая сказка</a></div>';
