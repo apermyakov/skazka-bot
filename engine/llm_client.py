@@ -243,6 +243,59 @@ async def generate_story_text(context: str, story_id: int = None) -> dict:
     return {"title": title, "text": text}
 
 
+async def revise_story_text(prev_title: str, prev_text: str, instruction: str,
+                            original_context: str = "", story_id: int = None) -> dict:
+    """Re-write an existing story incorporating a user's revision request.
+
+    Differs from generate_story_text by giving the LLM the previous draft as
+    context — so 'сделай короче' actually shortens the same story rather than
+    inventing a new one. Falls back to a sensible inline prompt if no config
+    key is set.
+    """
+    from db.config_manager import cfg
+    default = (
+        "Ниже — предыдущий вариант сказки и просьба пользователя её изменить.\n"
+        "Перепиши сказку, учитывая просьбу. Сохрани суть, героев и тёплый детский тон. "
+        "Первой строкой укажи ЗАГОЛОВОК: <название>.\n\n"
+        "Исходная тема:\n{context}\n\n"
+        "Предыдущий заголовок: {prev_title}\n"
+        "Предыдущая сказка:\n{prev_text}\n\n"
+        "Просьба от пользователя:\n{instruction}\n"
+    )
+    prompt_template = await cfg.get("prompt.story_revise", default)
+    system = await cfg.get("prompt.story_text_system", "Ты — талантливый детский писатель.")
+    prompt = prompt_template.format(
+        context=(original_context or "").strip()[:1500],
+        prev_title=(prev_title or "").strip()[:200],
+        prev_text=(prev_text or "").strip()[:6000],
+        instruction=(instruction or "").strip()[:1000],
+    )
+    response = await _call_llm(system=system, user=prompt, story_id=story_id, purpose="story_text")
+    if not response or not response.strip():
+        raise RuntimeError("Empty revised story response")
+    # Reuse the title-extraction logic from generate_story_text
+    lines = response.strip().split("\n")
+    title = ""
+    text = response.strip()
+    for i, line in enumerate(lines):
+        s = line.strip()
+        if s.upper().startswith("ЗАГОЛОВОК:"):
+            title = s[len("ЗАГОЛОВОК:"):].strip().strip('"').strip("«»")
+            text = "\n".join(lines[i+1:]).strip()
+            break
+        elif i == 0 and len(s) < 100 and not s.endswith("."):
+            title = s.strip('"').strip("«»")
+            text = "\n".join(lines[i+1:]).strip()
+            break
+    if not title:
+        title = prev_title or "Сказка на ночь"
+    title = title[:200]
+    if len(text) > 15000:
+        text = text[:15000]
+    logger.info("Story revised: '%s', %d chars (was %d)", title, len(text), len(prev_text or ""))
+    return {"title": title, "text": text}
+
+
 async def convert_to_screenplay(title: str, text: str, story_id: int = None) -> dict:
     """Convert plain text story into structured screenplay JSON for TTS.
 

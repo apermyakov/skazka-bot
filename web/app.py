@@ -424,6 +424,38 @@ async def order_status(oid: str):
     })
 
 
+async def _revise(oid: str, comment: str):
+    """Re-write the existing draft using revise_story_text (keeps continuity)."""
+    o = await get_order(oid)
+    if not o:
+        return
+    try:
+        from engine.llm_client import revise_story_text
+        res = None
+        last_err = None
+        for attempt in (1, 2):
+            try:
+                res = await revise_story_text(
+                    prev_title=o.get("title") or "",
+                    prev_text=o.get("story_text") or "",
+                    instruction=comment,
+                    original_context=o.get("topic") or "",
+                )
+                break
+            except Exception as e:
+                last_err = e
+                logger.warning("order %s revise attempt %d failed: %s", oid, attempt, e)
+                if attempt == 1:
+                    await asyncio.sleep(2)
+        if res is None:
+            raise last_err
+        await update_order(oid, status="text_ready", title=res["title"], story_text=res["text"])
+        logger.info("order %s: revised text ready (%s)", oid, res["title"])
+    except Exception as e:
+        logger.error("order %s revise failed: %s", oid, e, exc_info=True)
+        await update_order(oid, status="failed", error=str(e)[:500])
+
+
 @app.post("/order/{oid}/edit")
 async def order_edit(oid: str, comment: str = Form(...)):
     o = await get_order(oid)
@@ -432,9 +464,8 @@ async def order_edit(oid: str, comment: str = Form(...)):
     comment = (comment or "").strip()[:1000]
     if not comment:
         return JSONResponse({"ok": False, "error": "empty"}, status_code=400)
-    new_topic = (o["topic"] or "") + "\n\nИзменения: " + comment
-    await update_order(oid, topic=new_topic, status="composing", progress=None)
-    asyncio.create_task(_compose(oid, new_topic))
+    await update_order(oid, status="composing", progress=None, error=None)
+    asyncio.create_task(_revise(oid, comment))
     return JSONResponse({"ok": True})
 
 
