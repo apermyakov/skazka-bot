@@ -449,6 +449,20 @@ async def order_retry(oid: str):
     return JSONResponse({"ok": True})
 
 
+@app.post("/order/{oid}/recompose")
+async def order_recompose(oid: str):
+    """Re-run text composition for a failed (unpaid) order — same topic, no data loss."""
+    o = await get_order(oid)
+    if not o or o["status"] != "failed" or o.get("paid_at"):
+        return JSONResponse({"ok": False, "error": "bad state"}, status_code=400)
+    topic = (o.get("topic") or "").strip()
+    if not topic:
+        return JSONResponse({"ok": False, "error": "no topic"}, status_code=400)
+    await update_order(oid, status="composing", error=None, progress=None)
+    asyncio.create_task(_compose(oid, topic))
+    return JSONResponse({"ok": True})
+
+
 @app.post("/order/{oid}/pay")
 async def order_pay(oid: str):
     o = await get_order(oid)

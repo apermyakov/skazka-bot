@@ -247,8 +247,18 @@ function render(d){
     } else {
       box.innerHTML =
         '<h1 class="err">Что-то пошло не так</h1>'+
-        '<p class="muted">Это случается редко. Попробуйте начать заново — деньги не списаны.</p>'+
-        '<a class="btn" href="/create" style="margin-top:10px">Попробовать снова</a>';
+        '<p class="muted">Это случается редко. Попробуем ещё раз — деньги не списаны.</p>'+
+        '<button class="btn" id="recompose" style="margin-top:10px">🔄 Повторить с той же темой</button>'+
+        '<a class="ghost" href="/create" style="text-align:center;display:block;margin-top:10px">или начать заново с другой темой</a>';
+      const rc = document.getElementById('recompose');
+      if(rc) rc.onclick = async function(){
+        rc.disabled = true; rc.textContent = 'Перезапускаю…';
+        try {
+          const r = await fetch('/order/'+OID+'/recompose', {method:'POST'});
+          if(r.ok){ shownStatus=''; start(); }
+          else { alert('Не получилось. Откройте /create и попробуйте заново.'); rc.disabled=false; rc.textContent='🔄 Повторить с той же темой'; }
+        } catch(e){ rc.disabled=false; rc.textContent='🔄 Повторить с той же темой'; }
+      };
     }
   }
 }
