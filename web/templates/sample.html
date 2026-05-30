@@ -37,6 +37,18 @@
   footer a{color:var(--muted)}
   .pending{padding:30px;text-align:center;color:var(--muted);background:var(--soft);border-radius:14px}
   .pending b{display:block;color:var(--ink);font-size:18px;margin-bottom:6px}
+  .faceproof{padding:18px 18px 14px}
+  .compare-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
+  .compare-row figure{margin:0;text-align:center;flex:0 0 auto}
+  .compare-row figure img{display:block;width:110px;height:110px;object-fit:cover;border-radius:14px;box-shadow:0 4px 12px rgba(43,35,80,.12)}
+  .compare-row figure:first-child img{border:3px solid var(--accent);width:120px;height:120px}
+  .compare-row figcaption{margin-top:6px;color:var(--muted);font-size:12px;font-weight:600}
+  .compare-row .arrow{font-size:28px;color:var(--accent);font-weight:800;align-self:center;margin:0 4px}
+  @media(max-width:680px){
+    .compare-row .arrow{display:none}
+    .compare-row figure img{width:90px;height:90px}
+    .compare-row figure:first-child img{width:100px;height:100px}
+  }
 </style>
 {{ metrika|safe }}
 </head>
@@ -48,7 +60,35 @@
   </header>
 
   <h1>Пример <b>полной сказки</b></h1>
-  <p class="lead">Так выглядит и звучит сказка, которую вы получите за 999 ₽. Эта — про девочку Софию, ей 4 года. Героиня нарисована по референс-фото — обратите внимание, что София узнаваема во всех иллюстрациях. Хотите такую же про вашего ребёнка? <a href="/create" style="color:var(--accent);font-weight:700">Создать свою →</a></p>
+  <p class="lead">Так выглядит и звучит сказка, которую вы получите за 999 ₽. Эта — про девочку Софию, ей 4 года. Хотите такую же про вашего ребёнка? <a href="/create" style="color:var(--accent);font-weight:700">Создать свою →</a></p>
+
+  <div class="card faceproof">
+    <h3 style="margin:0 0 4px;font-size:17px">Лицо ребёнка — везде узнаваемо</h3>
+    <p style="margin:0 0 14px;color:var(--muted);font-size:14px">София — синтетический ребёнок, нарисованный нейросетью. Её портрет передан нашей модели, и она появляется во всех сценах сказки как один и тот же узнаваемый герой. Та же логика работает с реальной фотографией вашего ребёнка.</p>
+    <div class="compare-row">
+      <figure>
+        <img src="/static/kids/girl_01_blonde_curly.webp" alt="Референс — фото Софии">
+        <figcaption>Фото (референс)</figcaption>
+      </figure>
+      <div class="arrow">→</div>
+      <figure>
+        <img src="/static/sample/scene_1.webp" alt="София — сцена 1">
+        <figcaption>Сцена 1</figcaption>
+      </figure>
+      <figure>
+        <img src="/static/sample/scene_2.webp" alt="София — сцена 2">
+        <figcaption>Сцена 2</figcaption>
+      </figure>
+      <figure>
+        <img src="/static/sample/scene_3.webp" alt="София — сцена 3">
+        <figcaption>Сцена 3</figcaption>
+      </figure>
+      <figure>
+        <img src="/static/sample/scene_4.webp" alt="София — сцена 4">
+        <figcaption>Сцена 4</figcaption>
+      </figure>
+    </div>
+  </div>
 
   {% if has_media %}
     {% if title %}<div class="card"><h2 style="margin:0 0 10px;font-size:22px">«{{ title }}»</h2><p style="margin:0;color:var(--muted)">{{ context }}</p></div>{% endif %}
