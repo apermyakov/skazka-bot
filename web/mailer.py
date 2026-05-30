@@ -44,8 +44,24 @@ def _send_sync(to_addr: str, subject: str, body: str, html: str | None = None) -
         return False
 
 
-async def send_email(to_addr: str, subject: str, body: str, html: str | None = None) -> bool:
-    return await asyncio.to_thread(_send_sync, to_addr, subject, body, html)
+async def send_email(to_addr: str, subject: str, body: str, html: str | None = None,
+                     retries: int = 3) -> bool:
+    """Send with exponential backoff. Logs at WARNING per failed attempt, ERROR if all fail."""
+    delay = 5.0  # seconds; doubles each retry → 5s, 10s, 20s
+    last = False
+    for attempt in range(1, retries + 1):
+        last = await asyncio.to_thread(_send_sync, to_addr, subject, body, html)
+        if last:
+            if attempt > 1:
+                logger.info("email succeeded on attempt %d for %s", attempt, to_addr)
+            return True
+        if attempt < retries:
+            logger.warning("email attempt %d/%d failed for %s — retrying in %.0fs",
+                            attempt, retries, to_addr, delay)
+            await asyncio.sleep(delay)
+            delay *= 2
+    logger.error("email gave up after %d attempts for %s", retries, to_addr)
+    return False
 
 
 async def send_feedback_ack(to_addr: str, name: str, message: str) -> bool:
