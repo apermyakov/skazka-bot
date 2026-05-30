@@ -89,6 +89,36 @@ function fmtTime(sec){
 }
 let etaTimer = null;
 function stopEta(){ if(etaTimer){ clearInterval(etaTimer); etaTimer = null; } }
+
+let composeTimer = null;
+const COMPOSE_PHRASES = [
+  'Придумываю героев…',
+  'Выбираю место действия…',
+  'Плету сюжет…',
+  'Добавляю волшебство…',
+  'Подбираю слова на ночь…',
+  'Расставляю акценты…',
+  'Шлифую финал…',
+];
+function stopCompose(){ if(composeTimer){ clearInterval(composeTimer); composeTimer = null; } }
+function startComposePhrases(){
+  stopCompose();
+  let i = 0;
+  const el = document.getElementById('composephrase');
+  if(!el) return;
+  composeTimer = setInterval(function(){
+    const next = document.getElementById('composephrase');
+    if(!next){ stopCompose(); return; }
+    next.style.opacity = '0';
+    setTimeout(function(){
+      const e2 = document.getElementById('composephrase');
+      if(!e2) return;
+      i = (i + 1) % COMPOSE_PHRASES.length;
+      e2.textContent = COMPOSE_PHRASES[i];
+      e2.style.opacity = '1';
+    }, 400);
+  }, 4500);
+}
 function startEta(startedMs){
   stopEta();
   const EST = 5 * 60; // expected ~5 min
@@ -139,7 +169,11 @@ function render(d){
       products:[{id:'story',name:'Персональная сказка',price:PRICE,quantity:1}]}}}); }catch(e){}
   }
   if(d.status === 'composing'){
-    box.innerHTML = '<b>✨ Сочиняю текст сказки…</b><div class="pbar"><i></i></div>';
+    box.innerHTML =
+      '<b>✨ Сочиняю текст сказки…</b>'+
+      '<div class="pbar"><i></i></div>'+
+      '<div class="muted" id="composephrase" style="text-align:center;margin-top:14px;font-size:14px;min-height:20px;transition:opacity .4s">Придумываю героев…</div>';
+    startComposePhrases();
   } else if(d.status === 'text_ready'){
     stop();
     box.innerHTML =
@@ -291,7 +325,7 @@ async function poll(){
   }
 }
 function start(){ stop(); polling = true; pollAgeMs = 0; lastPolledStatus = ''; poll(); }
-function stop(){ polling = false; if(timer){ clearTimeout(timer); timer=null; } stopEta(); }
+function stop(){ polling = false; if(timer){ clearTimeout(timer); timer=null; } stopEta(); stopCompose(); }
 start();
 </script>
 </body>
