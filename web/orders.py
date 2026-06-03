@@ -50,7 +50,37 @@ async def init_orders():
         await c.execute("ALTER TABLE web_orders ADD COLUMN IF NOT EXISTS utm_term TEXT")
         await c.execute("ALTER TABLE web_orders ADD COLUMN IF NOT EXISTS utm_content TEXT")
         await c.execute("ALTER TABLE web_orders ADD COLUMN IF NOT EXISTS referrer TEXT")
+        await c.execute("ALTER TABLE web_orders ADD COLUMN IF NOT EXISTS ip TEXT")
+        await c.execute("CREATE INDEX IF NOT EXISTS idx_web_orders_ip ON web_orders(ip) WHERE ip IS NOT NULL")
+        await c.execute("ALTER TABLE web_orders ADD COLUMN IF NOT EXISTS rating SMALLINT")
+        await c.execute("ALTER TABLE web_orders ADD COLUMN IF NOT EXISTS rating_comment TEXT")
+        await c.execute("ALTER TABLE web_orders ADD COLUMN IF NOT EXISTS rated_at TIMESTAMPTZ")
+        await c.execute("ALTER TABLE web_orders ADD COLUMN IF NOT EXISTS followup_email_sent_at TIMESTAMPTZ")
+        await c.execute("CREATE INDEX IF NOT EXISTS idx_web_orders_followup ON web_orders(paid_at) "
+                        "WHERE rating IS NULL AND followup_email_sent_at IS NULL "
+                        "AND status='done' AND email IS NOT NULL")
         await c.execute(FEEDBACK_SQL)
+
+
+async def set_order_rating(oid: str, rating: int, comment: str | None) -> None:
+    async with db_mod._pool.acquire() as c:
+        await c.execute(
+            "UPDATE web_orders SET rating=$1, rating_comment=$2, rated_at=NOW() WHERE id=$3",
+            rating, comment, oid)
+
+
+async def mark_followup_sent(oid: str) -> None:
+    async with db_mod._pool.acquire() as c:
+        await c.execute("UPDATE web_orders SET followup_email_sent_at=NOW() WHERE id=$1", oid)
+
+
+async def count_orders_by_ip(ip: str) -> int:
+    """Lifetime count of orders from a given IP — used for permanent quota."""
+    if not ip:
+        return 0
+    async with db_mod._pool.acquire() as c:
+        row = await c.fetchrow("SELECT count(*) AS n FROM web_orders WHERE ip=$1", ip)
+    return int(row["n"]) if row else 0
 
 
 async def create_feedback(name: str | None, email: str | None, message: str) -> int:
@@ -62,17 +92,18 @@ async def create_feedback(name: str | None, email: str | None, message: str) -> 
 
 
 async def create_order(topic: str, photo_path: str | None = None, email: str | None = None,
-                       utm: dict | None = None, referrer: str | None = None) -> str:
+                       utm: dict | None = None, referrer: str | None = None,
+                       ip: str | None = None) -> str:
     oid = uuid.uuid4().hex[:16]
     utm = utm or {}
     async with db_mod._pool.acquire() as c:
         await c.execute(
             "INSERT INTO web_orders (id, topic, photo_path, email, "
-            "utm_source, utm_medium, utm_campaign, utm_term, utm_content, referrer) "
-            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
+            "utm_source, utm_medium, utm_campaign, utm_term, utm_content, referrer, ip) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
             oid, topic, photo_path, email,
             utm.get("source"), utm.get("medium"), utm.get("campaign"),
-            utm.get("term"), utm.get("content"), referrer)
+            utm.get("term"), utm.get("content"), referrer, ip)
     return oid
 
 

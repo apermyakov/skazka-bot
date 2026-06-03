@@ -34,8 +34,9 @@
   @keyframes s{to{transform:rotate(360deg)}}
   .muted{color:var(--muted)}
   .story{background:var(--soft);border-radius:14px;padding:22px 24px;max-height:420px;overflow:auto;margin:14px 0;overflow-wrap:break-word;
-         font-family:'Iowan Old Style','Charter','PT Serif',Georgia,serif;font-size:17px;line-height:1.7;color:#3a2f6b}
+         font-size:17px;line-height:1.7;color:#3a2f6b}
   .story p{margin:0 0 14px}.story p:last-child{margin-bottom:0}
+  .story .story-title{margin:0 0 14px;font-size:18px;font-weight:700;color:var(--ink);letter-spacing:-0.01em}
   .story::-webkit-scrollbar{width:8px}
   .story::-webkit-scrollbar-track{background:transparent}
   .story::-webkit-scrollbar-thumb{background:#c9b8ff;border-radius:4px}
@@ -59,13 +60,76 @@
   .btn{display:block;width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:0;
        font-weight:800;font-size:18px;padding:16px;border-radius:14px;cursor:pointer;text-align:center;text-decoration:none}
   .btn[disabled]{opacity:.6;cursor:default}
-  .ghost{display:inline-block;margin-top:10px;color:var(--muted);text-decoration:none;font-size:14px}
+  .ghost{display:inline-block;margin-top:10px;margin-left:8px;color:var(--accent);text-decoration:underline;text-underline-offset:3px;font-size:14px;font-weight:600}
+  .ghost:hover{color:var(--accent2)}
   .lock{color:var(--muted);font-size:13px;text-align:center;margin-top:10px}
   video{width:100%;border-radius:12px;margin:8px 0}
   audio{width:100%;margin:8px 0}
   .gallery{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
   .gallery img{width:100%;border-radius:10px}
   .err{color:#c0392b}
+  .preview-card{background:linear-gradient(135deg,#f5efff,#fff0f8);border-radius:14px;padding:14px 16px;margin:6px 0 14px;border:1px solid #ece4ff}
+  .preview-card .ph{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-weight:700;color:var(--ink);font-size:14.5px}
+  .preview-card .ph .dot{width:8px;height:8px;border-radius:50%;background:#1faa59;box-shadow:0 0 0 4px rgba(31,170,89,.18);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{50%{box-shadow:0 0 0 8px rgba(31,170,89,0)}}
+  .preview-card audio{margin:2px 0 0;height:38px}
+  .preview-card .ph-video{width:100%;display:block;border-radius:10px;background:#000;cursor:pointer;aspect-ratio:16/9;object-fit:cover;margin:2px 0 0}
+  .preview-card .ph-note{color:var(--muted);font-size:12.5px;margin-top:6px}
+  .value-stack{margin:14px 0 8px;padding:14px 16px;background:var(--soft);border-radius:12px}
+  .value-stack .row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;font-size:14.5px;color:var(--ink);gap:10px}
+  .value-stack .row > span:first-child{flex:1;min-width:0}
+  .value-stack .row .anchor{color:var(--muted);text-decoration:line-through;font-size:13px;white-space:nowrap}
+  .value-stack .total{margin-top:8px;padding-top:10px;border-top:1px dashed #d6c9ff;display:flex;justify-content:space-between;align-items:baseline;font-weight:800;font-size:16px}
+  .value-stack .total .save{color:var(--ok);font-weight:700;font-size:13px;margin-left:6px}
+  .guarantee{margin-top:12px;padding:11px 14px;background:#eef9f1;border:1px solid #cfecd6;border-radius:12px;display:flex;align-items:center;gap:10px;color:#1f6f3c;font-size:13.5px;line-height:1.45}
+  .guarantee .gi{font-size:22px;flex-shrink:0}
+  .photo-prepay{margin:14px 0 10px;padding:14px 16px;background:#f5efff;border:1.5px dashed #c9b8ff;border-radius:12px;text-align:center}
+  .photo-prepay .pp-title{font-weight:700;color:var(--ink);font-size:15px;margin-bottom:4px}
+  .photo-prepay .pp-sub{color:var(--muted);font-size:13px;line-height:1.45;margin-bottom:10px}
+  .photo-prepay .pp-btn{display:inline-block;background:#fff;color:var(--accent);border:1.5px solid var(--accent);font-weight:700;font-size:14px;padding:10px 18px;border-radius:10px;cursor:pointer;font-family:inherit}
+  .photo-prepay .pp-btn:hover{background:#e9e0ff}
+  .photo-prepay.has-photo{background:#eef9f1;border-color:#cfecd6}
+  .photo-prepay.has-photo .pp-title{color:#1f6f3c}
+  .photo-prepay .pp-status{font-size:13px;margin-top:8px;color:var(--muted);min-height:16px}
+  .photo-prepay .pp-status.err{color:#c0392b}
+  .late-email{margin:14px 0;padding:14px 16px;background:#fff8e8;border:1px solid #ffe8b0;border-radius:12px}
+  .late-email .le-title{font-weight:800;color:#7a5400;font-size:15px;margin-bottom:4px}
+  .late-email .le-sub{color:#8a6d2a;font-size:13px;line-height:1.45;margin-bottom:10px}
+  .late-email .le-form{display:flex;gap:8px;flex-wrap:wrap}
+  .late-email .le-form input{flex:1;min-width:160px;border:1.5px solid #f0d68a;border-radius:10px;padding:11px 12px;font:inherit;background:#fff}
+  .late-email .le-form button{background:#7a5400;color:#fff;border:0;border-radius:10px;padding:11px 18px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit}
+  .late-email .le-form button[disabled]{opacity:.6;cursor:default}
+  .late-email .le-status{font-size:13px;margin-top:8px;color:#7a5400;min-height:18px}
+  .late-email .le-status.ok{color:#1f6f3c}
+  .late-email .le-status.err{color:#c0392b}
+  .rate-card{margin:18px 0;padding:18px 18px 16px;background:var(--card);border:1.5px solid #e4dcfb;border-radius:14px;box-shadow:0 6px 18px rgba(43,35,80,.05)}
+  .rate-card .rc-title{font-weight:700;color:var(--ink);font-size:16px;margin-bottom:10px;line-height:1.35}
+  .rate-card .rc-stars{display:flex;gap:6px;font-size:34px;line-height:1;margin:2px 0 4px;user-select:none}
+  .rate-card .rc-star{cursor:pointer;color:#e4dcfb;transition:transform .1s,color .15s}
+  .rate-card .rc-star:hover{transform:scale(1.08)}
+  .rate-card .rc-star.lit{color:#ffb800}
+  .rate-card .rc-hint{color:var(--muted);font-size:13px;min-height:18px}
+  .rate-card .rc-form{display:none;margin-top:12px}
+  .rate-card .rc-form.on{display:block}
+  .rate-card .rc-form textarea{width:100%;box-sizing:border-box;border:1.5px solid #e4dcfb;border-radius:10px;padding:10px 12px;font:inherit;font-size:14.5px;min-height:64px;resize:vertical;background:#fff}
+  .rate-card .rc-submit{margin-top:10px;background:var(--accent);color:#fff;border:0;border-radius:10px;padding:11px 18px;font-weight:700;font-size:14.5px;cursor:pointer;font-family:inherit}
+  .rate-card .rc-submit[disabled]{opacity:.6;cursor:default}
+  .rate-card.bad{border-color:#ffc6c6;background:#fff4f4}
+  .rate-card.thanks{text-align:center;border-color:#bfe6cf;background:#f1faf3}
+  .rate-card.thanks .rc-title{color:#1f6f3c;margin-bottom:4px}
+  .rate-card.thanks .rc-hint{color:#3f8a5c}
+  .rate-card .rc-bad-cta{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px}
+  .rate-card .rc-bad-cta a{display:inline-block;background:#fff;color:#c0392b;border:1.5px solid #ffc6c6;border-radius:10px;padding:9px 14px;text-decoration:none;font-weight:700;font-size:13.5px}
+  .pay-trust{margin-top:10px;text-align:center;color:var(--muted);font-size:12.5px;line-height:1.5}
+  .pay-trust .badges{display:inline-flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+  .pay-trust .pb{display:inline-block;padding:3px 9px;background:#fff;border:1px solid #e4dcfb;border-radius:6px;font-weight:700;font-size:11px;color:#4b3f7a;letter-spacing:.02em}
+  /* Sticky bottom CTA for mobile — never lose the button while reading the story */
+  .sticky-pay{position:fixed;left:0;right:0;bottom:0;padding:10px 14px 14px;background:linear-gradient(to top,#fbf7ff 60%,rgba(251,247,255,0));z-index:30;display:none;pointer-events:none}
+  .sticky-pay.on{display:block}
+  .sticky-pay .btn{pointer-events:auto;margin:0;box-shadow:0 8px 24px rgba(124,92,255,.32)}
+  .sticky-pay .sp-note{pointer-events:auto;color:var(--muted);font-size:11.5px;text-align:center;margin-top:6px;background:rgba(251,247,255,.9);border-radius:8px;padding:2px 6px}
+  @media(min-width:680px){ .sticky-pay{display:none !important} }
+  body.has-sticky{padding-bottom:96px}
 </style>
 {{ metrika|safe }}
 </head>
@@ -78,7 +142,7 @@
     <div id="state"><span class="spin"></span> <span class="muted">Загрузка…</span></div>
   </div>
 </div>
-<footer class="ftr"><a href="/feedback">Обратная связь</a></footer>
+<footer class="ftr"><a href="/feedback" target="_blank" rel="noopener">Обратная связь</a><div style="margin-top:6px">ООО «СААС» · ИНН 3461067108</div></footer>
 
 <script>
 const OID = "{{ oid }}";
@@ -182,18 +246,90 @@ function render(d){
     startComposePhrases();
   } else if(d.status === 'text_ready'){
     stop();
+    const noEmail = !d.email;
+    const emailCaptureHtml = noEmail ? (
+      '<div class="late-email" id="lateemail">'+
+        '<div class="le-title">📧 Сохраните ссылку на сказку</div>'+
+        '<div class="le-sub">Чтобы вернуться позже или получить сказку на другом устройстве — оставьте email. Без спама.</div>'+
+        '<form class="le-form" id="leform" onsubmit="return false">'+
+          '<input type="email" id="leemail" placeholder="alex@mail.ru" inputmode="email" autocomplete="email" required>'+
+          '<button type="submit" id="lebtn">Сохранить</button>'+
+        '</form>'+
+        '<div class="le-status" id="lestatus"></div>'+
+      '</div>'
+    ) : '';
+    const hasPhoto = !!d.photo_path;
+    const photoBlockHtml = '<div class="photo-prepay'+(hasPhoto?' has-photo':'')+'" id="photoprepay">'+
+        (hasPhoto
+          ? '<div class="pp-title">✓ Фото прикреплено</div>'+
+            '<div class="pp-sub">Герой будет похож на вашего ребёнка.</div>'+
+            '<label class="pp-btn" for="pp-input">🔁 Заменить фото</label>'
+          : '<div class="pp-title">📷 Покажите ребёнка — он станет героем сказки</div>'+
+            '<div class="pp-sub">Загрузите одно фото — ребёнок будет похож на иллюстрациях.</div>'+
+            '<div class="pp-sub" style="font-size:12px;opacity:.7;margin-top:-4px">JPEG или PNG, до 10 МБ</div>'+
+            '<label class="pp-btn" for="pp-input">📷 Выбрать фото</label>'
+        )+
+        '<input type="file" id="pp-input" accept="image/*" hidden>'+
+        '<div class="pp-status" id="pp-status"></div>'+
+      '</div>';
+    const hasSurname = !!d.child_surname;
+    const surnameBlockHtml = '<div class="surname-row" id="snrow" style="margin:10px 0;padding:14px 16px;background:var(--soft,#f1ebff);border-radius:14px">'+
+      (hasSurname
+        ? snSavedHTML(d.child_surname)
+        : snFormHTML(''))+
+      '</div>';
     box.innerHTML =
       '<h1>'+esc(d.title||'Ваша сказка')+'</h1>'+
-      '<div class="story">'+(d.text_html||'')+'</div>'+
+      photoBlockHtml+
+      surnameBlockHtml+
+      '<div class="preview-card">'+
+        '<div class="ph"><span class="dot"></span> Пример озвучки (другая сказка про Софию)</div>'+
+        '<video class="ph-video" controls preload="metadata" poster="/static/sample/scene_1.webp" '+
+              'onplay="try{ym(109494799,\'reachGoal\',\'demo_play\')}catch(e){}">'+
+          '<source src="/static/sample/teaser.mp4" type="video/mp4"></video>'+
+        '<div class="ph-note">Так будет звучать <b>ваша</b> сказка про '+esc(d.title || 'вашего ребёнка')+' — после оплаты. <a href="/sample" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">Полный пример →</a></div>'+
+      '</div>'+
+      '<div class="story"><div class="story-title">'+esc(d.title||'Ваша сказка')+'</div>'+(d.text_html||'')+'</div>'+
+      emailCaptureHtml+
+      '<div class="value-stack">'+
+        '<div class="row"><span>🎙 Озвучка живым голосом, ~5 мин</span><span class="anchor">≈ 1 200 ₽</span></div>'+
+        '<div class="row"><span>🎨 4-6 тёплых иллюстраций с ребёнком</span><span class="anchor">≈ 600 ₽</span></div>'+
+        '<div class="row"><span>🎬 HD-видео для большого экрана</span><span class="anchor">≈ 500 ₽</span></div>'+
+        '<div class="total"><span>Ваша цена</span><span>'+PRICE+' ₽ <span class="save">стартовая цена · до 30 июня</span></span></div>'+
+      '</div>'+
       '<button class="btn" id="pay">💜 Оплатить '+PRICE+' ₽ и озвучить</button>'+
-      '<div class="lock">🔒 Оплата через ЮKassa · 5-8 мин — и придёт готовое видео + аудио + 4 иллюстрации</div>'+
-      '<div class="muted" style="margin-top:10px;text-align:center;font-size:13.5px">'+
-        'Не уверены, как это будет звучать? <a href="/sample" target="_blank" style="color:var(--accent);font-weight:600">Посмотрите готовый пример</a></div>'+
+      '<div class="lock">Через ЮKassa · 5–8 минут — и придёт готовое видео, аудио и 4-6 иллюстраций</div>'+
+      '<div class="pay-trust">'+
+        '<div class="badges"><span class="pb">VISA</span><span class="pb">MasterCard</span><span class="pb">МИР</span><span class="pb">СБП</span><span class="pb">ЮKassa</span></div>'+
+      '</div>'+
+      '<div class="guarantee"><span class="gi">🛡️</span><span><b>Гарантия:</b> не понравится результат — вернём деньги в течение суток. Напишите нам через <a href="/feedback" target="_blank" style="color:#1f6f3c;font-weight:700;text-decoration:underline">форму обратной связи</a>.</span></div>'+
       '<div class="editbox"><textarea id="comment" placeholder="Что изменить? Напр.: сделай короче, добавь маму, убери лису…"></textarea>'+
-      '<button class="btn2" id="edit">✏️ Переделать с правкой</button> '+
-      '<a class="ghost" href="/create">или новая сказка</a></div>';
+      '<button class="btn2" id="edit">✏️ Переделать текст с правкой</button> '+
+      '<a class="ghost" href="/create">или новая сказка</a></div>'+
+      // Sticky bottom CTA appears when the main button scrolls out of view (mobile)
+      '<div class="sticky-pay" id="stickypay">'+
+        '<button class="btn" id="paysticky">💜 Оплатить '+PRICE+' ₽ и озвучить</button>'+
+        '<div class="sp-note">🛡️ Гарантия возврата · 🔒 Через ЮKassa</div>'+
+      '</div>';
     document.getElementById('pay').onclick = pay;
     document.getElementById('edit').onclick = editStory;
+    const psk = document.getElementById('paysticky');
+    if(psk) psk.onclick = pay;
+    const lef = document.getElementById('leform');
+    if(lef) lef.addEventListener('submit', saveLateEmail);
+    const ppi = document.getElementById('pp-input');
+    if(ppi) ppi.addEventListener('change', uploadPhotoPrepay);
+    wireSurname();
+    // Show sticky CTA when the main «pay» button is below viewport
+    const mainPay = document.getElementById('pay');
+    const sticky = document.getElementById('stickypay');
+    if(mainPay && sticky && 'IntersectionObserver' in window){
+      document.body.classList.add('has-sticky');
+      const io = new IntersectionObserver(function(entries){
+        sticky.classList.toggle('on', entries[0].intersectionRatio < 0.5);
+      }, {threshold:[0, 0.5, 1]});
+      io.observe(mainPay);
+    }
   } else if(d.status === 'awaiting_payment'){
     box.innerHTML = '<span class="spin"></span> <b>Проверяем оплату…</b>'+
       '<div class="muted" style="margin-top:8px">Если вы ещё не оплатили — <a href="#" id="payagain">вернуться к оплате</a>.</div>';
@@ -224,7 +360,7 @@ function render(d){
     try{ localStorage.removeItem('gen_started_'+OID); }catch(e){}
     let html = '<h1>'+esc(d.title||'Готово!')+' 🎉</h1>';
     if(d.video_url){ html += '<video controls preload="metadata" src="'+d.video_url+'"></video>'; }
-    if(d.audio_url){ html += '<audio controls src="'+d.audio_url+'"></audio>'; }
+    if(d.text_html){ html += '<details class="story-details" style="margin-top:14px"><summary style="cursor:pointer;color:var(--accent);font-weight:600;padding:8px 0">📖 Показать текст сказки</summary><div class="story" style="margin-top:8px"><div class="story-title">'+esc(d.title||'Сказка')+'</div>'+d.text_html+'</div></details>'; }
     // Pretty download filename: «Сказка — {title} (YYYY-MM-DD).{ext}»
     const today = new Date().toISOString().slice(0,10);
     const cleanTitle = (d.title || 'Сказка').replace(/[\\\/\:\*\?\"\<\>\|]/g, '').slice(0, 80);
@@ -233,6 +369,7 @@ function render(d){
     if(d.video_url){ dl += '<a class="btn2" download="'+esc(dlBase)+'.mp4" href="'+d.video_url+'">⬇️ Скачать видео</a> '; }
     if(d.audio_url){ dl += '<a class="btn2" download="'+esc(dlBase)+'.mp3" href="'+d.audio_url+'">⬇️ Скачать аудио</a>'; }
     html += '<div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:8px">'+dl+'</div>';
+    html += rateBlockHTML(d);
     if(d.email){
       html += '<div class="muted" style="margin-top:14px;padding:10px 14px;background:var(--soft);border-radius:10px;font-size:14px">'+
               '📧 Ссылка отправлена на <b>'+esc(d.email)+'</b> — можно открыть с любого устройства.</div>';
@@ -241,11 +378,13 @@ function render(d){
     box.innerHTML = html;
     const sh = document.getElementById('share');
     if(sh) sh.onclick = shareStory;
+    wireRate();
+    maybeAutoRateFromUrl();
   } else if(d.status === 'failed'){
     stop();
     if(d.paid){
       box.innerHTML =
-        '<h1 class="err">Сборка прервалась</h1>'+
+        '<h1 class="err">Не получилось собрать видео</h1>'+
         '<p style="margin:6px 0 10px"><b>Деньги уже у нас — сказку точно соберём.</b></p>'+
         '<p class="muted">Иногда генератор иллюстраций отвечает не с первого раза. Нажмите «Повторить» — обычно со второй попытки получается.</p>'+
         '<button class="btn" id="retry" style="margin-top:14px">🔄 Повторить попытку</button>'+
@@ -257,11 +396,19 @@ function render(d){
       const r = document.getElementById('retry');
       if(r) r.onclick = retryGen;
     } else {
+      const isRefusal = (d.error || '').toLowerCase().indexOf('переформулировать') >= 0;
+      const headline = isRefusal ? 'Не получилось сочинить на эту тему' : 'Перегружено, попробуйте ещё раз';
+      const sub = isRefusal
+        ? 'Иногда нейросеть отказывается на сложных или неоднозначных формулировках. Попробуйте другую тему — например, добавьте контекст или замените слово, которое могло смутить.'
+        : 'Это случается редко. Попробуем ещё раз — деньги не списаны.';
       box.innerHTML =
-        '<h1 class="err">Что-то пошло не так</h1>'+
-        '<p class="muted">Это случается редко. Попробуем ещё раз — деньги не списаны.</p>'+
-        '<button class="btn" id="recompose" style="margin-top:10px">🔄 Повторить с той же темой</button>'+
-        '<a class="ghost" href="/create" style="text-align:center;display:block;margin-top:10px">или начать заново с другой темой</a>';
+        '<h1 class="err">'+headline+'</h1>'+
+        '<p class="muted">'+sub+'</p>'+
+        (isRefusal
+          ? '<a class="btn" href="/create" style="margin-top:10px;text-align:center;display:block">✨ Сочинить другую сказку</a>'
+            +'<button class="btn2" id="recompose" style="margin-top:10px">🔄 Или повторить с той же темой</button>'
+          : '<button class="btn" id="recompose" style="margin-top:10px">🔄 Повторить с той же темой</button>'
+            +'<a class="ghost" href="/create" style="text-align:center;display:block;margin-top:10px">или начать заново с другой темой</a>');
       const rc = document.getElementById('recompose');
       if(rc) rc.onclick = async function(){
         rc.disabled = true; rc.textContent = 'Перезапускаю…';
@@ -300,6 +447,251 @@ async function shareStory(){
       else { alert('Ссылка скопирована'); }
     }
   } catch (e) { /* user canceled */ }
+}
+
+async function uploadPhotoPrepay(ev){
+  const input = ev.target;
+  const wrap = document.getElementById('photoprepay');
+  const status = document.getElementById('pp-status');
+  const file = input.files && input.files[0];
+  if(!file) return;
+  if(file.size > 10 * 1024 * 1024){
+    status.textContent = 'Фото больше 10 МБ. Сожмите и попробуйте ещё раз.';
+    status.className = 'pp-status err';
+    input.value = '';
+    return;
+  }
+  status.textContent = 'Загружаю…';
+  status.className = 'pp-status';
+  try{
+    const fd = new FormData(); fd.append('photo', file);
+    const r = await fetch('/order/'+OID+'/photo', {method:'POST', body: fd});
+    const d = await r.json();
+    if(d.ok){
+      wrap.classList.add('has-photo');
+      wrap.querySelector('.pp-title').textContent = '✓ Фото прикреплено';
+      wrap.querySelector('.pp-sub').textContent = 'Герой будет похож на вашего ребёнка.';
+      wrap.querySelector('.pp-btn').textContent = '🔁 Заменить фото';
+      // Show thumbnail of uploaded image
+      let thumb = wrap.querySelector('.pp-thumb');
+      if(!thumb){
+        thumb = document.createElement('img');
+        thumb.className = 'pp-thumb';
+        thumb.style.cssText = 'display:block;width:80px;height:80px;object-fit:cover;border-radius:10px;margin:6px auto 10px;box-shadow:0 4px 12px rgba(43,35,80,.18)';
+        wrap.querySelector('.pp-title').insertAdjacentElement('afterend', thumb);
+      }
+      try { thumb.src = URL.createObjectURL(file); } catch(e){}
+      status.textContent = '';
+    } else {
+      status.textContent = 'Не получилось загрузить — попробуйте другой файл.';
+      status.className = 'pp-status err';
+      input.value = '';
+    }
+  } catch(e){
+    status.textContent = 'Сетевая ошибка, попробуйте ещё раз.';
+    status.className = 'pp-status err';
+    input.value = '';
+  }
+}
+
+function snFormHTML(prefill){
+  const v = prefill ? esc(prefill).replace(/"/g,'&quot;') : '';
+  return '<div style="font-size:14px;color:var(--ink);font-weight:600;margin-bottom:6px">📝 Фамилия — по желанию <span style="color:var(--muted);font-weight:500;font-size:13px">(для финальных титров)</span></div>'+
+    '<form id="snform" style="display:flex;flex-wrap:wrap;gap:8px;align-items:stretch">'+
+      '<input type="text" id="sn-input" maxlength="60" value="'+v+'" placeholder="Например, Петров" style="flex:1 1 160px;min-width:0;padding:10px 12px;border-radius:10px;border:1.5px solid #e4dcfb;font:inherit;font-size:14px;background:#fff;box-sizing:border-box" autocomplete="family-name">'+
+      '<button type="submit" style="flex:0 0 auto;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 16px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;box-sizing:border-box">Сохранить</button>'+
+    '</form>';
+}
+function rateBlockHTML(d){
+  if(d && d.rating){
+    // already rated — show thanks state
+    return rateThanksHTML(d.rating);
+  }
+  const stars = [1,2,3,4,5].map(function(n){
+    return '<span class="rc-star" data-n="'+n+'" role="button" aria-label="'+n+' звёзд">★</span>';
+  }).join('');
+  return ''+
+    '<div class="rate-card" id="rate-card" data-state="ask">'+
+      '<div class="rc-title">Как вам сказка?</div>'+
+      '<div class="rc-stars" id="rc-stars">'+stars+'</div>'+
+      '<div class="rc-hint" id="rc-hint">Кликните по звезде</div>'+
+      '<div class="rc-form" id="rc-form">'+
+        '<textarea id="rc-comment" maxlength="2000" placeholder="Расскажите подробнее (по желанию)"></textarea>'+
+        '<button type="button" class="rc-submit" id="rc-submit">Отправить</button>'+
+      '</div>'+
+    '</div>';
+}
+function rateThanksHTML(rating){
+  const stars = '★'.repeat(rating) + '☆'.repeat(5-rating);
+  return ''+
+    '<div class="rate-card thanks" id="rate-card">'+
+      '<div class="rc-title">✓ Спасибо за отзыв!</div>'+
+      '<div class="rc-hint">Ваша оценка: '+stars+'</div>'+
+    '</div>';
+}
+function rateBadCtaHTML(){
+  return ''+
+    '<div class="rc-bad-cta">'+
+      '<a href="/feedback" target="_blank" rel="noopener">✏️ Связаться с нами</a>'+
+    '</div>';
+}
+let _rateChosen = 0;
+function wireRate(){
+  const stars = document.getElementById('rc-stars');
+  if(!stars) return;
+  const hint = document.getElementById('rc-hint');
+  const form = document.getElementById('rc-form');
+  const card = document.getElementById('rate-card');
+  const submit = document.getElementById('rc-submit');
+  const HINTS = ['', '😔 Жаль…', '😕 Так себе', '🙂 Нормально', '😊 Хорошо', '🤩 Супер!'];
+  function light(n){
+    Array.from(stars.children).forEach(function(s, i){
+      s.classList.toggle('lit', i < n);
+    });
+  }
+  stars.addEventListener('mouseover', function(e){
+    const t = e.target.closest('.rc-star');
+    if(!t) return;
+    light(+t.dataset.n);
+  });
+  stars.addEventListener('mouseleave', function(){ light(_rateChosen); });
+  stars.addEventListener('click', function(e){
+    const t = e.target.closest('.rc-star');
+    if(!t) return;
+    _rateChosen = +t.dataset.n;
+    light(_rateChosen);
+    hint.textContent = HINTS[_rateChosen] || '';
+    if(form) form.classList.add('on');
+    if(_rateChosen <= 2){
+      card.classList.add('bad');
+      const tq = card.querySelector('.rc-title');
+      if(tq) tq.textContent = 'Жаль 😔 Что не так?';
+      const ta = document.getElementById('rc-comment');
+      if(ta) ta.placeholder = 'Опишите — переделаем бесплатно или вернём деньги';
+    } else {
+      card.classList.remove('bad');
+    }
+  });
+  if(submit) submit.onclick = sendRate;
+}
+async function sendRate(){
+  if(!_rateChosen) return;
+  const btn = document.getElementById('rc-submit');
+  const ta = document.getElementById('rc-comment');
+  const card = document.getElementById('rate-card');
+  if(btn){ btn.disabled = true; btn.textContent = 'Отправляем…'; }
+  try{
+    const fd = new FormData();
+    fd.append('rating', _rateChosen);
+    fd.append('comment', ta ? ta.value : '');
+    const r = await fetch('/order/'+OID+'/rate', {method:'POST', body:fd});
+    const j = await r.json().catch(function(){return {};});
+    if(j && j.ok){
+      const isBad = _rateChosen <= 2;
+      card.outerHTML = rateThanksHTML(_rateChosen) + (isBad ? rateBadCtaHTML() : '');
+    } else {
+      if(btn){ btn.disabled = false; btn.textContent = 'Отправить'; }
+      alert('Не получилось сохранить. Попробуйте ещё раз.');
+    }
+  } catch(e){
+    if(btn){ btn.disabled = false; btn.textContent = 'Отправить'; }
+    alert('Сеть подвела. Попробуйте ещё раз.');
+  }
+}
+function maybeAutoRateFromUrl(){
+  // Email link ?rate=N → auto-submit silently
+  const m = location.search.match(/[?&]rate=([1-5])(?:&|$)/);
+  if(!m) return;
+  const n = +m[1];
+  const card = document.getElementById('rate-card');
+  if(!card || card.classList.contains('thanks')) return;  // already rated
+  _rateChosen = n;
+  const stars = document.getElementById('rc-stars');
+  if(stars) Array.from(stars.children).forEach(function(s, i){ s.classList.toggle('lit', i < n); });
+  const hint = document.getElementById('rc-hint');
+  if(hint) hint.textContent = 'Сохраняю вашу оценку…';
+  const form = document.getElementById('rc-form');
+  if(form) form.classList.add('on');
+  if(n <= 2){
+    card.classList.add('bad');
+    const tq = card.querySelector('.rc-title');
+    if(tq) tq.textContent = 'Жаль 😔';
+  }
+  sendRate();
+  // Clean ?rate from URL so refresh doesn't re-submit
+  try{ history.replaceState(null, '', location.pathname); }catch(e){}
+}
+function snSavedHTML(value){
+  return '<div style="font-size:14.5px;color:var(--ink);font-weight:600">✓ Фамилия для титров: '+esc(value)+' <a href="#" id="sn-edit" data-current="'+esc(value).replace(/"/g,'&quot;')+'" style="color:var(--muted);font-weight:500;text-decoration:none;font-size:13px;margin-left:6px">изменить</a></div>';
+}
+function wireSurname(){
+  const snf = document.getElementById('snform');
+  if(snf) snf.addEventListener('submit', saveSurname);
+  const sne = document.getElementById('sn-edit');
+  if(sne) sne.addEventListener('click', function(e){
+    e.preventDefault();
+    const row = document.getElementById('snrow');
+    if(!row) return;
+    row.innerHTML = snFormHTML(sne.dataset.current || '');
+    wireSurname();
+    const inp = document.getElementById('sn-input');
+    if(inp){ inp.focus(); inp.select(); }
+  });
+}
+
+async function saveSurname(ev){
+  ev.preventDefault();
+  const inp = document.getElementById('sn-input');
+  if(!inp) return;
+  const sn = (inp.value || '').trim().slice(0, 60);
+  if(!sn) return;
+  const btn = ev.target.querySelector('button[type="submit"]');
+  if(btn){ btn.disabled = true; btn.textContent = '…'; }
+  try{
+    const fd = new FormData(); fd.append('surname', sn);
+    const r = await fetch('/order/'+OID+'/surname', {method:'POST', body: fd});
+    const d = await r.json();
+    if(d.ok){
+      const row = document.getElementById('snrow');
+      if(row) row.innerHTML = snSavedHTML(d.surname || sn);
+      wireSurname();
+    } else if(btn){ btn.disabled = false; btn.textContent = 'Сохранить'; }
+  } catch(e){ if(btn){ btn.disabled = false; btn.textContent = 'Сохранить'; } }
+}
+
+async function saveLateEmail(ev){
+  ev.preventDefault();
+  const inp = document.getElementById('leemail');
+  const btn = document.getElementById('lebtn');
+  const st = document.getElementById('lestatus');
+  if(!inp || !btn || !st) return;
+  const email = (inp.value || '').trim();
+  if(!email || email.indexOf('@') < 1 || email.indexOf('.') < 0){
+    st.textContent = 'Похоже на неправильный email — проверьте.';
+    st.className = 'le-status err';
+    return;
+  }
+  btn.disabled = true; btn.textContent = '…';
+  st.textContent = ''; st.className = 'le-status';
+  try{
+    const fd = new FormData(); fd.append('email', email);
+    const r = await fetch('/order/'+OID+'/email', {method:'POST', body: fd});
+    const d = await r.json();
+    if(d.ok){
+      const wrap = document.getElementById('lateemail');
+      if(wrap) wrap.innerHTML =
+        '<div class="le-title">✓ Сохранили</div>'+
+        '<div class="le-sub">Прислали ссылку на <b>'+esc(email)+'</b> — можно вернуться позже с любого устройства.</div>';
+    } else {
+      st.textContent = 'Не получилось — проверьте email и попробуйте ещё раз.';
+      st.className = 'le-status err';
+      btn.disabled = false; btn.textContent = 'Сохранить';
+    }
+  } catch(e){
+    st.textContent = 'Сетевая ошибка, попробуйте ещё раз.';
+    st.className = 'le-status err';
+    btn.disabled = false; btn.textContent = 'Сохранить';
+  }
 }
 
 async function pay(){

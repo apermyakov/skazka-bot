@@ -41,13 +41,22 @@ async def _call_llm(system: str, user: str, max_retries: int = 3,
     }
 
     from engine.http_session import get_session
-    fallback_model = await cfg.get("model.llm_fallback", "google/gemini-2.5-flash")
-    per_call_timeout = float(await cfg.get("llm.call_timeout_sec", 75))
+    fallback_model = await cfg.get("model.llm_fallback", "google/gemini-3.5-flash")
+    fallback_reasoning = await cfg.get("model.llm_fallback_reasoning", "high")
+    per_call_timeout = float(await cfg.get("llm.call_timeout_sec", 90))
 
     for attempt in range(1, max_retries + 1):
         # Primary model on the first attempt; if it stalls or errors, retries use
         # a fast stable fallback so generation never hangs on a slow/preview model.
-        payload["model"] = model if attempt == 1 else fallback_model
+        if attempt == 1:
+            payload["model"] = model
+            payload.pop("reasoning", None)
+        else:
+            payload["model"] = fallback_model
+            # Flash 3.5 (vanilla) is a thinking model that returns empty content ~40%
+            # of the time unless reasoning effort is pinned. high = 5/5 reliability.
+            if fallback_reasoning:
+                payload["reasoning"] = {"effort": fallback_reasoning}
         t0 = time.time()
         try:
             session = get_session()
@@ -76,10 +85,12 @@ async def _call_llm(system: str, user: str, max_retries: int = 3,
                     return content
         except Exception as e:
             duration_ms = int((time.time() - t0) * 1000)
-            logger.warning("LLM error (attempt %d): %s", attempt, e)
+            # asyncio.TimeoutError carries no message — str(e) == "". Make it self-documenting.
+            err_msg = str(e) or f"{type(e).__name__} after {duration_ms}ms (timeout={per_call_timeout}s)"
+            logger.warning("LLM error (attempt %d): %s", attempt, err_msg)
             fire(log_api_call(story_id=story_id, service="openrouter", model=payload["model"],
                               purpose=purpose, status="failed", duration_ms=duration_ms,
-                              request_text=user[:10000], error=str(e)[:1000]))
+                              request_text=user[:10000], error=err_msg[:1000]))
 
     raise RuntimeError("LLM failed after all retries")
 

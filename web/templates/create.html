@@ -84,6 +84,8 @@
   .btn{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:0;
        font-weight:800;font-size:18px;padding:15px;border-radius:14px;cursor:pointer}
   .note{color:var(--muted);font-size:13px;text-align:center;margin-top:12px}
+  .create-trust{margin-top:12px;display:flex;flex-wrap:wrap;justify-content:center;gap:6px 10px;color:#4b3f7a;font-size:13px;font-weight:600;text-align:center;line-height:1.5}
+  .create-trust span:nth-child(2){color:#cdc1ee}
   .ex{background:var(--soft);border-radius:10px;padding:10px 13px;color:var(--muted);font-size:14px;margin-bottom:14px}
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
   .chip{background:var(--soft);border:1px solid #e4dcfb;color:var(--ink);
@@ -96,6 +98,12 @@
   .mic:hover{background:#e9e0ff}
   .mic.rec{background:#ffe2ea;border-color:#ff9bbb;color:#c0392b}
   .mic[disabled]{opacity:.6;cursor:default}
+  .sticky-submit{position:fixed;left:0;right:0;bottom:0;padding:10px 14px 14px;background:linear-gradient(to top,#fbf7ff 60%,rgba(251,247,255,0));z-index:30;display:none;pointer-events:none}
+  .sticky-submit.on{display:block}
+  .sticky-submit .btn{pointer-events:auto;margin:0;box-shadow:0 8px 24px rgba(124,92,255,.32)}
+  .sticky-submit .ss-note{pointer-events:auto;color:var(--muted);font-size:11.5px;text-align:center;margin-top:6px;background:rgba(251,247,255,.92);border-radius:8px;padding:2px 6px}
+  @media(min-width:680px){ .sticky-submit{display:none !important} }
+  body.has-sticky-submit{padding-bottom:96px}
 </style>
 {{ metrika|safe }}
 </head>
@@ -104,75 +112,33 @@
   <header>
     <a class="logo" href="/" aria-label="Сказик"><img src="/static/logo_horizontal.png" alt="Сказик" width="144" height="32"></a>
   </header>
-  <h1>Расскажите про сказку</h1>
-  <p class="lead">Сначала покажем текст — <b>бесплатно</b>. Озвучка, иллюстрации и видео — после оплаты.</p>
+  <h1>Сказка для вашего ребёнка — за минуту</h1>
+  <p class="lead">Бесплатно, без регистрации. Если понравится — озвучим и нарисуем.</p>
   <div class="card">
     <form method="post" action="/create" enctype="multipart/form-data">
-      <label for="topic">О чём сказка?</label>
-      <div class="ex">Например: «Сказка про Машу, 4 года, которая боится темноты. Пусть подружится с ночным светлячком и перестанет бояться.»</div>
+      <label for="topic">Выберите тему — или напишите свою</label>
       <div class="chips" id="chips">
-        <button type="button" class="chip" data-theme="боится темноты и не хочет засыпать один">🌙 Боится темноты</button>
-        <button type="button" class="chip" data-theme="не любит чистить зубы">🦷 Не любит чистить зубы</button>
-        <button type="button" class="chip" data-theme="боится идти к врачу">🏥 Боится врачей</button>
-        <button type="button" class="chip" data-theme="очень хочет завести щенка">🐶 Хочет щенка</button>
-        <button type="button" class="chip" data-theme="первый раз идёт в детский сад и переживает">🎒 Идёт в сад</button>
-        <button type="button" class="chip" data-theme="учится плавать и пока боится воды">🏊 Учится плавать</button>
+        <button type="button" class="chip" data-preset="Сказка про Машу, 4 года, которая боится темноты и не хочет засыпать одна. Пусть найдёт волшебного помощника и научится с этим справляться.">🌙 Боится темноты</button>
+        <button type="button" class="chip" data-preset="Сказка про Артёма, 5 лет, который не любит чистить зубы. Пусть встретит волшебную фею, которая научит, что бывает с зубами без ухода.">🦷 Не любит чистить зубы</button>
+        <button type="button" class="chip" data-preset="Сказка про Сашу, 3 года, который боится идти к врачу. Пусть подружится с добрым доктором-зверем и поймёт, что бояться нечего.">🏥 Боится врачей</button>
+        <button type="button" class="chip" data-preset="Сказка про Лизу, 6 лет, которая очень хочет завести щенка. Пусть совершит маленький подвиг и докажет, что готова заботиться о питомце.">🐶 Хочет щенка</button>
+        <button type="button" class="chip" data-preset="Сказка про Никиту, 4 года, который первый раз идёт в детский сад и переживает. Пусть найдёт там добрых друзей и поймёт, что в саду интересно.">🎒 Идёт в сад</button>
+        <button type="button" class="chip" data-preset="Сказка про Мишу, 5 лет, который учится плавать и пока боится воды. Пусть встретит подводного жителя, который научит дружить с водой.">🏊 Учится плавать</button>
       </div>
-      <div class="hint" style="margin:-8px 0 12px">Можно выбрать несколько — соберём в одну сказку. После — допишите вручную (имя, возраст, детали).</div>
       <textarea id="topic" name="topic" maxlength="2000" minlength="10" required
-                placeholder="Имя и возраст ребёнка, тема, какие герои, чему учит..."></textarea>
+                placeholder="Имя ребёнка (можно с фамилией), возраст, тема — например: «Сказка про Машу Петрову, 4 года, которая боится темноты»"></textarea>
       <div class="row-meta">
         <button type="button" class="mic" id="mic">🎙 Записать голосом</button>
         <span class="counter" id="counter">0 / 2000</span>
       </div>
-      <div class="hint" id="topic_hint">Чем подробнее — тем лучше получится сказка. Можно надиктовать голосом.</div>
+      <div class="hint" id="topic_hint">Кнопка 🎙 справа — можно надиктовать голосом. Фамилию рассказчик может прочитать с другим ударением.</div>
 
-      <label for="photo">Фото ребёнка (по желанию)</label>
-      <div class="photo">
-        <label class="upload-btn" for="photo">📷 Прикрепить фото</label>
-        <span class="fname" id="fname"></span>
-        <input type="file" id="photo" name="photo" accept="image/*">
-      </div>
-      <div class="phoview" id="phoview" hidden>
-        <img id="phoimg" alt="">
-        <div class="pho-fb" id="phofb" style="display:none">
-          <div class="em">📷</div>
-          <div>Фото прикреплено</div>
-        </div>
-        <button type="button" class="phoclear" id="phoclear" aria-label="Убрать фото">✕</button>
-      </div>
-      <div class="hint">С фото герой будет похож на вашего малыша. До 10 МБ, JPEG/PNG.</div>
-      <details class="phototips">
-        <summary>📸 Какое фото подойдёт лучше</summary>
-        <div class="tips-body">
-          <div class="tips-grid">
-            <figure class="tip-card good">
-              <img src="/static/photo_tips/good.webp" alt="Хорошее фото" loading="lazy">
-              <figcaption><span class="badge ok">✓ Подходит</span><span class="why">Чёткое лицо, дневной свет, смотрит в камеру</span></figcaption>
-            </figure>
-            <figure class="tip-card bad">
-              <img src="/static/photo_tips/bad_far.webp" alt="Издалека" loading="lazy">
-              <figcaption><span class="badge no">✗ Издалека</span><span class="why">Лицо слишком мелкое в кадре</span></figcaption>
-            </figure>
-            <figure class="tip-card bad">
-              <img src="/static/photo_tips/bad_dark.webp" alt="Темно" loading="lazy">
-              <figcaption><span class="badge no">✗ Темно</span><span class="why">Половина лица в тени</span></figcaption>
-            </figure>
-            <figure class="tip-card bad">
-              <img src="/static/photo_tips/bad_group.webp" alt="Группа" loading="lazy">
-              <figcaption><span class="badge no">✗ Несколько детей</span><span class="why">Один ребёнок в кадре, без других людей</span></figcaption>
-            </figure>
-          </div>
-          <div class="tips-note">Чем лучше исходное фото — тем точнее герой будет похож на ребёнка.</div>
-        </div>
-      </details>
-
-      <label for="email">Email</label>
+      <label for="email" style="margin-top:14px">Email</label>
       <input type="email" id="email" name="email" required
              inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false"
              style="width:100%;border:1.5px solid #e4dcfb;border-radius:12px;padding:13px;font:inherit"
              placeholder="alex@mail.ru">
-      <div class="hint">Пришлём готовую сказку и чек об оплате.</div>
+      <div class="hint">Пришлём ссылку на готовую сказку — чтобы не потерять, если закроете вкладку.</div>
 
       <input type="text" name="website" tabindex="-1" autocomplete="off"
              style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
@@ -183,12 +149,22 @@
       <input type="hidden" name="utm_content"  id="utm_content">
       <input type="hidden" name="ref"          id="ref">
 
-      <button class="btn" type="submit">✨ Сочинить текст бесплатно</button>
+      <button class="btn" id="mainsubmit" type="submit" style="margin-top:22px">✨ Сочинить текст бесплатно</button>
       <div class="note">Это займёт меньше минуты</div>
+      <div class="create-trust">
+        <span>📝 Текст напишем бесплатно</span>
+        <span>·</span>
+        <span>💜 Озвучивать или нет — решите потом</span>
+      </div>
     </form>
+    <!-- Sticky submit appears on mobile when the main button scrolls out of view -->
+    <div class="sticky-submit" id="stickysubmit">
+      <button class="btn" id="stickysubmitbtn" type="button">✨ Сочинить текст бесплатно</button>
+      <div class="ss-note">📝 Сначала бесплатный текст · 💜 Оплата только если понравится</div>
+    </div>
   </div>
 </div>
-<footer class="ftr"><a href="/feedback">Обратная связь</a></footer>
+<footer class="ftr"><a href="/feedback">Обратная связь</a><div style="margin-top:6px">ООО «СААС» · ИНН 3461067108</div></footer>
 <script>
   // UTM attribution: read from URL, persist 30 days, restore on revisits.
   (function(){
@@ -273,7 +249,7 @@
   function validateEmail(){
     if(!emailEl) return true;
     const v = emailEl.value.trim();
-    if(v.length === 0){ emailEl.classList.remove('invalid'); return false; }
+    if(v.length === 0){ emailEl.classList.add('invalid'); return false; }
     const ok = EMAIL_RE.test(v);
     emailEl.classList.toggle('invalid', !ok);
     return ok;
@@ -301,87 +277,27 @@
   });
   refreshTopic();
 
-  // Topic chips — multi-select; rebuild textarea from selected themes.
-  // User can still freely edit textarea afterwards.
+  // Topic chips — single-click auto-fill with full preset.
+  // Clicking selects that preset; place caret on [имя], [возраст] лет for quick edit.
   const chipsRoot = document.getElementById('chips');
-  const selectedThemes = [];
-  function joinThemes(arr){
-    if(arr.length === 0) return '';
-    if(arr.length === 1) return arr[0];
-    if(arr.length === 2) return arr[0] + ' и ' + arr[1];
-    return arr.slice(0, -1).join(', ') + ', а ещё ' + arr[arr.length - 1];
-  }
-  function rebuildTopicFromChips(){
-    if(selectedThemes.length === 0) return;
-    const body = joinThemes(selectedThemes);
-    topicEl.value = 'Сказка про ребёнка [имя, возраст], который ' + body +
-                    '. Пусть найдёт добрых друзей и научится с этим справляться.';
-    refreshTopic();
-    saveDraft();
-    topicEl.focus();
-    const i = topicEl.value.indexOf('[имя'), j = topicEl.value.indexOf(']');
-    if(i >= 0 && j > i) topicEl.setSelectionRange(i, j + 1);
-  }
   chipsRoot.addEventListener('click', function(e){
     const b = e.target.closest('.chip');
     if(!b) return;
-    const t = b.dataset.theme;
-    const idx = selectedThemes.indexOf(t);
-    if(idx >= 0){
-      selectedThemes.splice(idx, 1);
-      b.classList.remove('active');
-    } else {
-      selectedThemes.push(t);
-      b.classList.add('active');
+    document.querySelectorAll('.chip.active').forEach(c => c.classList.remove('active'));
+    b.classList.add('active');
+    topicEl.value = b.dataset.preset || '';
+    refreshTopic();
+    saveDraft();
+    topicEl.focus();
+    // Auto-select "Имя, N года/лет" so user types right over the example name.
+    const m = topicEl.value.match(/Сказка про (.+?, \d+ (?:год|года|лет))/);
+    if(m){
+      const start = topicEl.value.indexOf(m[1]);
+      if(start >= 0) topicEl.setSelectionRange(start, start + m[1].length);
     }
-    if(selectedThemes.length > 0) rebuildTopicFromChips();
-    // If user deselected everything, leave whatever's in the textarea alone
-    // (they may have edited it; don't wipe their work).
   });
 
-  (function(){
-    const ph = document.getElementById('photo');
-    const fname = document.getElementById('fname');
-    const view = document.getElementById('phoview');
-    const img = document.getElementById('phoimg');
-    const fb = document.getElementById('phofb');
-    const clr = document.getElementById('phoclear');
-    let lastUrl = null;
-    function clear(){
-      ph.value = '';
-      fname.textContent = '';
-      if(lastUrl){ URL.revokeObjectURL(lastUrl); lastUrl = null; }
-      view.hidden = true;
-      img.removeAttribute('src');
-      img.style.display = '';
-      fb.style.display = 'none';
-    }
-    function showFallback(){
-      img.style.display = 'none';
-      fb.style.display = 'flex';
-    }
-    img.addEventListener('error', showFallback);
-    img.addEventListener('load', function(){
-      // Some HEIC files load but render 0x0 — treat that as failure too
-      if(img.naturalWidth === 0 || img.naturalHeight === 0) showFallback();
-    });
-    ph.addEventListener('change', function(){
-      const f = this.files && this.files[0];
-      if(!f){ clear(); return; }
-      fname.textContent = '✓ ' + f.name;
-      if(lastUrl) URL.revokeObjectURL(lastUrl);
-      lastUrl = URL.createObjectURL(f);
-      // Reset display state, then load — onload/onerror decide what to show
-      img.style.display = '';
-      fb.style.display = 'none';
-      img.src = lastUrl;
-      view.hidden = false;
-      // HEIC almost always fails to render — show fallback eagerly for that ext
-      const name = (f.name || '').toLowerCase();
-      if(name.endsWith('.heic') || name.endsWith('.heif')) showFallback();
-    });
-    clr.addEventListener('click', clear);
-  })();
+  // Photo upload moved to /order text_ready — no JS here anymore.
 
   // Voice input → /transcribe → fill topic textarea
   (function(){
@@ -465,6 +381,42 @@
       };
       rec.start();
       setRecording();
+    });
+  })();
+
+  // Sticky submit on mobile — shows when the in-form button is below viewport.
+  // Also auto-dismisses the cookie banner on first form interaction.
+  (function(){
+    const main = document.getElementById('mainsubmit');
+    const sticky = document.getElementById('stickysubmit');
+    const sBtn = document.getElementById('stickysubmitbtn');
+    const form = document.querySelector('form[action="/create"]');
+    if(main && sticky && form && 'IntersectionObserver' in window){
+      document.body.classList.add('has-sticky-submit');
+      const io = new IntersectionObserver(function(entries){
+        sticky.classList.toggle('on', entries[0].intersectionRatio < 0.4);
+      }, {threshold:[0, 0.4, 1]});
+      io.observe(main);
+      if(sBtn) sBtn.onclick = function(){
+        if(form.reportValidity && !form.reportValidity()) return;
+        form.submit();
+      };
+    }
+    // Auto-dismiss cookie banner on first meaningful interaction
+    function dismissCookie(){
+      try{ localStorage.setItem('ck_ok','1'); }catch(e){}
+      const ck = document.getElementById('ck-notice');
+      if(ck) ck.classList.remove('on');
+    }
+    const triggers = [
+      document.getElementById('topic'),
+      document.getElementById('email'),
+      ...document.querySelectorAll('.chip'),
+      document.getElementById('mic'),
+    ].filter(Boolean);
+    triggers.forEach(function(el){
+      el.addEventListener('focus', dismissCookie, {once:true, passive:true});
+      el.addEventListener('click', dismissCookie, {once:true, passive:true});
     });
   })();
 </script>

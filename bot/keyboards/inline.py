@@ -20,7 +20,7 @@ STYLE_LABELS = {
     "painted": "🎨 Живопись",
     "watercolor": "🖌 Акварель",
     "realistic": "🎬 Реализм",
-    "pixar": "✨ Pixar",
+    "pixar": "✨ Анимация",
 }
 
 

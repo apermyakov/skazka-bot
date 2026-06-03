@@ -23,3 +23,12 @@ scripts/_local/
 backups/
 ambient_preview.html
 last_scene_*.png
+
+# local Claude state
+.claude/
+
+# personal/test artifacts (not for repo)
+child_photo.png
+test_fs.py
+test_photo.jpg
+photo_*.jpg

@@ -11,6 +11,7 @@ services:
       - ./db:/app/db
       - ./scripts:/app/scripts
       - ./assets:/app/assets
+      - ./web:/app/web
     depends_on:
       postgres:
         condition: service_healthy

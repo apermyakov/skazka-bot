@@ -13,7 +13,7 @@ import time
 import uuid
 from collections import deque
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import aiohttp
@@ -25,7 +25,7 @@ from fastapi.templating import Jinja2Templates
 import db.database as db_mod
 from db.database import init_db
 from db.config_manager import cfg
-from web.orders import init_orders, create_order, get_order, update_order, claim_for_generation, create_feedback
+from web.orders import init_orders, create_order, get_order, update_order, claim_for_generation, create_feedback, count_orders_by_ip, set_order_rating, mark_followup_sent
 from web import yookassa_client
 from web.format import format_story_html
 
@@ -63,6 +63,17 @@ METRIKA = """<!-- Yandex.Metrika counter -->
   try { if (!localStorage.getItem('ck_ok')) {
     document.addEventListener('DOMContentLoaded', function(){
       const n = document.getElementById('ck-notice'); if(n) n.classList.add('on');
+      // Auto-dismiss as soon as the user starts interacting — scroll or any tap.
+      // 152-ФЗ is informational, not consent-required, so this is compliant.
+      function autoDismiss(){
+        try{ localStorage.setItem('ck_ok','1'); }catch(e){}
+        const el = document.getElementById('ck-notice');
+        if(el) el.classList.remove('on');
+      }
+      window.addEventListener('scroll', autoDismiss, {once:true, passive:true});
+      window.addEventListener('touchstart', autoDismiss, {once:true, passive:true});
+      // Fallback: hide after 8 seconds regardless
+      setTimeout(autoDismiss, 8000);
     });
   }} catch(e){}
 })();
@@ -147,6 +158,16 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan, title="Сказик", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="static")
 app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
+
+
+@app.middleware("http")
+async def _noindex_uploads(request: Request, call_next):
+    """User-uploaded photos must never appear in search engines."""
+    resp = await call_next(request)
+    p = request.url.path
+    if p.startswith("/media/_web_uploads/"):
+        resp.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive, noimageindex"
+    return resp
 templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
 templates.env.globals["metrika"] = METRIKA
 
@@ -170,6 +191,23 @@ async def notify_admin(text: str):
                 logger.warning("notify_admin failed: %s", e)
 
 
+def _is_llm_refusal(text: str) -> bool:
+    """Detect when LLM declined to generate (e.g. content-policy block).
+    Refusals usually start with 'I cannot' / 'Я не могу' in the first few hundred chars."""
+    if not text:
+        return False
+    head = text[:500].lower()
+    markers = (
+        "я не могу исполнить", "я не могу выполнить", "я не могу сгенерировать",
+        "я не буду", "я отказываюсь",
+        "противоречит самой сути", "противоречит моим", "не соответствует моей роли",
+        "против моих принципов", "против моих ценностей",
+        "i cannot", "i'm not able", "i am not able", "i won't", "i will not",
+        "i'm sorry, but i can", "as an ai", "i'm unable to",
+    )
+    return any(m in head for m in markers)
+
+
 # ── background workers ──
 async def _compose(oid: str, topic: str):
     from engine.llm_client import generate_story_text
@@ -178,6 +216,14 @@ async def _compose(oid: str, topic: str):
     for attempt in (1, 2):
         try:
             res = await generate_story_text(topic)
+            if _is_llm_refusal(res.get("text", "")):
+                logger.warning("order %s: LLM REFUSAL detected on attempt %d (head=%r)",
+                               oid, attempt, res["text"][:150])
+                last_err = Exception("LLM_REFUSAL")
+                res = None
+                if attempt == 1:
+                    await asyncio.sleep(1)
+                continue
             if attempt > 1:
                 logger.info("order %s: text gen succeeded on attempt %d", oid, attempt)
             break
@@ -187,14 +233,28 @@ async def _compose(oid: str, topic: str):
             if attempt == 1:
                 await asyncio.sleep(2)
     if res is None:
-        logger.error("order %s compose failed after retries: %s", oid, last_err, exc_info=True)
-        await update_order(oid, status="failed", error=str(last_err)[:500])
-        await notify_admin(f"⚠️ Текст НЕ сгенерировался (заказ {oid}): {str(last_err)[:200]}")
+        is_refusal = isinstance(last_err, Exception) and str(last_err) == "LLM_REFUSAL"
+        err_msg = ("Не получилось сочинить на эту тему — попробуйте переформулировать (тема могла показаться нейросети неоднозначной)."
+                   if is_refusal else str(last_err)[:500])
+        logger.error("order %s compose failed after retries: %s%s", oid, last_err,
+                     " [REFUSAL]" if is_refusal else "", exc_info=not is_refusal)
+        await update_order(oid, status="failed", error=err_msg)
+        if is_refusal:
+            await notify_admin(f"⛔ LLM ОТКАЗАЛАСЬ генерить (заказ {oid})\nТема: {topic[:300]}")
+        else:
+            await notify_admin(f"⚠️ Текст НЕ сгенерировался (заказ {oid}): {str(last_err)[:200]}")
         return
     await update_order(oid, status="text_ready", title=res["title"], story_text=res["text"])
     logger.info("order %s: text ready (%s)", oid, res["title"])
     o = await get_order(oid)
     await notify_admin(f"📝 Текст сказки готов\n«{res['title']}»\nemail: {(o or {}).get('email') or '—'}\n{PUBLIC_BASE}/order/{oid}")
+    # Tab-close safety net: instantly email the link so the user can return later.
+    if o and o.get("email"):
+        try:
+            from web.mailer import send_text_ready_invite
+            await send_text_ready_invite(o["email"], res["title"], f"{PUBLIC_BASE}/order/{oid}")
+        except Exception as e:
+            logger.warning("text_ready invite email for %s failed: %s", oid, e)
 
 
 async def _generate(oid: str):
@@ -243,6 +303,18 @@ async def _generate(oid: str):
                 p = "/" + p
             return p
         illus = [url(p) for p in result.get("illustrations", []) if p]
+        # Paid orders without illustrations = partial failure. Mark failed so
+        # user sees retry button instead of silently receiving MP3-only.
+        if o.get("paid_at") and not illus:
+            audio_p = url(result["file_path"]) if result.get("file_path") else None
+            await update_order(
+                oid, status="failed",
+                error="Иллюстрации не сгенерировались — нажмите «Повторить»",
+                media_order_id=mid,
+                audio_url=audio_p)
+            logger.warning("order %s: illustrations empty for PAID order — marked failed for retry", oid)
+            await notify_admin(f"⚠️ Сказка БЕЗ иллюстраций (оплачено)\nЗаказ {oid} помечен failed — юзер увидит retry\n{PUBLIC_BASE}/order/{oid}")
+            return
         await update_order(
             oid, status="done", media_order_id=mid, error=None,
             video_url=(f"/media/{mid}/fairytale.mp4" if result.get("video_path") else None),
@@ -253,7 +325,7 @@ async def _generate(oid: str):
         await notify_admin(f"✅ СКАЗКА ГОТОВА (оплачено)\n«{result.get('title')}» — {vid}\n{PUBLIC_BASE}/order/{oid}")
         buyer_email = (o.get("email") or "").strip()
         if buyer_email:
-            from web.mailer import send_story_ready
+            from web.mailer import send_story_ready, send_followup_rating
             cover = None
             if illus and isinstance(illus, list) and illus:
                 first = illus[0]
@@ -263,6 +335,20 @@ async def _generate(oid: str):
                 result.get("title") or "Ваша сказка",
                 f"{PUBLIC_BASE}/order/{oid}",
                 cover_url=cover))
+            # 24h follow-up: ask «понравилось ли?». Worker skips if already rated by then.
+            if not o.get("followup_email_sent_at"):
+                from datetime import datetime, timedelta, timezone
+                delay_h = int(await cfg.get("followup.rating_delay_hours", 24))
+                send_at = datetime.now(timezone.utc) + timedelta(hours=delay_h)
+                try:
+                    await send_followup_rating(
+                        buyer_email,
+                        result.get("title") or "ваша сказка",
+                        oid,
+                        send_at=send_at)
+                    await mark_followup_sent(oid)
+                except Exception as e:
+                    logger.warning("followup enqueue failed for %s: %s", oid, e)
     except Exception as e:
         logger.error("order %s generate failed: %s", oid, e, exc_info=True)
         await update_order(oid, status="failed", error=str(e)[:500])
@@ -320,6 +406,7 @@ async def robots():
         "Disallow: /admin/\n"
         "Disallow: /yookassa/\n"
         "Disallow: /healthz\n"
+        "Disallow: /media/_web_uploads/\n"
         f"Sitemap: {PUBLIC_BASE}/sitemap.xml\n"
     )
 
@@ -389,6 +476,11 @@ async def about(request: Request):
     return templates.TemplateResponse(request, "about.html", {})
 
 
+@app.get("/night", response_class=HTMLResponse)
+async def night(request: Request):
+    return templates.TemplateResponse(request, "night.html", {})
+
+
 @app.get("/sample", response_class=HTMLResponse)
 async def sample(request: Request):
     """Demo story page — looks at /static/sample/ to decide what to show."""
@@ -435,13 +527,22 @@ async def create_submit(request: Request, topic: str = Form(...), email: str = F
     email = (email or "").strip()[:200]
     if len(topic) < 3:
         return RedirectResponse("/create", status_code=303)
-    limit = int(await cfg.get("limit.creates_per_hour_per_ip", 5))
-    if not await _check_rate_limit(_client_ip(request), limit):
-        logger.info("create rate-limited for ip=%s", _client_ip(request))
+    ip = _client_ip(request)
+    lifetime_limit = int(await cfg.get("limit.creates_lifetime_per_ip", 5))
+    used = await count_orders_by_ip(ip)
+    if used >= lifetime_limit:
+        logger.info("create blocked (lifetime quota) ip=%s used=%d limit=%d", ip, used, lifetime_limit)
+        return _page("Лимит исчерпан",
+            f"<h1>Бесплатных сказок больше нет</h1>"
+            f"<p>С этого устройства уже создано {used} сказок — это бесплатный лимит. "
+            f"Если хотите продолжить — <a href='/feedback'>напишите нам</a>.</p>"
+            f"<p><a href='/'>На главную</a></p>")
+    # Short-window flood guard (in-memory) — стоп-кран на спам в одну секунду
+    if not await _check_rate_limit(ip, 5, window=60):
+        logger.info("create rate-limited (60s burst) for ip=%s", ip)
         return _page("Слишком часто",
-            f"<h1>Слишком много запросов</h1>"
-            f"<p>Вы создали более {limit} сказок за последний час. "
-            f"Попробуйте чуть позже — это защита от спама.</p>"
+            f"<h1>Слишком много запросов подряд</h1>"
+            f"<p>Подождите минуту и попробуйте снова.</p>"
             f"<p><a href='/'>На главную</a></p>")
     photo_path = None
     if photo is not None and photo.filename:
@@ -455,7 +556,8 @@ async def create_submit(request: Request, topic: str = Form(...), email: str = F
                  ("campaign", utm_campaign), ("term", utm_term),
                  ("content", utm_content))}
     oid = await create_order(topic, photo_path, email or None,
-                             utm=utm_data, referrer=(ref or "").strip()[:500] or None)
+                             utm=utm_data, referrer=(ref or "").strip()[:500] or None,
+                             ip=ip)
     asyncio.create_task(_compose(oid, topic))
     return RedirectResponse(f"/order/{oid}", status_code=303)
 
@@ -514,6 +616,11 @@ async def order_status(oid: str):
         "video_url": o.get("video_url"), "audio_url": o.get("audio_url"),
         "email": o.get("email"), "error": o.get("error"),
         "paid": bool(o.get("paid_at")),
+        "photo_path": bool(o.get("photo_path")),
+        "child_surname": o.get("child_surname"),
+        "rating": o.get("rating"),
+        "rating_comment": o.get("rating_comment"),
+        "rated_at": o.get("rated_at").isoformat() if o.get("rated_at") else None,
     })
 
 
@@ -562,6 +669,34 @@ async def order_edit(oid: str, comment: str = Form(...)):
     return JSONResponse({"ok": True})
 
 
+@app.post("/order/{oid}/rate")
+async def order_rate(oid: str, rating: int = Form(...), comment: str = Form("")):
+    """Post-story feedback. 1-2★ triggers Telegram admin alert."""
+    o = await get_order(oid)
+    if not o:
+        return JSONResponse({"ok": False, "error": "not_found"}, status_code=404)
+    if not (1 <= rating <= 5):
+        return JSONResponse({"ok": False, "error": "bad rating"}, status_code=400)
+    comment = (comment or "").strip()[:2000] or None
+    await set_order_rating(oid, rating, comment)
+    title = o.get("title") or "сказка"
+    if rating <= 2:
+        stars = "★" * rating + "☆" * (5 - rating)
+        body = (f"🚨 ПЛОХАЯ ОЦЕНКА {stars} ({rating}★)\n"
+                f"«{title}»\n"
+                f"{PUBLIC_BASE}/order/{oid}")
+        if comment:
+            body += f"\n\nКомментарий: «{comment[:500]}»"
+        if o.get("email"):
+            body += f"\nEmail: {o['email']}"
+        try:
+            await notify_admin(body)
+        except Exception as e:
+            logger.warning("rate notify_admin failed: %s", e)
+    logger.info("order %s rated %d★ (comment=%s chars)", oid, rating, len(comment or ""))
+    return JSONResponse({"ok": True, "rating": rating})
+
+
 @app.post("/order/{oid}/retry")
 async def order_retry(oid: str):
     """Re-run generation for a paid order that failed — no second payment."""
@@ -584,6 +719,60 @@ async def order_recompose(oid: str):
         return JSONResponse({"ok": False, "error": "no topic"}, status_code=400)
     await update_order(oid, status="composing", error=None, progress=None)
     asyncio.create_task(_compose(oid, topic))
+    return JSONResponse({"ok": True})
+
+
+@app.post("/order/{oid}/email")
+async def order_set_email(oid: str, email: str = Form(...)):
+    """Late email capture — when user submitted /create without email and now
+    wants to save the link / receive abandoned-cart nudges."""
+    o = await get_order(oid)
+    if not o:
+        return JSONResponse({"ok": False, "error": "not_found"}, status_code=404)
+    if o.get("email"):
+        return JSONResponse({"ok": True, "already": True})
+    email = (email or "").strip()[:200]
+    if "@" not in email or "." not in email or len(email) < 5:
+        return JSONResponse({"ok": False, "error": "bad email"}, status_code=400)
+    await update_order(oid, email=email)
+    # Fire the instant invite they would have got at text_ready time
+    try:
+        from web.mailer import send_text_ready_invite
+        await send_text_ready_invite(email, o.get("title") or "Сказка", f"{PUBLIC_BASE}/order/{oid}")
+    except Exception as e:
+        logger.warning("late email invite for %s failed: %s", oid, e)
+    return JSONResponse({"ok": True})
+
+
+@app.post("/order/{oid}/surname")
+async def order_set_surname(oid: str, surname: str = Form(...)):
+    o = await get_order(oid)
+    if not o:
+        return JSONResponse({"ok": False, "error": "not_found"}, status_code=404)
+    if o.get("status") not in ("text_ready", "awaiting_payment", "failed"):
+        return JSONResponse({"ok": False, "error": "bad state"}, status_code=400)
+    s = (surname or "").strip()[:60]
+    await update_order(oid, child_surname=s or None)
+    return JSONResponse({"ok": True, "surname": s})
+
+
+@app.post("/order/{oid}/photo")
+async def order_set_photo(oid: str, photo: UploadFile = File(...)):
+    """Late photo upload — user picks photo on /order text_ready before paying,
+    so the illustrations can match their child."""
+    o = await get_order(oid)
+    if not o:
+        return JSONResponse({"ok": False, "error": "not_found"}, status_code=404)
+    if o.get("status") not in ("text_ready", "awaiting_payment", "failed"):
+        return JSONResponse({"ok": False, "error": "bad state"}, status_code=400)
+    data = await photo.read()
+    if not data or len(data) > MAX_PHOTO:
+        return JSONResponse({"ok": False, "error": "too big or empty"}, status_code=400)
+    if not (photo.content_type or "").startswith("image/"):
+        return JSONResponse({"ok": False, "error": "not an image"}, status_code=400)
+    photo_path = str(UPLOAD_DIR / f"{uuid.uuid4().hex}.jpg")
+    Path(photo_path).write_bytes(data)
+    await update_order(oid, photo_path=photo_path)
     return JSONResponse({"ok": True})
 
 
@@ -619,6 +808,13 @@ async def order_pay(oid: str):
             logger.error("order %s: no confirmation_url: %s", oid, payment)
             return JSONResponse({"ok": False, "error": "payment init failed"}, status_code=502)
         await update_order(oid, status="awaiting_payment", payment_id=payment.get("id"))
+        try:
+            asyncio.create_task(notify_admin(
+                f"💳 Юзер нажал «Оплатить» (заказ {oid})\n"
+                f"«{o.get('title') or '—'}»\nemail: {o.get('email') or '—'}\n"
+                f"{PUBLIC_BASE}/order/{oid}"))
+        except Exception:
+            pass
         return JSONResponse({"ok": True, "confirmation_url": url})
     except Exception as e:
         logger.error("order %s pay failed: %s", oid, e, exc_info=True)
@@ -711,6 +907,246 @@ async def privacy(request: Request):
     return templates.TemplateResponse(request, "legal.html", ctx)
 
 
+@app.get("/admin/checkpoint")
+async def admin_checkpoint(token: str = "", hours: int = 48):
+    """Machine-readable funnel snapshot for cloud routines.
+    Returns JSON with: web/bot funnel, UTM ROI, revenue, email queue, errors,
+    first-ad-payment status, Direct spend, and rule-based recommendations.
+
+    Auth: ?token=$ADMIN_TOKEN
+    Example: GET /admin/checkpoint?token=...&hours=48
+    """
+    import datetime as _dt
+    expected = os.environ.get("ADMIN_TOKEN", "")
+    if not expected or token != expected:
+        return JSONResponse({"ok": False, "error": "forbidden"}, status_code=403,
+                            headers={"X-Robots-Tag": "noindex, nofollow, noarchive"})
+    hours = max(1, min(int(hours), 24 * 30))
+    excluded = [e.strip().lower() for e in
+                os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()]
+    interval = f"{hours} hours"
+    price = int(await cfg.get("pricing.story_rub", 999))
+
+    async with db_mod._pool.acquire() as c:
+        # WEB funnel — real customers only (exclude admin/test emails)
+        web_funnel = await c.fetchrow(f"""
+            SELECT
+              COUNT(*)                                            AS total,
+              COUNT(*) FILTER (WHERE status='composing')          AS composing,
+              COUNT(*) FILTER (WHERE status='text_ready')         AS text_ready,
+              COUNT(*) FILTER (WHERE status='awaiting_payment')   AS awaiting_payment,
+              COUNT(*) FILTER (WHERE status='generating')         AS generating,
+              COUNT(*) FILTER (WHERE status='done')               AS done,
+              COUNT(*) FILTER (WHERE status='failed')             AS failed,
+              COUNT(*) FILTER (WHERE status='abandoned')          AS abandoned,
+              COUNT(*) FILTER (WHERE paid_at IS NOT NULL)         AS paid,
+              COUNT(*) FILTER (WHERE utm_source IS NOT NULL)      AS attributed,
+              COUNT(*) FILTER (WHERE utm_source IS NOT NULL AND paid_at IS NOT NULL) AS ad_paid,
+              COUNT(DISTINCT email) FILTER (WHERE email IS NOT NULL AND email<>'') AS unique_emails
+            FROM web_orders
+            WHERE created_at > NOW() - INTERVAL '{interval}'
+              AND NOT (LOWER(COALESCE(email,'')) = ANY($1::text[]))
+        """, excluded)
+        # First ad-paid order (if any) — the goal hook trigger
+        first_ad_paid = await c.fetchrow("""
+            SELECT id, paid_at, utm_source, utm_campaign, utm_content, email, title
+            FROM web_orders
+            WHERE paid_at IS NOT NULL AND utm_source IS NOT NULL
+              AND NOT (LOWER(COALESCE(email,'')) = ANY($1::text[]))
+            ORDER BY paid_at ASC LIMIT 1
+        """, excluded)
+        # UTM breakdown for period
+        utm_rows = await c.fetch(f"""
+            SELECT
+              COALESCE(utm_source,'(direct)') AS src,
+              COALESCE(utm_campaign,'—')      AS camp,
+              COALESCE(utm_content,'—')       AS content,
+              COUNT(*)                        AS visits,
+              COUNT(*) FILTER (WHERE status='text_ready' OR paid_at IS NOT NULL) AS leads,
+              COUNT(*) FILTER (WHERE paid_at IS NOT NULL) AS paid
+            FROM web_orders
+            WHERE created_at > NOW() - INTERVAL '{interval}'
+              AND NOT (LOWER(COALESCE(email,'')) = ANY($1::text[]))
+            GROUP BY src, camp, content
+            ORDER BY paid DESC, visits DESC
+            LIMIT 30
+        """, excluded)
+        # Recent fresh leads (text_ready, last `interval`) — useful for routine to spot warming leads
+        recent_leads = await c.fetch(f"""
+            SELECT id, created_at, status, COALESCE(email,'') AS email,
+                   COALESCE(utm_content,'') AS utm_content,
+                   ROUND(EXTRACT(EPOCH FROM (NOW() - created_at))/60::numeric, 1) AS age_min
+            FROM web_orders
+            WHERE created_at > NOW() - INTERVAL '{interval}'
+              AND status='text_ready'
+              AND NOT (LOWER(COALESCE(email,'')) = ANY($1::text[]))
+            ORDER BY created_at DESC LIMIT 20
+        """, excluded)
+        # BOT funnel
+        bot_funnel = await c.fetchrow(f"""
+            SELECT
+              COUNT(*)                                       AS total,
+              COUNT(*) FILTER (WHERE status='completed')     AS completed,
+              COUNT(*) FILTER (WHERE status='generating')    AS generating,
+              COUNT(*) FILTER (WHERE status='failed')        AS failed
+            FROM stories
+            WHERE created_at > NOW() - INTERVAL '{interval}'
+        """)
+        # Email queue health
+        email_q = await c.fetchrow("""
+            SELECT
+              COUNT(*) FILTER (WHERE status='queued')  AS queued,
+              COUNT(*) FILTER (WHERE status='sent')    AS sent,
+              COUNT(*) FILTER (WHERE status='failed')  AS failed,
+              COUNT(*) FILTER (WHERE status='queued' AND next_try_at < NOW() - INTERVAL '5 minutes') AS overdue,
+              MAX(sent_at)                             AS last_sent
+            FROM email_outbox
+            WHERE created_at > NOW() - INTERVAL '7 days'
+        """)
+        # Errors last `hours`
+        try:
+            err_count = await c.fetchval(
+                f"SELECT COUNT(*) FROM errors WHERE created_at > NOW() - INTERVAL '{interval}'") or 0
+            recent_errors = await c.fetch(f"""
+                SELECT id, created_at, LEFT(error_message, 200) AS message
+                FROM errors WHERE created_at > NOW() - INTERVAL '{interval}'
+                ORDER BY created_at DESC LIMIT 5
+            """)
+        except Exception:
+            err_count = 0
+            recent_errors = []
+        # Feedback
+        try:
+            fb_new = await c.fetchval(
+                "SELECT COUNT(*) FROM feedback WHERE status='new'") or 0
+        except Exception:
+            fb_new = 0
+
+    # Direct API spend today + clicks today (best-effort)
+    direct = {"available": False}
+    direct_token = os.environ.get("YANDEX_DIRECT_TOKEN", "")
+    if direct_token:
+        try:
+            import aiohttp
+            today = _dt.datetime.utcnow().date().isoformat()
+            body = {"params": {
+                "SelectionCriteria": {"DateFrom": today, "DateTo": today,
+                                      "Filter": [{"Field": "CampaignId", "Operator": "IN",
+                                                  "Values": ["710328773", "710328840"]}]},
+                "FieldNames": ["CampaignName", "Clicks", "Cost", "Impressions"],
+                "ReportName": f"ck_{int(_dt.datetime.utcnow().timestamp())}",
+                "ReportType": "CAMPAIGN_PERFORMANCE_REPORT",
+                "DateRangeType": "CUSTOM_DATE", "Format": "TSV", "IncludeVAT": "YES"}}
+            headers = {"Authorization": f"Bearer {direct_token}",
+                       "Accept-Language": "ru", "Content-Type": "application/json",
+                       "processingMode": "auto", "returnMoneyInMicros": "false",
+                       "skipReportHeader": "true", "skipReportSummary": "true"}
+            async with aiohttp.ClientSession() as sess:
+                async with sess.post("https://api.direct.yandex.com/json/v5/reports",
+                                     json=body, headers=headers, timeout=30) as resp:
+                    text = await resp.text()
+                    if resp.status == 200:
+                        lines = [l.split("\t") for l in text.strip().split("\n")[1:] if l.strip()]
+                        direct = {
+                            "available": True,
+                            "date": today,
+                            "campaigns": [
+                                {"name": l[0], "clicks": int(l[1]), "cost_rub": float(l[2]),
+                                 "impressions": int(l[3])}
+                                for l in lines if len(l) >= 4
+                            ],
+                        }
+                        direct["total_clicks"] = sum(c["clicks"] for c in direct["campaigns"])
+                        direct["total_cost_rub"] = round(sum(c["cost_rub"] for c in direct["campaigns"]), 2)
+                    else:
+                        direct = {"available": False, "status": resp.status, "snippet": text[:200]}
+        except Exception as e:
+            direct = {"available": False, "error": str(e)[:200]}
+
+    # Recommendations — rule-based decisions for the routine
+    recs = []
+    ad_paid = int(web_funnel["ad_paid"] or 0) + 0  # only web paid (bot has no UTM)
+    attributed = int(web_funnel["attributed"] or 0)
+    if ad_paid == 0 and attributed >= 200:
+        recs.append({
+            "level": "alert",
+            "code": "no_ad_paid_high_traffic",
+            "msg": f"0 ad-payments at {attributed} attributed visits — problem is NOT traffic. "
+                   "Review: pricing, landing UTP, photo upload friction, payment friction."
+        })
+    elif ad_paid == 0 and attributed >= 50:
+        recs.append({
+            "level": "warn",
+            "code": "no_ad_paid_medium_traffic",
+            "msg": f"0 ad-payments at {attributed} attributed visits — too early to decide. "
+                   "Wait for ≥150 attributed visits."
+        })
+    elif ad_paid >= 1 and ad_paid < 10:
+        recs.append({
+            "level": "info",
+            "code": "ad_paid_collecting",
+            "msg": f"{ad_paid} ad-payments collected. Need ≥10 for PAY_FOR_CONVERSIONS strategy."
+        })
+    elif ad_paid >= 10:
+        recs.append({
+            "level": "success",
+            "code": "ad_paid_cpa_ready",
+            "msg": f"{ad_paid} ad-payments — READY for PAY_FOR_CONVERSIONS migration. "
+                   "Switch Search campaign to CPA strategy with target CPA = 0.7 * price."
+        })
+    if err_count > 0:
+        recs.append({"level": "warn", "code": "recent_errors",
+                     "msg": f"{err_count} errors in last {hours}h — review logs."})
+    if fb_new > 0:
+        recs.append({"level": "info", "code": "new_feedback",
+                     "msg": f"{fb_new} new feedback entries — read & reply."})
+    if email_q and email_q["overdue"] > 0:
+        recs.append({"level": "warn", "code": "email_overdue",
+                     "msg": f"{email_q['overdue']} emails stuck in queue >5 min — check SMTP."})
+    if direct.get("available") and direct.get("total_clicks", 0) < 5 and not first_ad_paid:
+        recs.append({"level": "info", "code": "low_direct_traffic",
+                     "msg": f"Only {direct.get('total_clicks')} Direct clicks today — keywords still calibrating "
+                            "or moderation pending. Wait 1-3 days, then consider broadening."})
+
+    from fastapi.encoders import jsonable_encoder
+    return JSONResponse(jsonable_encoder({
+        "ok": True,
+        "as_of_utc": _dt.datetime.utcnow().isoformat() + "Z",
+        "period_hours": hours,
+        "price_rub": price,
+        "goal_first_ad_payment_reached": bool(first_ad_paid),
+        "first_ad_payment": (None if not first_ad_paid else {
+            "order_id": first_ad_paid["id"],
+            "paid_at": first_ad_paid["paid_at"].isoformat() if first_ad_paid["paid_at"] else None,
+            "utm_source": first_ad_paid["utm_source"],
+            "utm_campaign": first_ad_paid["utm_campaign"],
+            "utm_content": first_ad_paid["utm_content"],
+            "email": first_ad_paid["email"],
+            "title": first_ad_paid["title"],
+        }),
+        "funnel": {
+            "web": dict(web_funnel),
+            "bot": dict(bot_funnel),
+        },
+        "by_utm": [dict(r) for r in utm_rows],
+        "recent_text_ready_leads": [{
+            "id": r["id"], "email": r["email"], "utm_content": r["utm_content"],
+            "age_min": float(r["age_min"]),
+            "created_at": r["created_at"].isoformat()
+        } for r in recent_leads],
+        "revenue_rub": int(web_funnel["paid"] or 0) * price,
+        "email_queue": dict(email_q) if email_q else {},
+        "errors": {
+            "count": err_count,
+            "recent": [{"id": r["id"], "at": r["created_at"].isoformat(), "message": r["message"]}
+                       for r in recent_errors],
+        },
+        "feedback_new": fb_new,
+        "direct": direct,
+        "recommendations": recs,
+    }), headers={"X-Robots-Tag": "noindex, nofollow, noarchive"})
+
+
 @app.get("/admin/stats", response_class=HTMLResponse)
 async def admin_stats(request: Request, token: str = ""):
     """Lightweight founder dashboard: orders + conversion + UTM ROI.
@@ -790,7 +1226,8 @@ async def admin_stats(request: Request, token: str = ""):
         f"<td>{(r['paid']*100//r['visits']) if r['visits'] else 0}%</td></tr>"
         for r in utm)
     rows_recent = "\n".join(
-        f"<tr><td>{r['id']}</td><td>{r['created_at'].strftime('%Y-%m-%d %H:%M')}</td>"
+        f"<tr><td><a href='/admin/order/{r['id']}?token={token}' style='color:#7c5cff;font-weight:600;text-decoration:none'>{r['id'][:12]}…</a></td>"
+        f"<td>{r['created_at'].strftime('%Y-%m-%d %H:%M')}</td>"
         f"<td>{r['status']}{'  💜' if r['paid'] else ''}</td>"
         f"<td>{(r['title'] or '—')[:40]}</td><td>{r['email']}</td></tr>"
         for r in recent)
@@ -836,7 +1273,238 @@ code{{font-family:ui-monospace,monospace;font-size:12px}}
 <h2>UTM-кампании (30 дней)</h2>
 <table><tr><th>source</th><th>campaign</th><th>visits</th><th>lead</th><th>paid</th><th>CR</th></tr>
 {rows_utm or '<tr><td colspan="6">пока нет данных</td></tr>'}</table>
-<h2>Последние заказы</h2>
+<h2>Последние заказы <span style='color:#6b6390;font-size:13px;font-weight:400'>(клик на id — детали)</span></h2>
 <table><tr><th>id</th><th>создан</th><th>status</th><th>title</th><th>email</th></tr>
 {rows_recent}</table>
+</body></html>""")
+
+
+def _esc_html(s):
+    if s is None:
+        return ""
+    return (str(s)
+            .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            .replace('"', "&quot;"))
+
+
+def _fmt_ts(dt):
+    return dt.strftime("%Y-%m-%d %H:%M:%S") if dt else "—"
+
+
+def _file_link(p):
+    """Convert a local fs path under /app/media/ (or relative web path /media/...)
+    to a clickable public HTTP URL. noindex protection via robots.txt + middleware."""
+    if not p:
+        return None
+    s = str(p)
+    if s.startswith("http://") or s.startswith("https://"):
+        return s
+    if s.startswith("/app/media/"):
+        return PUBLIC_BASE + "/media" + s[len("/app/media"):]
+    if s.startswith("/media/"):
+        return PUBLIC_BASE + s
+    if s.startswith("media/"):
+        return PUBLIC_BASE + "/" + s
+    return None
+
+
+@app.get("/admin/order/{oid}", response_class=HTMLResponse)
+async def admin_order_detail(oid: str, token: str = ""):
+    """Per-order admin detail: full order fields, pipeline API calls, emails sent."""
+    expected = os.environ.get("ADMIN_TOKEN", "")
+    noindex_headers = {"X-Robots-Tag": "noindex, nofollow, noarchive"}
+    if not expected or token != expected:
+        return HTMLResponse("forbidden", status_code=403, headers=noindex_headers)
+    async with db_mod._pool.acquire() as c:
+        o = await c.fetchrow("SELECT * FROM web_orders WHERE id=$1", oid)
+        if not o:
+            return HTMLResponse("order not found", status_code=404, headers=noindex_headers)
+        # Pipeline API calls: try strict link via stories first; web-flow doesn't write
+        # to stories, so fallback to time-window heuristic.
+        api_calls = []
+        story_row = None
+        api_calls_approx = False
+        mid = o["media_order_id"]
+        if mid:
+            story_row = await c.fetchrow("SELECT id, title FROM stories WHERE order_id=$1", mid)
+        if story_row:
+            api_calls = await c.fetch(
+                "SELECT id, created_at, service, model, purpose, status, duration_ms, "
+                "tokens_in, tokens_out, cost_usd, error "
+                "FROM api_calls WHERE story_id=$1 ORDER BY id", story_row["id"])
+        else:
+            # Heuristic: web-flow's api_calls have story_id=NULL. Take all such calls
+            # in a generous window around the order's lifetime.
+            window_end = (o["paid_at"] or o["created_at"]) + timedelta(hours=1)
+            api_calls = await c.fetch(
+                "SELECT id, created_at, service, model, purpose, status, duration_ms, "
+                "tokens_in, tokens_out, cost_usd, error "
+                "FROM api_calls WHERE story_id IS NULL "
+                "AND created_at BETWEEN $1 AND $2 ORDER BY id",
+                o["created_at"], window_end)
+            api_calls_approx = True
+        # Emails: matched by recipient = order.email + meta order_id OR sent after order created
+        emails = []
+        if o["email"]:
+            emails = await c.fetch(
+                "SELECT id, created_at, subject, status, sent_at, retries, last_error, meta, next_try_at "
+                "FROM email_outbox WHERE to_addr=$1 AND created_at >= $2 "
+                "ORDER BY id", o["email"], o["created_at"])
+        # Errors with traceback if logged
+        errors = []
+        try:
+            errors = await c.fetch(
+                "SELECT id, created_at, source, error_text FROM errors "
+                "WHERE story_id=$1 ORDER BY id DESC LIMIT 10",
+                story_row["id"] if story_row else -1)
+        except Exception:
+            pass
+    # Build fields card
+    def kv(label, value, mono=False):
+        v = _esc_html(value) if value is not None else "<span style='color:#999'>—</span>"
+        cls = "code" if mono else ""
+        return f"<tr><th>{label}</th><td class='{cls}'>{v}</td></tr>"
+    illus = o["illustrations"] or []
+    if isinstance(illus, str):
+        try:
+            illus = json.loads(illus)
+        except Exception:
+            illus = []
+    def _ahref(p):
+        url = _file_link(p)
+        return f"<a href='{_esc_html(url)}' target='_blank' rel='noindex,nofollow,noreferrer'>{_esc_html(p)}</a>" if url else _esc_html(p) if p else "—"
+    illus_html = "<br>".join(_ahref(u) for u in illus) if illus else "—"
+    fields_rows = (
+        kv("id", o["id"], mono=True)
+        + kv("создан", _fmt_ts(o["created_at"]))
+        + kv("status", o["status"])
+        + kv("title", o["title"])
+        + kv("topic", (o["topic"] or "")[:500])
+        + f"<tr><th>photo_path</th><td class='code'>{_ahref(o['photo_path']) if o['photo_path'] else '—'}</td></tr>"
+        + kv("email", o["email"])
+        + kv("child_surname", o["child_surname"])
+        + kv("paid_at", _fmt_ts(o["paid_at"]))
+        + kv("payment_id", o["payment_id"], mono=True)
+        + kv("media_order_id", o["media_order_id"], mono=True)
+        + f"<tr><th>video_url</th><td>{_ahref(o['video_url'])}</td></tr>"
+        + f"<tr><th>audio_url</th><td>{_ahref(o['audio_url'])}</td></tr>"
+        + f"<tr><th>illustrations</th><td>{illus_html}</td></tr>"
+        + kv("progress (последний)", o["progress"])
+        + kv("error", o["error"])
+        + kv("rating", f"{o['rating']}★" if o["rating"] else None)
+        + kv("rating_comment", o["rating_comment"])
+        + kv("rated_at", _fmt_ts(o["rated_at"]))
+        + kv("followup_email_sent_at", _fmt_ts(o["followup_email_sent_at"]))
+        + kv("ip", o["ip"], mono=True)
+        + kv("UTM source", o["utm_source"])
+        + kv("UTM medium", o["utm_medium"])
+        + kv("UTM campaign", o["utm_campaign"])
+        + kv("UTM term", o["utm_term"])
+        + kv("UTM content", o["utm_content"])
+        + kv("referrer", o["referrer"])
+    )
+    # API calls
+    if api_calls:
+        api_rows = "\n".join(
+            f"<tr><td>{_fmt_ts(a['created_at'])}</td>"
+            f"<td>{_esc_html(a['purpose'])}</td>"
+            f"<td class='code'>{_esc_html(a['model'])}</td>"
+            f"<td>{_esc_html(a['status']) or '—'}</td>"
+            f"<td>{a['duration_ms'] or '—'}ms</td>"
+            f"<td>{a['tokens_in'] or '—'}/{a['tokens_out'] or '—'}</td>"
+            f"<td>${(a['cost_usd'] or 0):.4f}</td>"
+            f"<td>{_esc_html((a['error'] or '')[:200])}</td></tr>"
+            for a in api_calls)
+        total_cost = sum((a['cost_usd'] or 0) for a in api_calls)
+        approx_note = (
+            "<p style='color:#a67d00;font-size:12.5px;margin:0 0 6px'>"
+            "⚠ Heuristic match by time-window (web-flow doesn't write to <code>stories</code>). "
+            "Возможны посторонние вызовы из параллельных заказов.</p>") if api_calls_approx else ""
+        api_html = (
+            f"{approx_note}<table><tr><th>время</th><th>purpose</th><th>model</th><th>status</th>"
+            f"<th>длит.</th><th>tok in/out</th><th>$</th><th>error</th></tr>"
+            f"{api_rows}<tr style='font-weight:700;background:#f1ebff'>"
+            f"<td colspan='6'>Итого вызовов: {len(api_calls)}</td>"
+            f"<td>${total_cost:.4f}</td><td>≈ {total_cost*100:.1f}₽</td></tr></table>")
+    else:
+        api_html = "<p style='color:#999'>В этом окне api_calls не найдено.</p>"
+    # Emails
+    if emails:
+        email_rows = []
+        for e in emails:
+            meta = e["meta"]
+            if isinstance(meta, str):
+                try:
+                    meta = json.loads(meta)
+                except Exception:
+                    pass
+            meta_txt = json.dumps(meta, ensure_ascii=False) if meta else "—"
+            email_rows.append(
+                f"<tr><td>{_fmt_ts(e['created_at'])}</td>"
+                f"<td>{_esc_html(e['subject'])}</td>"
+                f"<td>{_esc_html(e['status'])}</td>"
+                f"<td>{_fmt_ts(e['sent_at'])}</td>"
+                f"<td>{e['retries'] or 0}</td>"
+                f"<td class='code'>{_esc_html(meta_txt)}</td>"
+                f"<td>{_esc_html((e['last_error'] or '')[:200])}</td></tr>")
+        emails_html = (
+            "<table><tr><th>создано</th><th>subject</th><th>status</th>"
+            "<th>отправлено</th><th>retries</th><th>meta</th><th>last_error</th></tr>"
+            + "\n".join(email_rows) + "</table>")
+    else:
+        emails_html = "<p style='color:#999'>Писем не было (либо email не указан).</p>"
+    # Errors traceback
+    if errors:
+        err_html = "".join(
+            f"<details style='margin:8px 0;background:#fff5f5;border:1px solid #ffcccc;border-radius:8px;padding:10px'>"
+            f"<summary style='cursor:pointer;color:#c0392b;font-weight:700'>{_fmt_ts(er['created_at'])} · {_esc_html(er['source'] or '?')}</summary>"
+            f"<pre style='white-space:pre-wrap;font-size:12px;margin-top:8px'>{_esc_html(er['error_text'])}</pre>"
+            f"</details>" for er in errors)
+    else:
+        err_html = "<p style='color:#999'>Ошибок не было.</p>"
+    # Story text in collapsible
+    story_html = ""
+    if o["story_text"]:
+        story_html = (
+            f"<details style='margin-top:12px'><summary style='cursor:pointer;color:#7c5cff;font-weight:700'>"
+            f"📖 Текст сказки ({len(o['story_text'])} симв)</summary>"
+            f"<div style='background:#fff;padding:14px 18px;border-radius:10px;margin-top:8px;white-space:pre-wrap;line-height:1.6;font-size:14.5px'>"
+            f"{_esc_html(o['story_text'])}</div></details>")
+    return HTMLResponse(headers=noindex_headers, content=f"""<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Order {oid[:8]} · admin</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<style>body{{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:1200px;margin:0 auto;padding:20px;color:#2b2350;background:#fbf7ff}}
+h1{{margin:0 0 6px;font-size:22px}}h2{{margin:24px 0 10px;font-size:17px}}
+a{{color:#7c5cff}}
+table{{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.04);margin-bottom:8px}}
+th,td{{padding:8px 12px;text-align:left;font-size:13.5px;border-bottom:1px solid #ece6fb;vertical-align:top}}
+th{{background:#f1ebff;color:#2b2350;font-weight:700;white-space:nowrap}}
+tr:last-child td{{border-bottom:0}}
+.code{{font-family:ui-monospace,SF Mono,Consolas,monospace;font-size:12.5px;color:#3a2f6b;word-break:break-all}}
+.fields td{{font-size:13.5px}}
+.fields th{{width:200px}}
+.back{{display:inline-block;margin-bottom:14px;color:#6b6390;text-decoration:none;font-size:14px}}
+.back:hover{{color:#7c5cff}}
+</style></head><body>
+<a class="back" href="/admin/stats?token={token}">← К списку заказов</a>
+<h1>Заказ {oid}</h1>
+<p style="color:#6b6390;font-size:13.5px;margin:0 0 18px">
+  status: <b>{o['status']}</b>{' · 💜 оплачен' if o['paid_at'] else ''}
+  {' · ' + str(o['rating']) + '★' if o['rating'] else ''}
+</p>
+
+<h2>Поля заказа</h2>
+<table class="fields">{fields_rows}</table>
+
+<h2>Пайплайн (api_calls)</h2>
+{api_html}
+
+<h2>Письма (email_outbox)</h2>
+{emails_html}
+
+<h2>Ошибки (errors)</h2>
+{err_html}
+
+{story_html}
+
 </body></html>""")

@@ -16,8 +16,10 @@ attempt — but if the *process* dies, the row stays 'queued' and the
 next startup picks it up.
 """
 import asyncio
+import json
 import logging
 import time
+from datetime import datetime
 
 import db.database as db_mod
 from web.mailer import _send_sync
@@ -36,7 +38,8 @@ CREATE TABLE IF NOT EXISTS email_outbox (
     last_error   TEXT,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     next_try_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    sent_at      TIMESTAMPTZ
+    sent_at      TIMESTAMPTZ,
+    meta         JSONB
 );
 CREATE INDEX IF NOT EXISTS email_outbox_due_idx
     ON email_outbox (next_try_at) WHERE status = 'queued';
@@ -50,17 +53,55 @@ SCAN_INTERVAL = 20         # seconds between worker polls when idle
 async def init_email_queue():
     async with db_mod._pool.acquire() as c:
         await c.execute(CREATE_SQL)
+        # Idempotent migration for existing installations
+        await c.execute("ALTER TABLE email_outbox ADD COLUMN IF NOT EXISTS meta JSONB")
 
 
-async def enqueue_email(to_addr: str, subject: str, body: str, html: str | None = None) -> int:
-    """Insert one email into the queue. Returns the row id."""
+async def enqueue_email(to_addr: str, subject: str, body: str, html: str | None = None,
+                        send_at: datetime | None = None, meta: dict | None = None) -> int:
+    """Insert one email into the queue. Returns the row id.
+
+    send_at — UTC datetime to send after (uses NOW() if None — immediate).
+    meta — JSON payload for worker-side guards (e.g. {'type': 'followup_rating', 'order_id': '…'}).
+    """
+    meta_json = json.dumps(meta) if meta else None
     async with db_mod._pool.acquire() as c:
-        row = await c.fetchrow(
-            "INSERT INTO email_outbox (to_addr, subject, body, html) "
-            "VALUES ($1,$2,$3,$4) RETURNING id",
-            to_addr, subject, body, html)
-    logger.info("email queued #%s → %s subject=%r", row["id"], to_addr, subject[:60])
+        if send_at is not None:
+            row = await c.fetchrow(
+                "INSERT INTO email_outbox (to_addr, subject, body, html, next_try_at, meta) "
+                "VALUES ($1,$2,$3,$4,$5,$6::jsonb) RETURNING id",
+                to_addr, subject, body, html, send_at, meta_json)
+        else:
+            row = await c.fetchrow(
+                "INSERT INTO email_outbox (to_addr, subject, body, html, meta) "
+                "VALUES ($1,$2,$3,$4,$5::jsonb) RETURNING id",
+                to_addr, subject, body, html, meta_json)
+    logger.info("email queued #%s → %s subject=%r send_at=%s meta=%s",
+                row["id"], to_addr, subject[:60], send_at, meta_json)
     return row["id"]
+
+
+async def _should_skip(row) -> tuple[bool, str]:
+    """Worker-side guard. For followup_rating: skip if order already rated.
+    Returns (skip, reason).
+    """
+    meta = row.get("meta")
+    if not meta:
+        return False, ""
+    if isinstance(meta, str):
+        try:
+            meta = json.loads(meta)
+        except Exception:
+            return False, ""
+    if meta.get("type") == "followup_rating":
+        oid = meta.get("order_id")
+        if not oid:
+            return False, ""
+        async with db_mod._pool.acquire() as c:
+            r = await c.fetchrow("SELECT rating FROM web_orders WHERE id=$1", oid)
+        if r and r["rating"] is not None:
+            return True, "already rated"
+    return False, ""
 
 
 async def _send_one(row) -> bool:
@@ -103,7 +144,7 @@ async def _worker_loop():
                 # Race-safe pick: SKIP LOCKED so multiple workers don't double-send
                 async with c.transaction():
                     row = await c.fetchrow(
-                        "SELECT id, to_addr, subject, body, html, retries FROM email_outbox "
+                        "SELECT id, to_addr, subject, body, html, retries, meta FROM email_outbox "
                         "WHERE status='queued' AND next_try_at <= NOW() "
                         "ORDER BY next_try_at LIMIT 1 FOR UPDATE SKIP LOCKED")
                     if row:
@@ -113,6 +154,15 @@ async def _worker_loop():
                             "UPDATE email_outbox SET next_try_at = NOW() + INTERVAL '5 minutes' "
                             "WHERE id=$1", row["id"])
             if row:
+                # Pre-send guard — e.g. followup_rating skipped if already rated
+                skip, reason = await _should_skip(row)
+                if skip:
+                    async with db_mod._pool.acquire() as c:
+                        await c.execute("UPDATE email_outbox SET status='skipped', "
+                                        "sent_at=NOW(), last_error=$2 WHERE id=$1",
+                                        row["id"], reason)
+                    logger.info("email #%s skipped (%s) → %s", row["id"], reason, row["to_addr"])
+                    continue
                 t0 = time.time()
                 ok = await _send_one(row)
                 dur = time.time() - t0

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Generation pipeline: photo input, audio+illustration generation, delivery, feedback."""
 
+import asyncio
 import base64
 import json
 import logging
@@ -423,22 +424,64 @@ async def _send_payment_link(message: types.Message, state: FSMContext):
             await message.answer("😔 Не удалось создать оплату. Попробуйте позже.", reply_markup=main_menu())
             await state.clear()
             return
-        await state.update_data(payment_id=pid, paid=False, _checking=False)
+        await state.update_data(payment_id=pid, paid=False, _checking=False, _resume_lock=False)
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text=f"💳 Оплатить {int(float(price))} ₽", url=url)],
             [InlineKeyboardButton(text="✅ Я оплатил", callback_data="paycheck")],
         ])
-        await message.answer(
+        pay_msg = await message.answer(
             await _msg("msg.pay_link",
                        "💜 Чтобы озвучить сказку «{title}», оплатите {price} ₽.\n"
-                       "После оплаты вернитесь сюда и нажмите «✅ Я оплатил».",
+                       "Бот сам подхватит оплату и продолжит — кнопка «✅ Я оплатил» нужна только если что-то пойдёт не так.",
                        title=title, price=int(float(price))),
             reply_markup=kb)
         await state.set_state(CreateFairyTale.waiting_payment)
+        asyncio.create_task(_auto_poll_payment(pay_msg, state, pid))
     except Exception as e:
         logger.error("bot payment create failed: %s", e, exc_info=True)
         await message.answer("😔 Ошибка при создании оплаты. Попробуйте позже.", reply_markup=main_menu())
         await state.clear()
+
+
+async def _auto_poll_payment(pay_msg: types.Message, state: FSMContext, pid: str):
+    """Poll YooKassa every 15s for up to 15 min after the pay link is sent.
+    Auto-resume generation when status=succeeded so the user doesn't have
+    to press 'Я оплатил'. The button remains as a manual fallback."""
+    from web import yookassa_client
+    POLL_EVERY = 15
+    TIMEOUT_SEC = 15 * 60
+    waited = 0
+    try:
+        while waited < TIMEOUT_SEC:
+            await asyncio.sleep(POLL_EVERY)
+            waited += POLL_EVERY
+            cur = await state.get_state()
+            if cur != CreateFairyTale.waiting_payment.state:
+                return  # user moved on or cancelled
+            data = await state.get_data()
+            if data.get("paid") or data.get("_resume_lock"):
+                return  # manual button got there first
+            try:
+                payment = await yookassa_client.get_payment(pid)
+            except Exception as e:
+                logger.warning("auto-poll get_payment %s: %s", pid, e)
+                continue
+            status = payment.get("status")
+            if status == "succeeded":
+                await state.update_data(_resume_lock=True, paid=True)
+                try:
+                    await pay_msg.edit_reply_markup(reply_markup=None)
+                except Exception:
+                    pass
+                await pay_msg.answer(await _msg(
+                    "msg.pay_ok", "💜 Оплата получена! Собираю сказку…"))
+                await _start_generation(pay_msg, state)
+                return
+            if status in ("canceled", "expired"):
+                logger.info("auto-poll: pid=%s ended status=%s", pid, status)
+                return
+    except Exception as e:
+        logger.error("auto-poll task pid=%s crashed: %s", pid, e, exc_info=True)
 
 
 @router.message(CreateFairyTale.waiting_email)
@@ -473,7 +516,12 @@ async def on_payment_check(callback: types.CallbackQuery, state: FSMContext):
         await callback.answer("Не удалось проверить оплату, попробуйте ещё раз", show_alert=True)
         return
     if payment.get("status") == "succeeded":
-        await state.update_data(paid=True, _checking=False)
+        # Race: auto-poller may also be triggering generation. Lock first.
+        if data.get("_resume_lock"):
+            await state.update_data(_checking=False)
+            await callback.answer("Уже принял оплату, готовлю сказку…")
+            return
+        await state.update_data(paid=True, _checking=False, _resume_lock=True)
         try:
             await callback.message.edit_reply_markup(reply_markup=None)
         except Exception:

@@ -174,7 +174,6 @@ async def split_into_scenes(screenplay: dict, story_id: int = None,
     scene_split_prompt = await cfg.get("prompt.scene_split", SCENE_SPLIT_PROMPT)
     max_chars = await cfg.get("llm.story_text_max_chars", 3000)
     split_temp = await cfg.get("llm.scene_split_temperature", 0.5)
-    split_tokens = await cfg.get("llm.scene_split_max_tokens", 8000)
 
     prompt = scene_split_prompt.format(
         title=title,
@@ -186,7 +185,9 @@ async def split_into_scenes(screenplay: dict, story_id: int = None,
         "Authorization": f"Bearer {settings.openrouter_api_key}",
         "Content-Type": "application/json",
     }
-    llm_model = await cfg.get("model.llm", settings.llm_model)
+    # scene_split is a structured task (JSON markup) — use a non-thinking Flash
+    # model. Pro burns the token budget on reasoning and returns empty content.
+    llm_model = await cfg.get("model.scene_split", "google/gemini-3.5-flash")
 
     payload = {
         "model": llm_model,
@@ -195,7 +196,6 @@ async def split_into_scenes(screenplay: dict, story_id: int = None,
             {"role": "user", "content": prompt},
         ],
         "temperature": split_temp,
-        "max_tokens": split_tokens,
     }
 
     for attempt in range(1, 6):
@@ -205,14 +205,15 @@ async def split_into_scenes(screenplay: dict, story_id: int = None,
         t0 = time.time()
         from engine.http_session import get_session
         session = get_session()
-        async with session.post(OPENROUTER_URL, json=payload, headers=headers) as resp:
+        try:
+            async with session.post(OPENROUTER_URL, json=payload, headers=headers) as resp:
                 raw = await resp.text()
                 duration_ms = int((time.time() - t0) * 1000)
                 logger.info("Scene split HTTP %d (attempt %d), body length: %d", resp.status, attempt, len(raw))
 
                 if resp.status != 200:
                     logger.warning("Scene split error (attempt %d): %s", attempt, raw[:300])
-                    fire(log_api_call(story_id=story_id, service="openrouter", model=settings.llm_model,
+                    fire(log_api_call(story_id=story_id, service="openrouter", model=llm_model,
                                       purpose="scene_split", status="failed", duration_ms=duration_ms,
                                       error=raw[:1000]))
                     continue
@@ -222,6 +223,12 @@ async def split_into_scenes(screenplay: dict, story_id: int = None,
                     continue
 
                 data = json.loads(raw)
+        except asyncio.TimeoutError:
+            logger.warning("Scene split TIMEOUT after %dms (attempt %d) — retrying", int((time.time() - t0) * 1000), attempt)
+            continue
+        except aiohttp.ClientError as e:
+            logger.warning("Scene split network error (attempt %d): %s — retrying", attempt, e)
+            continue
 
         text = data["choices"][0]["message"]["content"]
         logger.info("Scene split content (attempt %d): %s", attempt, text[:200] if text else "EMPTY")
@@ -276,7 +283,7 @@ async def split_into_scenes(screenplay: dict, story_id: int = None,
             logger.warning("No scenes in parsed result (attempt %d)", attempt)
             continue
 
-        fire(log_api_call(story_id=story_id, service="openrouter", model=settings.llm_model,
+        fire(log_api_call(story_id=story_id, service="openrouter", model=llm_model,
                           purpose="scene_split", status="success", duration_ms=duration_ms,
                           request_text=prompt[:10000], response_text=text[:10000]))
         break
@@ -374,13 +381,13 @@ async def _call_image_api(content: list[dict], scene_index: int, style_label: st
                     if refusal:
                         logger.warning("Model refused scene %d [%s]: %s — no retry",
                                        scene_index, style_label, str(refusal)[:200])
-                        fire(log_api_call(story_id=story_id, service="openrouter", model=IMAGE_MODEL,
+                        fire(log_api_call(story_id=story_id, service="openrouter", model=image_model,
                                           purpose="illustration", status="failed", duration_ms=duration_ms,
                                           request_text=prompt_text, error=f"Refused: {str(refusal)[:200]}"))
                         return None
                     logger.warning("No images in response for scene %d [%s] (attempt %d)",
                                    scene_index, style_label, attempt)
-                    fire(log_api_call(story_id=story_id, service="openrouter", model=IMAGE_MODEL,
+                    fire(log_api_call(story_id=story_id, service="openrouter", model=image_model,
                                       purpose="illustration", status="failed", duration_ms=duration_ms,
                                       request_text=prompt_text, error=f"No images (attempt {attempt})"))
                     last_error = "no images"
@@ -395,7 +402,7 @@ async def _call_image_api(content: list[dict], scene_index: int, style_label: st
                 if img_url.startswith("data:"):
                     b64_data = img_url.split(",", 1)[1] if "," in img_url else img_url
                     img_bytes = base64.b64decode(b64_data)
-                    fire(log_api_call(story_id=story_id, service="openrouter", model=IMAGE_MODEL,
+                    fire(log_api_call(story_id=story_id, service="openrouter", model=image_model,
                                       purpose="illustration", status="success", duration_ms=duration_ms,
                                       request_text=prompt_text))
                     if attempt > 1:
@@ -404,7 +411,7 @@ async def _call_image_api(content: list[dict], scene_index: int, style_label: st
                 else:
                     logger.warning("Unexpected image format for scene %d [%s] (attempt %d)",
                                    scene_index, style_label, attempt)
-                    fire(log_api_call(story_id=story_id, service="openrouter", model=IMAGE_MODEL,
+                    fire(log_api_call(story_id=story_id, service="openrouter", model=image_model,
                                       purpose="illustration", status="failed", duration_ms=duration_ms,
                                       request_text=prompt_text, error="Unexpected image format"))
                     last_error = "bad format"
@@ -688,26 +695,40 @@ async def generate_illustration(
 
     if photo_content:
         # Photo present → forceful identity prompt: the photo is ground truth for the child's face.
-        appearance_lines = []
-        for char_name in scene.get("characters_present", []):
+        # We separate MAIN child appearance (must be repeated verbatim every scene for
+        # cross-scene consistency) from SECONDARY characters.
+        cast = scene.get("characters_present", [])
+        main_name = cast[0] if cast else None
+        main_desc = (character_appearances or {}).get(main_name, "") if main_name else ""
+        other_lines = []
+        for char_name in cast[1:]:
             desc = (character_appearances or {}).get(char_name, "")
             if desc:
-                appearance_lines.append(f"  - {char_name}: {desc}")
-        appearance_block = ("Other characters in the scene:\n" + "\n".join(appearance_lines)
-                            if appearance_lines else "")
+                other_lines.append(f"  - {char_name}: {desc}")
+        others_block = ("Other characters in the scene:\n" + "\n".join(other_lines) + "\n"
+                        if other_lines else "")
+        main_block = (
+            f"MAIN CHARACTER: {main_name} — {main_desc}.\n"
+            "These traits (hair color, length, eye color, age) MUST match across all scenes — "
+            "they are the consistency anchor.\n" if main_name and main_desc else ""
+        )
         text_block = f"\n\nFull scene text:\n{scene_full_text[:800]}" if scene_full_text else ""
         prompt = (
             "The attached photo is a real specific child — the MAIN CHARACTER of this scene. "
             "Render that child preserving their identity so a parent instantly recognises them. "
-            "Study the photo and copy their EXACT hair (length, cut, color), face shape, cheeks, "
-            "eyes and apparent AGE. Do NOT age them up or down, do NOT restyle, lengthen or shorten "
-            "their hair. The photo is the ground truth for their appearance; the text only describes "
-            "the scene around them. If the photo contains other people or held objects, focus ONLY on "
-            "the main child's face and ignore everything else.\n\n"
+            "Study the photo and copy their EXACT face shape, cheeks, eyes and apparent age. "
+            "Do NOT age them up or down. "
+            "IF the photo clearly shows their hair (length, cut, color) — copy it exactly. "
+            "IF the hair is hidden (hat, scarf, hood, profile shot) or unclear — use the MAIN "
+            "CHARACTER description below as ground truth for hair and age. NEVER invent a different "
+            "hair color or age between scenes — pick one and keep it.\n"
+            "If the photo contains other people or held objects, focus ONLY on the main child's "
+            "face and ignore everything else.\n\n"
+            f"{main_block}"
             f"Scene: {scene.get('description', '')}\n"
             f"Setting: {scene.get('setting', 'forest')}\n"
             f"Mood: {scene.get('mood', 'magical')}\n"
-            f"{appearance_block}{text_block}\n\n"
+            f"{others_block}{text_block}\n\n"
             f"{style_block}\n\n"
             f"Wide landscape 16:9.\n{NO_TEXT_RULE}"
         )

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Сказка на ночь, где главный герой — ваш ребёнок</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon-180.png">
+<link rel="manifest" href="/static/site.webmanifest">
+<meta name="theme-color" content="#7c5cff">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<meta name="description" content="Сказка на ночь с тёплой озвучкой и иллюстрациями, где главный герой — ваш ребёнок. Введите имя — текст напишем за минуту бесплатно.">
+<meta name="robots" content="noindex,follow">
+<style>
+  :root{
+    --bg:#0f0a2e; --bg2:#1a1245; --ink:#fff; --muted:#b4abd9;
+    --accent:#9d7bff; --accent2:#ff9ed4; --soft:#1f1652;
+  }
+  *{box-sizing:border-box}
+  html,body{overflow-x:hidden}
+  body{margin:0;font-family:'Manrope',-apple-system,Segoe UI,Roboto,sans-serif;
+    color:var(--ink);background:linear-gradient(180deg,var(--bg) 0%,var(--bg2) 60%,#100a30 100%);
+    line-height:1.55;-webkit-font-smoothing:antialiased;letter-spacing:-0.01em;min-height:100vh}
+  .wrap{max-width:780px;margin:0 auto;padding:0 20px}
+  header{display:flex;align-items:center;justify-content:space-between;padding:20px 0}
+  .logo{display:inline-flex;align-items:center;text-decoration:none}
+  .logo img{display:block;height:30px;width:auto;filter:brightness(0) invert(1)}
+  .moon{font-size:24px;opacity:.8}
+  .hero{text-align:center;padding:30px 0 50px;position:relative}
+  .hero .eyebrow{display:inline-block;color:var(--accent2);font-weight:700;font-size:13px;
+    letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px;opacity:.9}
+  .hero h1{font-size:42px;line-height:1.1;margin:0 0 18px;font-weight:500;letter-spacing:-0.03em;color:#fff}
+  .hero h1 b{background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:700}
+  .hero p.sub{font-size:18px;color:var(--muted);margin:0 auto 26px;max-width:540px;font-weight:400;line-height:1.5}
+  .videoframe{margin:0 auto 26px;max-width:560px;background:rgba(255,255,255,.04);
+    border:1px solid rgba(157,123,255,.25);border-radius:18px;padding:10px;
+    box-shadow:0 20px 60px rgba(0,0,0,.4)}
+  .videoframe video{width:100%;display:block;border-radius:12px;background:#000;
+    aspect-ratio:16/9;object-fit:cover;cursor:pointer}
+  .videoframe .vf-hint{color:var(--muted);font-size:13px;margin-top:9px;text-align:center}
+  .cta{display:inline-block;background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#fff;text-decoration:none;font-weight:800;font-size:19px;padding:18px 36px;
+    border-radius:16px;box-shadow:0 14px 40px rgba(157,123,255,.4);transition:transform .15s}
+  .cta:hover{transform:translateY(-1px)}
+  .free-line{margin-top:16px;color:var(--muted);font-size:14.5px}
+  .free-line b{color:#fff}
+  section{padding:60px 0}
+  h2{font-size:28px;text-align:center;margin:0 0 28px;font-weight:600;letter-spacing:-0.02em;color:#fff}
+  .features{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:720px;margin:0 auto}
+  .feat{background:rgba(255,255,255,.04);border:1px solid rgba(157,123,255,.18);
+    border-radius:18px;padding:22px 18px;text-align:center}
+  .feat .em{font-size:32px;display:block;margin-bottom:8px}
+  .feat h3{margin:0 0 6px;font-size:16px;font-weight:600;color:#fff}
+  .feat p{margin:0;color:var(--muted);font-size:14px;line-height:1.45}
+  .testimonial{max-width:600px;margin:0 auto;background:rgba(255,255,255,.04);
+    border:1px solid rgba(157,123,255,.18);border-radius:18px;padding:26px 28px;text-align:center}
+  .testimonial p{margin:0 0 12px;font-size:17px;line-height:1.55;color:#fff;font-style:italic}
+  .testimonial .who{color:var(--muted);font-size:14px;font-weight:600}
+  .faq{max-width:640px;margin:0 auto}
+  .faq details{background:rgba(255,255,255,.04);border:1px solid rgba(157,123,255,.18);
+    border-radius:14px;margin-bottom:10px}
+  .faq summary{cursor:pointer;padding:16px 20px;font-weight:600;list-style:none;
+    display:flex;justify-content:space-between;align-items:center;gap:12px;color:#fff;font-size:15px}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::after{content:"+";color:var(--accent);font-size:22px;font-weight:700;line-height:1}
+  .faq details[open] summary::after{content:"–"}
+  .faq p{margin:0;padding:0 20px 16px;color:var(--muted);font-size:14.5px;line-height:1.55}
+  .final{text-align:center}
+  .price-soft{margin-top:18px;color:var(--muted);font-size:13.5px;max-width:480px;margin-left:auto;margin-right:auto;line-height:1.5}
+  footer{border-top:1px solid rgba(157,123,255,.15);margin-top:40px;padding:24px 0 40px;
+    color:var(--muted);font-size:12.5px;text-align:center}
+  footer a{color:var(--muted);text-decoration:underline}
+  @media(max-width:680px){
+    .hero{padding:20px 0 36px}
+    .hero h1{font-size:30px;line-height:1.15}
+    .hero p.sub{font-size:15.5px}
+    section{padding:42px 0}
+    h2{font-size:22px}
+    .features{grid-template-columns:1fr;gap:12px}
+    .cta{font-size:17px;padding:16px 28px;width:100%;max-width:340px}
+  }
+  .stickycta{position:fixed;left:0;right:0;bottom:0;
+    background:rgba(15,10,46,.96);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    border-top:1px solid rgba(157,123,255,.2);padding:10px 14px env(safe-area-inset-bottom,10px);
+    display:none;z-index:20;box-shadow:0 -8px 24px rgba(0,0,0,.4)}
+  .stickycta.on{display:block}
+  .stickycta a{display:block;width:100%;max-width:520px;margin:0 auto;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;
+    text-decoration:none;font-weight:800;font-size:16px;padding:14px;
+    border-radius:14px;text-align:center;box-shadow:0 8px 22px rgba(157,123,255,.4)}
+  @media(min-width:681px){ .stickycta{display:none!important} }
+  @media(max-width:680px){ body.has-stickycta{padding-bottom:90px} }
+</style>
+{{ metrika|safe }}
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="logo" href="/" aria-label="Сказик"><img src="/static/logo_horizontal.png" alt="Сказик" width="135" height="30"></a>
+    <span class="moon" aria-hidden="true">🌙</span>
+  </header>
+
+  <section class="hero">
+    <div class="eyebrow">Сказка перед сном</div>
+    <h1>Сегодня героем сказки на ночь будет <b>ваш ребёнок</b></h1>
+    <p class="sub">Назовите имя и возраст — через минуту прочитаете тёплую сказку, в которой главный герой узнаваем с первой строчки.</p>
+
+    <div class="videoframe">
+      <video id="hv" autoplay muted loop playsinline controls preload="metadata"
+             poster="/static/sample/scene_1.webp"
+             onplay="try{ym(109494799,'reachGoal','demo_play')}catch(e){}">
+        <source src="/static/sample/teaser.mp4" type="video/mp4">
+      </video>
+      <div class="vf-hint">▶ Звук появится при нажатии</div>
+    </div>
+
+    <a class="cta" href="/create?utm_source=warm&amp;utm_campaign=night"
+       onclick="try{ym(109494799,'reachGoal','night_cta')}catch(e){}">
+       Сделать сказку для своего ребёнка →
+    </a>
+    <div class="free-line"><b>Текст — бесплатно.</b> Без регистрации. За 60 секунд.</div>
+  </section>
+
+  <section>
+    <h2>Как это работает</h2>
+    <div class="features">
+      <div class="feat">
+        <span class="em">✍️</span>
+        <h3>Назовите имя</h3>
+        <p>Имя, возраст и пара слов — какую сказку хотите сегодня</p>
+      </div>
+      <div class="feat">
+        <span class="em">⏱️</span>
+        <h3>Минута ожидания</h3>
+        <p>Получите полный текст сказки прямо в браузере</p>
+      </div>
+      <div class="feat">
+        <span class="em">📖</span>
+        <h3>Читайте сегодня</h3>
+        <p>Распечатайте, читайте с экрана или сохраните как PDF</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="testimonial">
+      <p>«Маша слушает с распахнутыми глазами — впервые сказка <em>про неё саму</em>. Через неделю просила каждый вечер новую».</p>
+      <div class="who">— мама Маши, 4 года</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Частые вопросы</h2>
+    <div class="faq">
+      <details>
+        <summary>А правда текст бесплатный?</summary>
+        <p>Да. Полный текст сказки — без оплаты и без регистрации. Если захотите услышать её с тёплой озвучкой и увидеть иллюстрации, где ребёнок узнаваем — отдельная опция, оплачивается только если понравился результат.</p>
+      </details>
+      <details>
+        <summary>Сколько ждать?</summary>
+        <p>Текст готов меньше чем за минуту. Сразу можно читать.</p>
+      </details>
+      <details>
+        <summary>Что нужно от меня?</summary>
+        <p>Имя и возраст ребёнка, и пару слов — какая тема нравится (космос, динозавры, принцессы, морские приключения, что угодно). Фото — по желанию: если есть, ребёнка нарисуют узнаваемым в иллюстрациях.</p>
+      </details>
+      <details>
+        <summary>Сказка будет добрая?</summary>
+        <p>Да. Все сказки рассчитаны на детей — без страшилок, тёплые, со счастливым концом. Идеально на ночь.</p>
+      </details>
+      <details>
+        <summary>А что с озвучкой и картинками?</summary>
+        <p>Это опция после того, как текст вам понравится. Тёплый голос рассказчика, иллюстрации в стиле классической живописи, и видео — всё это можно добавить одним кликом. Подробности — после прочтения текста.</p>
+      </details>
+    </div>
+  </section>
+
+  <section class="final">
+    <a class="cta" href="/create?utm_source=warm&amp;utm_campaign=night"
+       onclick="try{ym(109494799,'reachGoal','night_cta_bottom')}catch(e){}">
+       Создать сказку для своего ребёнка →
+    </a>
+    <div class="price-soft">Бесплатный текст. Озвучка с иллюстрациями — по желанию, если понравится результат.</div>
+  </section>
+
+  <footer>
+    © Сказик · <a href="/oferta">Оферта</a> · <a href="/privacy">Политика</a> · <a href="/feedback">Связаться</a>
+    <div style="margin-top:6px">ООО «СААС» · ИНН 3461067108</div>
+  </footer>
+</div>
+
+<div class="stickycta" id="stickycta">
+  <a href="/create?utm_source=warm&amp;utm_campaign=night"
+     onclick="try{ym(109494799,'reachGoal','night_cta_sticky')}catch(e){}">
+     Сделать сказку для своего ребёнка →
+  </a>
+</div>
+
+<script>
+(function(){
+  var hero=document.querySelector('.hero'); var sticky=document.getElementById('stickycta');
+  if(!hero||!sticky) return;
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(e){
+      var off=!e[0].isIntersecting;
+      sticky.classList.toggle('on',off);
+      document.body.classList.toggle('has-stickycta',off);
+    },{threshold:0});
+    io.observe(hero);
+  }
+})();
+</script>
+</body>
+</html>

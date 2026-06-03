@@ -95,8 +95,9 @@ assets/ambient_sounds/     — 16 ambient MP3 files
 
 | Сервис | Модель (из DB config) | Для чего |
 |--------|----------------------|----------|
-| OpenRouter | `model.llm` (Grok 4.1 Fast) | Текст сказки + screenplay convert + scene split |
-| OpenRouter | `model.image` (Gemini 3 Pro Image) | Иллюстрации (Pixar-стиль) |
+| OpenRouter | `model.llm` (Gemini 2.5 Pro) | Текст сказки + screenplay convert. Fallback: `model.llm_fallback` (Gemini 3.5 Flash + `reasoning.effort=high` через `model.llm_fallback_reasoning`). Таймаут `llm.call_timeout_sec=90s`. Flash vanilla без reasoning даёт ~40% empty content — high pinned даёт 5/5 reliability (тест 2026-06-03) |
+| OpenRouter | `model.scene_split` (Gemini 3.5 Flash) | Scene split (структурный JSON). ⚠ Pro здесь даёт пустой content — съедает бюджет на reasoning |
+| OpenRouter | `model.image` (Gemini 3.1 Flash Image preview) | Иллюстрации (Pixar-стиль). Premium-альтернатива через swap config — Gemini 3 Pro Image |
 | OpenRouter | `model.transcribe` (Gemini 2.5 Flash) | Транскрипция голосовых |
 | ElevenLabs | `model.tts` (eleven_v3) | TTS, 58 голосов, Pro план |
 
@@ -152,9 +153,9 @@ TTL кэша: 30 секунд. `/reload` — мгновенное обновле
 
 ## Стоимость (из DB api_calls)
 
-- LLM (Grok): ~$0.002/сказка
+- LLM (Gemini 2.5 Pro): ~$0.002/сказка (story_text) + ~$0.004 (screenplay) + scene_split
 - TTS (ElevenLabs): ~$0.10/сказка
-- Иллюстрации (Gemini Pro Image × 4): ~$0.12/сказка
+- Иллюстрации (Gemini 3.1 Flash Image × 4): ~$0.12/сказка
 - **Итого: ~$0.22-0.25/сказка**
 
 ## Команды деплоя
@@ -176,6 +177,30 @@ docker compose exec postgres psql -U skazka  # DB доступ
 - Graceful degradation: картинки упали → MP3 без видео
 - Video duration = audio duration
 - Photo-first промпт для face preservation
+
+## Yandex Direct API v5 — гочи (запоминать)
+
+Из опыта создания кампании «СКАЗИК — WARM Поиск» 2026-06-01:
+
+- **PriorityGoals.Items[]** при `campaigns/update` требует поле `Operation: "SET"` в каждом item, иначе 8000 «отсутствует Operation»
+- **AutotargetingCategories** (на keyword id, через `keywords/update`): массив `[{Category, Value}]` НАПРЯМУЮ, без обёртки `Items`; значения `YES`/`NO` в `Value` (не `IsEnabled`)
+- **Запрещено выключать все 5 категорий** автотаргетинга — хотя бы одна должна быть YES. У нас в HOT и WARM: только `EXACT` ON
+- **CounterIds** для связки Метрики: поле `TextCampaign.CounterIds.Items` (массив counter_id)
+- **AttributionModel**: обычно `"AUTO"`
+- Новые объявления создаются в **DRAFT/OFF**, нужен явный `ads/moderate` чтобы запустить модерацию
+- Кампания может быть `State=ON, Status=MODERATION` — показов нет пока хотя бы одно объявление не пройдёт модерацию (~1-24ч)
+- `DailyBudget` несовместим с `AVERAGE_CPC` (нужна ручная стратегия)
+- `ENABLE_EXTENDED_AD_TITLE` — больше не поддерживается, warning 10163
+- `bids/get` для несуществующего keyword может возвращать данные — НЕ показатель что фраза реально ищется. Volume проверять через **Bukvarix free API** (`api_key=free`, лимит ~8 запросов/минуту, generic фразы троттлятся жёстко)
+- Все денежные значения в micro-units: `4₽ = 4000000`, `7000₽ = 7000000000`, `499₽ = 499000000`
+
+### Активные кампании skazik.app
+
+- **710328773** СКАЗИК — Поиск (HOT) — узкая ниша «персональная сказка». ~95 exact/мес потолок.
+- **710358360** СКАЗИК — WARM Поиск — generic bedtime «сказка на ночь», cap 7k₽/нед, landing `/night`
+- **710328840** СКАЗИК — РСЯ — SUSPENDED (мусорный трафик)
+
+⚠ **НЕ ТРОГАТЬ** кампании Левина: БРО.ХИТ!, СКРШ.*, GetVideo.*, ЭЙБРО.*, FEDERAL TV — это его другие бизнесы в общем аккаунте.
 
 ## Бэклог
 

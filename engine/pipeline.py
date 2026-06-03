@@ -250,7 +250,12 @@ async def generate_fairytale(
                     illustration_paths.append(str(img_path))
             logger.info("Illustrations: %d/%d saved", len(illustration_paths), len(img_results))
         except asyncio.TimeoutError:
-            logger.warning("Illustrations timed out (>10 min), continuing without them")
+            logger.warning("Illustrations TIMEOUT (asyncio.TimeoutError) — bubbled from inner HTTP call or 10-min cap, continuing without them")
+        except asyncio.CancelledError:
+            # Task was killed (e.g. uvicorn --reload during dev). Re-raise so the
+            # caller knows the order is incomplete — do NOT mark as done silently.
+            logger.error("Illustrations CANCELLED (task killed) — re-raising so caller marks order as failed")
+            raise
         except Exception as e:
             logger.warning("Illustrations failed: %s, continuing without them", e, exc_info=True)
 
