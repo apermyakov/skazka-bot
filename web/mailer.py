@@ -17,6 +17,10 @@ UNISENDER_API = os.environ.get("UNISENDER_API", "").strip()
 UNISENDER_URL = "https://go1.unisender.ru/ru/transactional/api/v1/email/send.json"
 EMAIL_FROM = os.environ.get("EMAIL_FROM", "papa@skazik.app")
 EMAIL_FROM_NAME = os.environ.get("EMAIL_FROM_NAME") or os.environ.get("SMTP_FROM_NAME", "Сказик")
+# UniSender Go custom tracking-domain backend ID for skazik.app.
+# See https://go1.unisender.ru/ru/tracking-domains — "Backend ID" column.
+# Setting this routes tracked links through email.skazik.app instead of email.heybro.ai.
+UNISENDER_BACKEND_ID = int(os.environ.get("UNISENDER_BACKEND_ID", "30533"))
 
 
 async def _send_via_unisender(to_addr: str, subject: str, body: str, html: str | None) -> bool:
@@ -32,8 +36,11 @@ async def _send_via_unisender(to_addr: str, subject: str, body: str, html: str |
                 "plaintext": body,
                 **({"html": html} if html else {}),
             },
-            "track_links": 0,
-            "track_read": 0,
+            # Tracking URLs are routed via email.skazik.app (backend id 30533)
+            # — branded + open/click rate in UniSender UI + UTM survives redirect.
+            "options": {"custom_backend_id": UNISENDER_BACKEND_ID},
+            "track_links": 1,
+            "track_read": 1,
         }
     }
     headers = {"X-API-KEY": UNISENDER_API, "Content-Type": "application/json"}
@@ -175,11 +182,21 @@ def _esc(s: str) -> str:
     return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 
+def _with_utm(url: str, campaign: str) -> str:
+    """Append UTM parameters to track email-CTA clicks in Metrika + admin/stats."""
+    if not url or not url.startswith("http"):
+        return url
+    sep = "&" if "?" in url else "?"
+    return f"{url}{sep}utm_source=email&utm_medium=transactional&utm_campaign={campaign}"
+
+
 async def send_text_ready_invite(to_addr: str, title: str, order_url: str) -> bool:
     """Sent immediately when story TEXT is ready (before voice/illustrations).
     Acts as a tab-close safety net: user gets a link to come back and pay."""
     title = (title or "Сказка").strip()
-    sample_url = "https://skazik.app/sample"
+    order_url = _with_utm(order_url, "email_text_ready")
+    sample_url = _with_utm("https://skazik.app/sample", "email_text_ready")
+    feedback_url = _with_utm("https://skazik.app/feedback", "email_text_ready")
     subject = f"📝 «{title}» — текст готов, можно слушать"
     body = (
         f"Здравствуйте!\n\n"
@@ -189,7 +206,7 @@ async def send_text_ready_invite(to_addr: str, title: str, order_url: str) -> bo
         f"Открыть сказку: {order_url}\n"
         f"Послушать пример озвучки: {sample_url}\n\n"
         f"Гарантия: если результат не понравится — вернём деньги в течение суток. "
-        f"Напишите нам через форму обратной связи: https://skazik.app/feedback\n\n"
+        f"Напишите нам через форму обратной связи: {feedback_url}\n\n"
         f"С теплом,\nкоманда Сказика\nhttps://skazik.app"
     )
     t = _esc(title)
@@ -233,6 +250,7 @@ async def send_story_ready(
     to_addr: str, title: str, order_url: str, cover_url: str | None = None
 ) -> bool:
     title = (title or "Сказка").strip()
+    order_url = _with_utm(order_url, "email_story_ready")
     subject = f"«{title}» — ваша сказка готова"
     body = (
         f"Здравствуйте!\n\n"
@@ -292,25 +310,28 @@ async def send_followup_rating(to_addr: str, title: str, oid: str,
     Worker skips this email if order is already rated before send_at fires.
     """
     title = (title or "Сказка").strip()
-    order_url = f"https://skazik.app/order/{oid}"
+    _ord = f"https://skazik.app/order/{oid}"
+    def rate_url(n):
+        return _with_utm(f"{_ord}?rate={n}", "email_followup")
+    feedback_url = _with_utm("https://skazik.app/feedback", "email_followup")
     subject = f"Понравилась ли «{title}»?"
     body = (
         f"Здравствуйте!\n\n"
         f"Вчера мы прислали вам сказку «{title}». Понравилась ли она ребёнку?\n\n"
         f"Оцените одним кликом:\n"
-        f"🤩 Супер — {order_url}?rate=5\n"
-        f"😊 Хорошо — {order_url}?rate=4\n"
-        f"🙂 Нормально — {order_url}?rate=3\n"
-        f"😕 Так себе — {order_url}?rate=2\n"
-        f"😔 Не понравилось — {order_url}?rate=1\n\n"
+        f"🤩 Супер — {rate_url(5)}\n"
+        f"😊 Хорошо — {rate_url(4)}\n"
+        f"🙂 Нормально — {rate_url(3)}\n"
+        f"😕 Так себе — {rate_url(2)}\n"
+        f"😔 Не понравилось — {rate_url(1)}\n\n"
         f"Если не понравилось — мы переделаем бесплатно или вернём деньги. "
-        f"Напишите через форму обратной связи: https://skazik.app/feedback\n\n"
+        f"Напишите через форму обратной связи: {feedback_url}\n\n"
         f"С теплом,\nкоманда Сказика"
     )
     t = _esc(title)
     def btn(n, label, bg):
         return (
-            f'<a href="{order_url}?rate={n}" '
+            f'<a href="{rate_url(n)}" '
             f'style="display:inline-block;background:{bg};color:#ffffff;text-decoration:none;'
             f'font-weight:700;font-size:15px;padding:11px 18px;border-radius:12px;margin:4px">'
             f'{label}</a>'
@@ -340,8 +361,8 @@ async def send_followup_rating(to_addr: str, title: str, oid: str,
         f'<tr><td align="center" style="padding:0 0 18px">{stars_row}</td></tr>'
         '<tr><td style="padding:14px 16px;background:#fff5d6;border-radius:12px;color:#7a5400;font-size:14px">'
         '<b>Если не зашло —</b> переделаем бесплатно или вернём деньги в течение суток. '
-        'Напишите через <a href="https://skazik.app/feedback" style="color:#7a5400;font-weight:700">'
-        'форму обратной связи</a>.</td></tr>'
+        f'Напишите через <a href="{feedback_url}" style="color:#7a5400;font-weight:700">'
+        f'форму обратной связи</a>.</td></tr>'
         '<tr><td style="padding:14px 0 0;color:#6b6390;font-size:13px">'
         'С теплом,<br>команда <a href="https://skazik.app/" style="color:#6b6390">Сказика</a></td></tr>'
         '</table></td></tr></table></body></html>'

@@ -66,17 +66,18 @@ def _cta_button(url: str, label: str) -> str:
 
 async def _send_payment_reminder(oid: str, email: str, title: str, public_base: str):
     """Email for awaiting_payment: payment was started but not finished."""
-    from web.mailer import _esc
+    from web.mailer import _esc, _with_utm
     from web.email_queue import enqueue_email
     title = (title or "Сказка").strip()
-    order_url = f"{public_base}/order/{oid}"
+    order_url = _with_utm(f"{public_base}/order/{oid}", "email_cart_payment")
+    feedback_url = _with_utm(f"{public_base}/feedback", "email_cart_payment")
     subject = f"«{title}» — 1 шаг до сказки"
     body = (
         f"Здравствуйте!\n\n"
         f"Вы начали оформлять сказку «{title}», но оплата так и не прошла.\n"
         f"Если что-то пошло не так — попробуйте ещё раз: {order_url}\n\n"
         f"Гарантия: не понравится результат — вернём деньги в течение суток. "
-        f"Напишите нам через форму обратной связи: https://skazik.app/feedback\n\n"
+        f"Напишите нам через форму обратной связи: {feedback_url}\n\n"
         f"С теплом,\nкоманда Сказика"
     )
     t = _esc(title)
@@ -89,18 +90,19 @@ async def _send_payment_reminder(oid: str, email: str, title: str, public_base: 
         + f'<tr><td style="padding:8px 0 0;background:#eef9f1;border-radius:10px;padding:12px 14px;'
           f'color:#1f6f3c;font-size:13.5px;line-height:1.5">'
           f'<b>🛡️ Гарантия возврата.</b> Не понравится — вернём деньги в течение суток. '
-          f'Напишите нам через <a href="{_esc(public_base)}/feedback" style="color:#1f6f3c;font-weight:700">форму обратной связи</a>.</td></tr>'
+          f'Напишите нам через <a href="{_esc(feedback_url)}" style="color:#1f6f3c;font-weight:700">форму обратной связи</a>.</td></tr>'
     )
     await enqueue_email(email, subject, body, _wrap_html(inner))
 
 
 async def _send_text_ready_reminder(oid: str, email: str, title: str, public_base: str):
     """Email for text_ready: text generated, didn't proceed to 'Озвучить'."""
-    from web.mailer import _esc
+    from web.mailer import _esc, _with_utm
     from web.email_queue import enqueue_email
     title = (title or "Сказка").strip()
-    order_url = f"{public_base}/order/{oid}"
-    sample_url = f"{public_base}/sample"
+    order_url = _with_utm(f"{public_base}/order/{oid}", "email_cart_text_ready")
+    sample_url = _with_utm(f"{public_base}/sample", "email_cart_text_ready")
+    feedback_url = _with_utm(f"{public_base}/feedback", "email_cart_text_ready")
     subject = f"«{title}» — осталось одно нажатие"
     body = (
         f"Здравствуйте!\n\n"
@@ -109,7 +111,7 @@ async def _send_text_ready_reminder(oid: str, email: str, title: str, public_bas
         f"Открыть сказку: {order_url}\n"
         f"Послушать пример озвучки: {sample_url}\n\n"
         f"Гарантия: если результат не понравится — вернём деньги в течение суток. "
-        f"Напишите нам через форму обратной связи: https://skazik.app/feedback\n\n"
+        f"Напишите нам через форму обратной связи: {feedback_url}\n\n"
         f"С теплом,\nкоманда Сказика"
     )
     t = _esc(title)
@@ -126,7 +128,7 @@ async def _send_text_ready_reminder(oid: str, email: str, title: str, public_bas
           f'color:#1f6f3c;font-size:13.5px;line-height:1.5">'
           f'<b>🛡️ Гарантия возврата.</b> Если результат не понравится — вернём деньги '
           f'в течение суток. Напишите нам через '
-          f'<a href="{_esc(public_base)}/feedback" style="color:#1f6f3c;font-weight:700">форму обратной связи</a>.</td></tr>'
+          f'<a href="{_esc(feedback_url)}" style="color:#1f6f3c;font-weight:700">форму обратной связи</a>.</td></tr>'
     )
     await enqueue_email(email, subject, body, _wrap_html(inner))
 
