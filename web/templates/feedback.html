@@ -14,6 +14,7 @@
 <link rel="canonical" href="https://skazik.app/feedback">
 <meta name="description" content="Напишите нам — отвечаем лично, обычно в течение дня.">
 <meta name="robots" content="index, follow">
+{% if captcha_client_key %}<script src="https://smartcaptcha.yandexcloud.net/captcha.js" defer></script>{% endif %}
 <style>
   :root{--bg:#fbf7ff;--ink:#2b2350;--muted:#6b6390;--accent:#7c5cff;--accent2:#ff7eb6;--card:#fff;--soft:#f1ebff;--ok:#1faa59}
   *{box-sizing:border-box}
@@ -72,6 +73,10 @@
 
       <input type="text" name="website" tabindex="-1" autocomplete="off"
              style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
+
+      {% if captcha_client_key %}
+      <div id="captcha-container" class="smart-captcha" data-sitekey="{{ captcha_client_key }}" style="margin:8px 0 14px;min-height:100px"></div>
+      {% endif %}
 
       <button class="btn" type="submit">Отправить</button>
     </form>

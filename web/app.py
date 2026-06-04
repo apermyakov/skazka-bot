@@ -854,23 +854,67 @@ def _page(title: str, body: str) -> HTMLResponse:
         f"{METRIKA}</head><body><p><a href='/'>← На главную</a></p>{body}</body></html>")
 
 
+YANDEX_CAPTCHA_CLIENT_KEY = os.environ.get("YANDEX_CAPTCHA_CLIENT_KEY", "").strip()
+YANDEX_CAPTCHA_SERVER_KEY = os.environ.get("YANDEX_CAPTCHA_SERVER_KEY", "").strip()
+YANDEX_CAPTCHA_VALIDATE_URL = "https://smartcaptcha.yandexcloud.net/validate"
+
+
+async def _check_smartcaptcha(token: str, user_ip: str) -> bool:
+    """Validate Yandex SmartCaptcha token. Returns False on invalid; True if
+    captcha is not configured (graceful fallback so feature can be toggled via env).
+    """
+    if not YANDEX_CAPTCHA_SERVER_KEY:
+        return True  # captcha disabled
+    if not token:
+        return False
+    try:
+        timeout = aiohttp.ClientTimeout(total=8)
+        async with aiohttp.ClientSession(timeout=timeout) as s:
+            async with s.post(YANDEX_CAPTCHA_VALIDATE_URL,
+                              data={"secret": YANDEX_CAPTCHA_SERVER_KEY,
+                                    "token": token, "ip": user_ip}) as r:
+                data = await r.json(content_type=None)
+                ok = (data.get("status") == "ok")
+                if not ok:
+                    logger.info("smartcaptcha rejected token: %s", data)
+                return ok
+    except Exception as e:
+        logger.warning("smartcaptcha validation error: %s", e)
+        # Fail-open: provider down is worse than letting a request through
+        return True
+
+
 @app.get("/feedback", response_class=HTMLResponse)
 async def feedback_form(request: Request):
-    return templates.TemplateResponse(request, "feedback.html", {"sent": False})
+    return templates.TemplateResponse(request, "feedback.html",
+                                      {"sent": False,
+                                       "captcha_client_key": YANDEX_CAPTCHA_CLIENT_KEY})
 
 
 @app.post("/feedback", response_class=HTMLResponse)
 async def feedback_submit(request: Request, name: str = Form(""), email: str = Form(""),
-                          message: str = Form(...), website: str = Form("")):
+                          message: str = Form(...), website: str = Form(""),
+                          smart_token: str = Form("", alias="smart-token")):
     if (website or "").strip():
         logger.info("feedback honeypot triggered ip=%s", _client_ip(request))
-        return templates.TemplateResponse(request, "feedback.html", {"sent": True})
+        return templates.TemplateResponse(request, "feedback.html",
+                                          {"sent": True,
+                                           "captcha_client_key": YANDEX_CAPTCHA_CLIENT_KEY})
     name = (name or "").strip()[:200]
     email = (email or "").strip()[:200]
     message = (message or "").strip()[:4000]
     if len(message) < 3:
         return templates.TemplateResponse(request, "feedback.html",
-                                          {"sent": False, "error": "Напишите сообщение."})
+                                          {"sent": False, "error": "Напишите сообщение.",
+                                           "captcha_client_key": YANDEX_CAPTCHA_CLIENT_KEY})
+    if YANDEX_CAPTCHA_CLIENT_KEY:
+        ok = await _check_smartcaptcha(smart_token, _client_ip(request))
+        if not ok:
+            logger.info("feedback captcha failed ip=%s", _client_ip(request))
+            return templates.TemplateResponse(request, "feedback.html",
+                                              {"sent": False,
+                                               "error": "Подтвердите, что вы не робот.",
+                                               "captcha_client_key": YANDEX_CAPTCHA_CLIENT_KEY})
     fid = await create_feedback(name or None, email or None, message)
     await notify_admin(
         f"💬 Новая обратная связь #{fid}\n"
@@ -878,7 +922,9 @@ async def feedback_submit(request: Request, name: str = Form(""), email: str = F
     if email and "@" in email:
         from web.mailer import send_feedback_ack
         asyncio.create_task(send_feedback_ack(email, name, message))
-    return templates.TemplateResponse(request, "feedback.html", {"sent": True})
+    return templates.TemplateResponse(request, "feedback.html",
+                                      {"sent": True,
+                                       "captcha_client_key": YANDEX_CAPTCHA_CLIENT_KEY})
 
 
 async def _legal_ctx(title: str, body_tpl: str) -> dict:
