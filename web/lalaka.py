@@ -171,8 +171,9 @@ def _build_context(request: Request, locale: str, extra: dict | None = None) -> 
         "canonical_url": f"{PUBLIC_BASE}{canon_path}",
         "og_image": f"{PUBLIC_BASE}/static/lalaka_demos/og_lalaka.jpg",
         "current_year": 2026,
-        # Demo video path for current locale (relative to /static)
-        "demo_video": f"/static/lalaka_demos/{locale}.mp4",
+        # Demo video path for current locale. The ?v= cache-buster forces
+        # CF/browser to fetch the latest MP4 after we regenerate demos.
+        "demo_video": f"/static/lalaka_demos/{locale}.mp4?v=story2026",
     }
     if extra:
         ctx.update(extra)

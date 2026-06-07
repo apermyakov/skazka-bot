@@ -113,7 +113,7 @@
     <section>
       <div class="demo-wrap">
         <span class="demo-badge">▶ {{ t.demo_label }}</span>
-        <video controls preload="metadata"
+        <video controls preload="metadata" autoplay muted loop playsinline
                poster="/static/lalaka_demos/master.png"
                src="{{ demo_video }}"
                aria-label="{{ t.demo_caption }}">
