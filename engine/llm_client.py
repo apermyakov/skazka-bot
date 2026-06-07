@@ -17,6 +17,66 @@ logger = logging.getLogger(__name__)
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
+# Locale → English name of the language, used in meta-instructions to the LLM.
+# When passed, the LLM is told to write the output in that language. The TITLE
+# marker stays English so parsing is uniform across locales.
+_LOCALE_LANG_NAME = {
+    "en": "English",
+    "de": "German",
+    "es": "Spanish",
+    "fr": "French",
+    "it": "Italian",
+    "pl": "Polish",
+    "pt-BR": "Brazilian Portuguese",
+    "tr": "Turkish",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "ar": "Modern Standard Arabic",
+    "ru": "Russian",
+    "uk": "Ukrainian",
+}
+
+
+def _i18n_prefix(locale: str | None) -> str:
+    """Meta-instruction prepended to the user prompt for non-Russian locales.
+    Empty for None/ru so skazik's prompts run unchanged."""
+    if not locale or locale == "ru":
+        return ""
+    lang = _LOCALE_LANG_NAME.get(locale, "English")
+    return (
+        f"IMPORTANT META-INSTRUCTION: Write the entire story and title in {lang}. "
+        f"The first line MUST be exactly: TITLE: <name of the story in {lang}>\n"
+        f"Use only {lang}. Do not include English or Russian translations.\n\n"
+    )
+
+
+def _extract_title(response: str, fallback: str) -> tuple[str, str]:
+    """Extract title and body from an LLM story response. Handles both Russian
+    'ЗАГОЛОВОК:' marker (skazik) and English 'TITLE:' marker (lalaka i18n)."""
+    lines = response.strip().split("\n")
+    title = ""
+    text = response.strip()
+    for i, line in enumerate(lines):
+        s = line.strip()
+        upper = s.upper()
+        if upper.startswith("ЗАГОЛОВОК:"):
+            title = s[len("ЗАГОЛОВОК:"):].strip().strip('"').strip("«»").strip("「」")
+            text = "\n".join(lines[i+1:]).strip()
+            break
+        if upper.startswith("TITLE:"):
+            title = s[len("TITLE:"):].strip().strip('"').strip("«»").strip("「」")
+            text = "\n".join(lines[i+1:]).strip()
+            break
+        if i == 0 and len(s) < 100 and not s.endswith(".") and not s.endswith("。"):
+            # First short line without period = likely title
+            title = s.strip('"').strip("«»").strip("「」")
+            text = "\n".join(lines[i+1:]).strip()
+            break
+    if not title:
+        title = fallback
+    return title[:200], text
+
+
 async def _call_llm(system: str, user: str, max_retries: int = 3,
                     story_id: int = None, purpose: str = "llm",
                     temperature: float = None, max_tokens: int = None) -> str:
@@ -203,8 +263,11 @@ async def generate_screenplay(context: str, story_id: int = None) -> dict:
     return screenplay
 
 
-async def generate_story_text(context: str, story_id: int = None) -> dict:
+async def generate_story_text(context: str, story_id: int = None, locale: str | None = None) -> dict:
     """Generate plain text fairy tale (no JSON, no audio tags).
+
+    When `locale` is None or 'ru', behaves exactly as before (skazik path).
+    When set to another locale, the LLM is instructed to write in that language.
 
     Returns:
         Dict with keys: title, text.
@@ -212,7 +275,7 @@ async def generate_story_text(context: str, story_id: int = None) -> dict:
     from db.config_manager import cfg
     prompt_template = await cfg.get("prompt.story_text", "Напиши сказку.\n{context}")
     system = await cfg.get("prompt.story_text_system", "Ты — талантливый детский писатель.")
-    prompt = prompt_template.format(context=context)
+    prompt = _i18n_prefix(locale) + prompt_template.format(context=context)
 
     response = await _call_llm(
         system=system,
@@ -224,38 +287,19 @@ async def generate_story_text(context: str, story_id: int = None) -> dict:
     if not response or not response.strip():
         raise RuntimeError("Empty story text response")
 
-    # Parse title from first line
-    lines = response.strip().split("\n")
-    title = ""
-    text = response.strip()
-
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped.upper().startswith("ЗАГОЛОВОК:"):
-            title = stripped[len("ЗАГОЛОВОК:"):].strip().strip('"').strip("«»")
-            text = "\n".join(lines[i+1:]).strip()
-            break
-        elif i == 0 and len(stripped) < 100 and not stripped.endswith("."):
-            # First short line without period = likely title
-            title = stripped.strip('"').strip("«»")
-            text = "\n".join(lines[i+1:]).strip()
-            break
-
-    if not title:
-        title = "Сказка на ночь"
-
-    # Enforce limits
-    title = title[:200]
+    fallback = "Bedtime story" if (locale and locale != "ru") else "Сказка на ночь"
+    title, text = _extract_title(response, fallback)
     if len(text) > 15000:
         text = text[:15000]
         logger.warning("Story text truncated from %d to 15000 chars", len(response))
 
-    logger.info("Story text generated: '%s', %d chars", title, len(text))
+    logger.info("Story text generated [%s]: '%s', %d chars", locale or "ru", title, len(text))
     return {"title": title, "text": text}
 
 
 async def revise_story_text(prev_title: str, prev_text: str, instruction: str,
-                            original_context: str = "", story_id: int = None) -> dict:
+                            original_context: str = "", story_id: int = None,
+                            locale: str | None = None) -> dict:
     """Re-write an existing story incorporating a user's revision request.
 
     Differs from generate_story_text by giving the LLM the previous draft as
@@ -275,7 +319,7 @@ async def revise_story_text(prev_title: str, prev_text: str, instruction: str,
     )
     prompt_template = await cfg.get("prompt.story_revise", default)
     system = await cfg.get("prompt.story_text_system", "Ты — талантливый детский писатель.")
-    prompt = prompt_template.format(
+    prompt = _i18n_prefix(locale) + prompt_template.format(
         context=(original_context or "").strip()[:1500],
         prev_title=(prev_title or "").strip()[:200],
         prev_text=(prev_text or "").strip()[:6000],
@@ -284,31 +328,20 @@ async def revise_story_text(prev_title: str, prev_text: str, instruction: str,
     response = await _call_llm(system=system, user=prompt, story_id=story_id, purpose="story_text")
     if not response or not response.strip():
         raise RuntimeError("Empty revised story response")
-    # Reuse the title-extraction logic from generate_story_text
-    lines = response.strip().split("\n")
-    title = ""
-    text = response.strip()
-    for i, line in enumerate(lines):
-        s = line.strip()
-        if s.upper().startswith("ЗАГОЛОВОК:"):
-            title = s[len("ЗАГОЛОВОК:"):].strip().strip('"').strip("«»")
-            text = "\n".join(lines[i+1:]).strip()
-            break
-        elif i == 0 and len(s) < 100 and not s.endswith("."):
-            title = s.strip('"').strip("«»")
-            text = "\n".join(lines[i+1:]).strip()
-            break
-    if not title:
-        title = prev_title or "Сказка на ночь"
-    title = title[:200]
+    fallback = prev_title or ("Bedtime story" if (locale and locale != "ru") else "Сказка на ночь")
+    title, text = _extract_title(response, fallback)
     if len(text) > 15000:
         text = text[:15000]
-    logger.info("Story revised: '%s', %d chars (was %d)", title, len(text), len(prev_text or ""))
+    logger.info("Story revised [%s]: '%s', %d chars (was %d)", locale or "ru", title, len(text), len(prev_text or ""))
     return {"title": title, "text": text}
 
 
-async def convert_to_screenplay(title: str, text: str, story_id: int = None) -> dict:
+async def convert_to_screenplay(title: str, text: str, story_id: int = None,
+                                locale: str | None = None) -> dict:
     """Convert plain text story into structured screenplay JSON for TTS.
+
+    When `locale` is set, the LLM is told to keep segment text in that language
+    (it might otherwise summarise/translate by mistake).
 
     Returns:
         Dict with keys: title, characters, segments, scenes.
@@ -317,7 +350,14 @@ async def convert_to_screenplay(title: str, text: str, story_id: int = None) -> 
     prompt_template = await cfg.get("prompt.screenplay_convert", "Преобразуй текст в JSON.\n{text}")
     system = await cfg.get("prompt.screenplay_convert_system",
                             "Ты генерируешь ТОЛЬКО валидный JSON.")
-    prompt = prompt_template.format(title=title, text=text[:8000])
+    i18n = ""
+    if locale and locale != "ru":
+        lang = _LOCALE_LANG_NAME.get(locale, "English")
+        i18n = (
+            f"IMPORTANT: The input story is in {lang}. Keep ALL segment 'text' "
+            f"fields verbatim in {lang}. Do NOT translate to English or any other language.\n\n"
+        )
+    prompt = i18n + prompt_template.format(title=title, text=text[:8000])
 
     for attempt in range(1, 4):
         response = await _call_llm(

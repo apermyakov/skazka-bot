@@ -92,6 +92,8 @@
   .photo-prepay.has-photo .pp-title{color:#1f6f3c}
   .photo-prepay .pp-status{font-size:13px;margin-top:8px;color:var(--muted);min-height:16px}
   .photo-prepay .pp-status.err{color:#c0392b}
+  .photo-prepay .pp-priv{margin-top:10px;font-size:12px;color:var(--muted);line-height:1.45;display:flex;align-items:flex-start;gap:6px;justify-content:center;text-align:left;max-width:340px;margin-left:auto;margin-right:auto}
+  .photo-prepay .pp-priv .pp-priv-ico{flex:0 0 auto;line-height:1.45}
   .late-email{margin:14px 0;padding:14px 16px;background:#fff8e8;border:1px solid #ffe8b0;border-radius:12px}
   .late-email .le-title{font-weight:800;color:#7a5400;font-size:15px;margin-bottom:4px}
   .late-email .le-sub{color:#8a6d2a;font-size:13px;line-height:1.45;margin-bottom:10px}
@@ -271,6 +273,7 @@ function render(d){
         )+
         '<input type="file" id="pp-input" accept="image/*" hidden>'+
         '<div class="pp-status" id="pp-status"></div>'+
+        '<div class="pp-priv"><span class="pp-priv-ico">🔒</span><span>Фото используем только для героя сказки. Не публикуем в галерее и не показываем посторонним.</span></div>'+
       '</div>';
     const hasSurname = !!d.child_surname;
     const surnameBlockHtml = '<div class="surname-row" id="snrow" style="margin:10px 0;padding:14px 16px;background:var(--soft,#f1ebff);border-radius:14px">'+
@@ -459,8 +462,10 @@ async function uploadPhotoPrepay(ev){
     status.textContent = 'Фото больше 10 МБ. Сожмите и попробуйте ещё раз.';
     status.className = 'pp-status err';
     input.value = '';
+    goal('photo_upload_error', {reason:'too_large', size_kb: Math.round(file.size/1024)});
     return;
   }
+  goal('photo_upload_start', {size_kb: Math.round(file.size/1024)});
   status.textContent = 'Загружаю…';
   status.className = 'pp-status';
   try{
@@ -468,6 +473,7 @@ async function uploadPhotoPrepay(ev){
     const r = await fetch('/order/'+OID+'/photo', {method:'POST', body: fd});
     const d = await r.json();
     if(d.ok){
+      goal('photo_upload_success', {size_kb: Math.round(file.size/1024)});
       wrap.classList.add('has-photo');
       wrap.querySelector('.pp-title').textContent = '✓ Фото прикреплено';
       wrap.querySelector('.pp-sub').textContent = 'Герой будет похож на вашего ребёнка.';
@@ -486,11 +492,13 @@ async function uploadPhotoPrepay(ev){
       status.textContent = 'Не получилось загрузить — попробуйте другой файл.';
       status.className = 'pp-status err';
       input.value = '';
+      goal('photo_upload_error', {reason:'server'});
     }
   } catch(e){
     status.textContent = 'Сетевая ошибка, попробуйте ещё раз.';
     status.className = 'pp-status err';
     input.value = '';
+    goal('photo_upload_error', {reason:'network'});
   }
 }
 
@@ -695,7 +703,10 @@ async function saveLateEmail(ev){
 }
 
 async function pay(){
-  goal('pay_click');
+  const ppWrap = document.getElementById('photoprepay');
+  const hasPhoto = !!(ppWrap && ppWrap.classList.contains('has-photo'));
+  goal('pay_click', {has_photo: hasPhoto ? 1 : 0});
+  if(!hasPhoto) goal('photo_skipped');
   const b = document.getElementById('pay');
   if(b){ b.disabled = true; b.textContent = 'Перехожу к оплате…'; }
   try{
@@ -710,6 +721,7 @@ async function editStory(){
   const ta = document.getElementById('comment');
   const c = (ta && ta.value || '').trim();
   if(!c){ if(ta) ta.focus(); return; }
+  goal('story_edit_used', {len: c.length});
   const b = document.getElementById('edit');
   if(b){ b.disabled = true; b.textContent = 'Переделываю…'; }
   try{

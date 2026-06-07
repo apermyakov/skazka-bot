@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}" dir="{{ dir }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ t.page_title }}</title>
+<meta name="description" content="{{ t.subhead }}">
+<meta property="og:title" content="{{ t.page_title }}">
+<meta property="og:description" content="{{ t.subhead }}">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#7c5cff">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@500;700&family=Noto+Sans+KR:wght@500;700&family=Noto+Sans+Arabic:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#fbf7ff; --ink:#241c44; --muted:#6b6390;
+    --accent:#7c5cff; --accent2:#ff7eb6;
+    --card:#fff; --soft:#f1ebff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);min-height:100%}
+  body{
+    font-family:'Manrope','Noto Sans JP','Noto Sans KR','Noto Sans Arabic',-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    line-height:1.55;letter-spacing:-0.01em;
+    background:
+      radial-gradient(1200px 600px at 20% -10%, #f6e8ff 0%, transparent 60%),
+      radial-gradient(900px 500px at 90% 110%, #ffe7f0 0%, transparent 60%),
+      var(--bg);
+  }
+  .wrap{max-width:720px;margin:0 auto;padding:0 22px}
+  header{display:flex;align-items:center;justify-content:space-between;padding:22px 0;gap:14px;flex-wrap:wrap}
+  .brand{font-weight:800;font-size:22px;letter-spacing:-0.02em;color:var(--ink);text-decoration:none}
+  .brand .dot{color:var(--accent)}
+  .lang-pick{position:relative}
+  .lang-btn{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1.5px solid #e4dcfb;
+    color:var(--ink);border-radius:999px;padding:7px 14px;font:inherit;font-weight:600;font-size:14px;cursor:pointer;
+    box-shadow:0 2px 8px rgba(43,35,80,.05)}
+  .lang-btn:hover{background:var(--soft)}
+  .lang-menu{position:absolute;top:calc(100% + 6px);inset-inline-end:0;background:#fff;border-radius:14px;
+    box-shadow:0 12px 40px rgba(43,35,80,.18);padding:6px;display:none;min-width:220px;z-index:50;
+    max-height:60vh;overflow-y:auto}
+  .lang-menu.open{display:block}
+  .lang-menu a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;
+    color:var(--ink);text-decoration:none;font-size:14.5px;font-weight:500}
+  .lang-menu a:hover{background:var(--soft)}
+  .lang-menu a.active{background:var(--soft);font-weight:700;color:var(--accent)}
+  .lang-menu a .flag{font-size:18px;line-height:1}
+
+  main{padding:24px 0 60px}
+  .badge{display:inline-block;background:var(--soft);color:var(--accent);font-weight:700;
+    font-size:12.5px;padding:5px 12px;border-radius:999px;letter-spacing:.04em;text-transform:uppercase;
+    margin-bottom:18px}
+  h1{font-size:clamp(28px,5vw,42px);margin:0 0 14px;line-height:1.15;font-weight:800;letter-spacing:-0.02em}
+  .sub{color:var(--muted);font-size:clamp(15px,2vw,18px);margin:0 0 30px;max-width:560px}
+  .tagline{font-style:italic;color:var(--muted);font-size:14px;margin-top:-6px;margin-bottom:30px}
+
+  .card{background:var(--card);border-radius:20px;padding:26px;box-shadow:0 10px 40px rgba(43,35,80,.07)}
+  .pitch{color:var(--ink);font-weight:600;margin:0 0 14px;font-size:15.5px}
+  form.waitlist{display:flex;gap:8px;flex-wrap:wrap}
+  form.waitlist input[type=email]{flex:1 1 240px;min-width:0;border:1.5px solid #e4dcfb;border-radius:12px;
+    padding:13px 15px;font:inherit;font-size:16px;background:#fff;color:var(--ink)}
+  form.waitlist input[type=email]:focus{outline:none;border-color:var(--accent)}
+  form.waitlist button{flex:0 0 auto;background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#fff;border:0;border-radius:12px;padding:13px 22px;font:inherit;font-weight:800;font-size:16px;cursor:pointer;
+    box-shadow:0 6px 18px rgba(124,92,255,.32)}
+  form.waitlist button:hover{filter:brightness(1.05)}
+  form.waitlist button:disabled{opacity:.7;cursor:wait}
+  .status{margin-top:14px;font-size:14px;min-height:18px}
+  .status.ok{color:#1f6f3c;font-weight:600}
+  .status.err{color:#c0392b;font-weight:600}
+
+  footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="brand" href="/">Lalaka<span class="dot">.</span></a>
+    <div class="lang-pick">
+      <button class="lang-btn" id="langbtn" type="button" aria-haspopup="true" aria-expanded="false">
+        <span class="flag">{{ locale_flags[locale] }}</span>
+        <span>{{ locale_names[locale] }}</span>
+        <span aria-hidden="true">▾</span>
+      </button>
+      <div class="lang-menu" id="langmenu" role="menu">
+        {% for loc in supported_locales %}
+        <a href="/?lang={{ loc }}" class="{% if loc == locale %}active{% endif %}" role="menuitem" data-loc="{{ loc }}">
+          <span class="flag">{{ locale_flags[loc] }}</span>
+          <span>{{ locale_names[loc] }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <span class="badge">{{ t.coming_soon }}</span>
+    <h1>{{ t.headline }}</h1>
+    <p class="sub">{{ t.subhead }}</p>
+    <p class="tagline">{{ t.tagline }}</p>
+
+    <div class="card">
+      <p class="pitch">{{ t.waitlist_pitch }}</p>
+      <form class="waitlist" id="waitlist-form" novalidate>
+        <input type="email" name="email" id="email" required
+               placeholder="{{ t.email_placeholder }}"
+               inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false">
+        <input type="hidden" name="locale" value="{{ locale }}">
+        <button type="submit" id="submitbtn">{{ t.submit }}</button>
+      </form>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+    </div>
+  </main>
+
+  <footer>© {{ 2026 }} Lalaka · {{ t.footer_rights }}</footer>
+</div>
+
+<script>
+  // Language picker dropdown
+  (function(){
+    const btn = document.getElementById('langbtn');
+    const menu = document.getElementById('langmenu');
+    if(!btn || !menu) return;
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      const open = menu.classList.toggle('open');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    document.addEventListener('click', function(e){
+      if(!menu.contains(e.target) && e.target !== btn){
+        menu.classList.remove('open');
+        btn.setAttribute('aria-expanded','false');
+      }
+    });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape'){ menu.classList.remove('open'); btn.setAttribute('aria-expanded','false'); }
+    });
+  })();
+
+  // Waitlist submit
+  (function(){
+    const form = document.getElementById('waitlist-form');
+    const btn = document.getElementById('submitbtn');
+    const email = document.getElementById('email');
+    const status = document.getElementById('status');
+    const T = {
+      submit: {{ t.submit | tojson }},
+      submitting: {{ t.submitting | tojson }},
+      success: {{ t.success | tojson }},
+      error_email: {{ t.error_email | tojson }},
+      error_network: {{ t.error_network | tojson }},
+    };
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    form.addEventListener('submit', async function(e){
+      e.preventDefault();
+      status.className = 'status';
+      status.textContent = '';
+      const v = (email.value || '').trim();
+      if(!EMAIL_RE.test(v)){
+        status.className = 'status err';
+        status.textContent = T.error_email;
+        email.focus();
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = T.submitting;
+      try{
+        const fd = new FormData(form);
+        const r = await fetch('/waitlist', {method:'POST', body: fd});
+        const d = await r.json();
+        if(d && d.ok){
+          status.className = 'status ok';
+          status.textContent = T.success;
+          form.style.display = 'none';
+        } else {
+          status.className = 'status err';
+          status.textContent = (d && d.error === 'invalid_email') ? T.error_email : T.error_network;
+          btn.disabled = false;
+          btn.textContent = T.submit;
+        }
+      }catch(err){
+        status.className = 'status err';
+        status.textContent = T.error_network;
+        btn.disabled = false;
+        btn.textContent = T.submit;
+      }
+    });
+  })();
+</script>
+</body>
+</html>

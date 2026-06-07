@@ -1,0 +1,46 @@
+{# Shared <head> meta tags: SEO, OG, hreflang, fonts, favicons.
+   Templates that include this should set {% set page_title = ... %} and
+   {% set page_description = ... %} before include. #}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ page_title or t.page_title }}</title>
+<meta name="description" content="{{ page_description or t.subhead }}">
+<meta name="theme-color" content="#7c5cff">
+
+{# Canonical + hreflang alternates for international SEO #}
+<link rel="canonical" href="{{ canonical_url }}">
+{% for loc in supported_locales %}
+<link rel="alternate" hreflang="{{ loc }}" href="https://lalaka.ai/{{ loc }}">
+{% endfor %}
+<link rel="alternate" hreflang="x-default" href="https://lalaka.ai/">
+
+{# Open Graph / Twitter #}
+<meta property="og:type" content="website">
+<meta property="og:title" content="{{ page_title or t.page_title }}">
+<meta property="og:description" content="{{ page_description or t.subhead }}">
+<meta property="og:image" content="{{ og_image }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="{{ canonical_url }}">
+<meta property="og:locale" content="{{ locale|replace('-', '_') }}">
+<meta property="og:site_name" content="Lalaka">
+<meta name="twitter:card" content="summary_large_image">
+
+{# Lalaka brand mark: ribbon-L symbol (purple-pink gradient) #}
+<link rel="icon" type="image/png" sizes="32x32" href="/static/lalaka_brand_32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/static/lalaka_brand_16.png">
+<link rel="icon" type="image/png" sizes="64x64" href="/static/lalaka_brand_64.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/static/lalaka_brand_180.png">
+
+{# Fonts — Manrope + locale-specific Noto fallbacks. Conditional loading saves bandwidth. #}
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+{% if locale == 'ja' %}
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@500;700&display=swap" rel="stylesheet">
+{% elif locale == 'ko' %}
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@500;700&display=swap" rel="stylesheet">
+{% elif locale == 'ar' %}
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+Arabic:wght@500;700&display=swap" rel="stylesheet">
+{% else %}
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+{% endif %}

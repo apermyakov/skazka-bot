@@ -761,6 +761,7 @@ async def generate_illustrations_batch(
     on_illustration_ready: Callable[[int, bytes], Awaitable[None]] | None = None,
     timeline_text: str | None = None,
     style: str | None = None,
+    locale: str | None = None,
 ) -> list[bytes]:
     """Generate all illustrations for a fairy tale in the chosen art style.
 
@@ -772,6 +773,26 @@ async def generate_illustrations_batch(
     Returns list of PNG bytes (may contain None for failed scenes).
     """
     style_block = await _resolve_style_block(style)
+    # Subtle locale-aware hint: for non-Russian locales, encourage culturally
+    # appropriate environment/clothing (the photo still drives the child's face).
+    if locale and locale != "ru":
+        _LOC_HINT = {
+            "en": "Use a warm, universal Western children's-book aesthetic. Diverse, friendly setting.",
+            "de": "European bedroom setting — natural wood, simple cosy aesthetic.",
+            "es": "Warm Mediterranean light, friendly bedroom setting with cheerful colors.",
+            "fr": "Soft European aesthetic, cosy children's room.",
+            "it": "Warm Mediterranean light, cosy Italian-style children's room.",
+            "pl": "Warm cosy European bedroom, simple and friendly.",
+            "pt-BR": "Warm tropical light, cheerful Brazilian-style children's room with bright accents.",
+            "tr": "Warm cosy Anatolian-inspired children's room with rich textures and warm light.",
+            "ja": "Cosy Japanese-style children's room: tatami or wooden floor, soft paper lantern lighting, plush toys.",
+            "ko": "Cosy modern Korean children's room: soft lighting, warm wood tones, plush toys.",
+            "ar": "Warm Middle-Eastern inspired children's room with soft lantern lighting and intricate textile patterns, all child-friendly.",
+            "uk": "Warm Eastern European cosy bedroom, simple wooden furniture, warm colors.",
+        }
+        hint = _LOC_HINT.get(locale)
+        if hint:
+            style_block = style_block + "\n\nLOCALE CONTEXT: " + hint
     has_photo = bool(reference_photo_b64 or (reference_photos and any(reference_photos)))
 
     # Step 1: Split into scenes (with timeline if available)

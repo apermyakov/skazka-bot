@@ -1,0 +1,37 @@
+{# Language switcher used in header. Requires locale_flags, locale_names, supported_locales, locale in context. #}
+<div class="lang-pick">
+  <button class="lang-btn" id="langbtn" type="button" aria-haspopup="true" aria-expanded="false">
+    <span class="flag">{{ locale_flags[locale] }}</span>
+    <span>{{ locale_names[locale] }}</span>
+    <span aria-hidden="true">▾</span>
+  </button>
+  <div class="lang-menu" id="langmenu" role="menu">
+    {% for loc in supported_locales %}
+    <a href="?lang={{ loc }}" class="{% if loc == locale %}active{% endif %}" role="menuitem" data-loc="{{ loc }}">
+      <span class="flag">{{ locale_flags[loc] }}</span>
+      <span>{{ locale_names[loc] }}</span>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+<script>
+  (function(){
+    const btn = document.getElementById('langbtn');
+    const menu = document.getElementById('langmenu');
+    if(!btn || !menu) return;
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      const open = menu.classList.toggle('open');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    document.addEventListener('click', function(e){
+      if(!menu.contains(e.target) && e.target !== btn){
+        menu.classList.remove('open');
+        btn.setAttribute('aria-expanded','false');
+      }
+    });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape'){ menu.classList.remove('open'); btn.setAttribute('aria-expanded','false'); }
+    });
+  })();
+</script>

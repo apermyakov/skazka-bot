@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}" dir="{{ dir }}">
+<head>
+{% set page_title = t.page_title %}
+{% set page_description = t.subhead %}
+{% include "lalaka/_head_meta.html" %}
+<meta name="robots" content="noindex,nofollow">
+{% include "lalaka/_base_styles.html" %}
+<style>
+  main{padding:18px 0 80px}
+  h1{font-size:clamp(22px,3vw,30px);margin:8px 0 12px;letter-spacing:-0.015em}
+  .story{background:#fff;border-radius:14px;padding:18px 20px;margin:16px 0 18px;
+    box-shadow:0 6px 20px rgba(43,35,80,.06);line-height:1.7;font-size:16px;color:#2b2350;
+    max-height:420px;overflow-y:auto;white-space:pre-wrap}
+  .story-title{font-weight:800;font-size:18px;margin-bottom:10px;color:var(--ink)}
+  /* photo block */
+  .photo-prepay{margin:14px 0 14px;padding:14px 16px;background:#f5efff;border:1.5px dashed #c9b8ff;
+    border-radius:12px;text-align:center}
+  .photo-prepay.has-photo{background:#eef9f1;border-color:#cfecd6}
+  .pp-title{font-weight:700;color:var(--ink);font-size:15px;margin-bottom:4px}
+  .pp-sub{color:var(--muted);font-size:13px;line-height:1.45;margin-bottom:10px}
+  .pp-btn{display:inline-block;background:#fff;color:var(--accent);border:1.5px solid var(--accent);
+    font-weight:700;font-size:14px;padding:10px 18px;border-radius:10px;cursor:pointer;font-family:inherit}
+  .pp-btn:hover{background:#e9e0ff}
+  .pp-status{font-size:13px;margin-top:8px;color:var(--muted);min-height:16px}
+  .pp-status.err{color:#c0392b}
+  .pp-priv{margin-top:10px;font-size:12px;color:var(--muted);line-height:1.45}
+  /* value stack */
+  .value-stack{background:#fff;border-radius:14px;padding:14px 16px;margin:14px 0;
+    box-shadow:0 6px 20px rgba(43,35,80,.06)}
+  .value-stack .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--line);font-size:14.5px;color:var(--ink);gap:10px}
+  .value-stack .row:last-child{border-bottom:0}
+  .total{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:18px;color:var(--ink);margin-top:8px;padding-top:10px;border-top:1.5px solid var(--accent)}
+  /* edit box */
+  .editbox{margin-top:18px}
+  .editbox textarea{width:100%;min-height:70px;border:1.5px solid var(--line);border-radius:10px;
+    padding:11px;font:inherit;font-size:14.5px;resize:vertical;background:#fff;color:var(--ink)}
+  /* inline status banner (replaces alert) */
+  .ibanner{margin:12px 0;padding:10px 14px;border-radius:10px;font-size:14px;font-weight:600;display:none}
+  .ibanner.on{display:block}
+  .ibanner.err{background:#fff2f2;color:#a02020;border:1px solid #f5c2c2}
+  .ibanner.ok{background:#eef9f1;color:#1f6f3c;border:1px solid #cfecd6}
+  /* progress stepper */
+  .stepper{display:flex;align-items:center;gap:8px;margin:18px 0 8px;flex-wrap:wrap;font-size:14.5px}
+  .step{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;
+    background:var(--soft);color:var(--muted);font-weight:600}
+  .step.active{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+  .step.done{background:#dff5e4;color:#1f6f3c}
+  .etabar{height:8px;background:var(--soft);border-radius:999px;overflow:hidden;margin:10px 0}
+  .etabar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));
+    width:0%;transition:width .5s ease}
+  /* done state */
+  .done-actions{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+  .done-actions a{text-decoration:none;text-align:center}
+  .done-video{width:100%;border-radius:14px;background:#000;max-height:520px;display:block}
+  .illust-strip{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:14px 0}
+  @media(min-width:540px){ .illust-strip{grid-template-columns:repeat(3,1fr)} }
+  .illust-strip img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:var(--soft);display:block}
+  /* Rating widget */
+  .rate-card{background:#fff;border-radius:14px;padding:16px;margin-top:18px;
+    box-shadow:0 6px 20px rgba(43,35,80,.06);text-align:center}
+  .rate-card .q{font-weight:700;color:var(--ink);font-size:15.5px;margin-bottom:12px}
+  .rate-options{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+  .rate-options button{background:#fff;color:var(--ink);border:1.5px solid var(--line);
+    border-radius:999px;padding:8px 14px;font:inherit;font-weight:600;font-size:14px;cursor:pointer}
+  .rate-options button:hover{background:var(--soft);border-color:var(--accent)}
+  .rate-options button.selected{background:var(--soft);border-color:var(--accent);color:var(--accent)}
+  /* Sticky pay button (mobile) */
+  .sticky-pay{position:fixed;left:0;right:0;bottom:0;padding:10px 14px 14px;
+    background:linear-gradient(to top,#fbf7ff 70%,rgba(251,247,255,0));z-index:30;display:none;pointer-events:none}
+  .sticky-pay.on{display:block}
+  .sticky-pay .btn{pointer-events:auto;margin:0;box-shadow:0 8px 24px rgba(124,92,255,.32)}
+  @media(min-width:680px){ .sticky-pay{display:none !important} }
+  body.has-sticky{padding-bottom:96px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="brand" href="/" aria-label="Lalaka"><span class="mark" aria-hidden="true"></span>Lalaka<span class="dot">.</span></a>
+    {% include "lalaka/_lang_picker.html" %}
+  </header>
+
+  <main>
+    <div class="ibanner" id="banner" role="status" aria-live="polite"></div>
+    <div id="box" class="card"><span class="spin"></span> {{ t.order_loading }}</div>
+  </main>
+
+  <div class="sticky-pay" id="stickypay">
+    <button class="btn btn-block" id="stickybtn" type="button"></button>
+  </div>
+
+  <footer>© {{ current_year }} Lalaka · {{ t.footer_rights }} · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></footer>
+</div>
+
+<script>
+const OID = {{ oid | tojson }};
+const PRICE = {{ price.display | tojson }};
+const T = {
+  composing:      {{ t.order_composing | tojson }},
+  composing_sub:  {{ t.order_composing_sub | tojson }},
+  loading:        {{ t.order_loading | tojson }},
+  photo_title:    {{ t.order_photo_title | tojson }},
+  photo_sub:      {{ t.order_photo_sub | tojson }},
+  photo_btn:      {{ t.order_photo_btn | tojson }},
+  photo_replace:  {{ t.order_photo_replace | tojson }},
+  photo_done:     {{ t.order_photo_done | tojson }},
+  photo_priv:     {{ t.order_photo_priv | tojson }},
+  photo_too_large:{{ t.order_photo_too_large | tojson }},
+  total:          {{ t.order_total | tojson }},
+  pay_btn:        {{ t.order_pay_btn | tojson }},
+  pay_lock:       {{ t.order_pay_lock | tojson }},
+  processing:     {{ t.order_processing | tojson }},
+  edit_ph:        {{ t.order_edit_ph | tojson }},
+  edit_btn:       {{ t.order_edit_btn | tojson }},
+  or_new:         {{ t.order_or_new | tojson }},
+  awaiting:       {{ t.order_awaiting | tojson }},
+  pay_again:      {{ t.order_pay_again | tojson }},
+  generating:     {{ t.order_generating | tojson }},
+  step_voice:     {{ t.order_step_voice | tojson }},
+  step_illust:    {{ t.order_step_illust | tojson }},
+  step_video:     {{ t.order_step_video | tojson }},
+  done_title:     {{ t.order_done_title | tojson }},
+  done_watch:     {{ t.order_done_watch | tojson }},
+  done_audio:     {{ t.order_done_audio | tojson }},
+  done_again:     {{ t.order_done_again | tojson }},
+  failed:         {{ t.order_failed | tojson }},
+  retry:          {{ t.order_retry | tojson }},
+  value_voice:    {{ t.value_voice | tojson }},
+  value_illust:   {{ t.value_illust | tojson }},
+  value_video:    {{ t.value_video | tojson }},
+  err_payment:    {{ t.err_payment | tojson }},
+  err_network:    {{ t.err_network | tojson }},
+  rate_q:         {{ t.order_rate_q | tojson }},
+  rate_loved:     {{ t.order_rate_loved | tojson }},
+  rate_ok:        {{ t.order_rate_ok | tojson }},
+  rate_bad:       {{ t.order_rate_bad | tojson }},
+  rate_thanks:    {{ t.order_rate_thanks | tojson }},
+};
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+const box = document.getElementById('box');
+const banner = document.getElementById('banner');
+const stickyWrap = document.getElementById('stickypay');
+const stickyBtn = document.getElementById('stickybtn');
+let shownStatus = '';
+
+function flash(msg, kind){
+  banner.textContent = msg;
+  banner.className = 'ibanner on ' + (kind || 'err');
+  setTimeout(function(){ banner.classList.remove('on'); }, 5000);
+}
+function clearBanner(){ banner.classList.remove('on'); }
+
+function setStickyPay(visible){
+  if(visible){
+    stickyBtn.textContent = T.pay_btn.replace('{price}', PRICE);
+    document.body.classList.add('has-sticky');
+    // IO observer attached when main pay button exists
+  } else {
+    document.body.classList.remove('has-sticky');
+    stickyWrap.classList.remove('on');
+  }
+}
+
+function render(d){
+  if(!d){ box.innerHTML = '<span class="spin"></span> '+T.loading; return; }
+  if(d.status === shownStatus && d.status !== 'generating' && d.status !== 'done') return;
+  shownStatus = d.status;
+
+  if(d.status === 'composing'){
+    setStickyPay(false);
+    box.innerHTML = '<b><span class="spin"></span>'+T.composing+'</b><div class="muted" style="margin-top:8px">'+T.composing_sub+'</div>';
+    return;
+  }
+
+  if(d.status === 'failed'){
+    setStickyPay(false);
+    box.innerHTML = '<b>'+T.failed+'</b><div class="muted" style="margin-top:10px">'+esc(d.error||'')+'</div>'+
+      '<a class="btn2" href="/create" style="display:inline-block;margin-top:14px">'+T.retry+'</a>';
+    return;
+  }
+
+  if(d.status === 'text_ready'){
+    setStickyPay(true);
+    const hasPhoto = !!d.photo_path;
+    const ppTitle = hasPhoto ? T.photo_done : T.photo_title;
+    const ppSub   = hasPhoto ? '' : T.photo_sub;
+    const ppBtn   = hasPhoto ? T.photo_replace : T.photo_btn;
+    const photo =
+      '<div class="photo-prepay '+(hasPhoto?'has-photo':'')+'" id="pp">'+
+        '<div class="pp-title">'+ppTitle+'</div>'+
+        (ppSub ? '<div class="pp-sub">'+ppSub+'</div>' : '')+
+        '<label class="pp-btn" for="pp-input">'+ppBtn+'</label>'+
+        '<input type="file" id="pp-input" accept="image/*" hidden>'+
+        '<div class="pp-status" id="pp-status"></div>'+
+        '<div class="pp-priv">'+T.photo_priv+'</div>'+
+      '</div>';
+    const story = d.text_html || ('<div>'+esc(d.story_text||'')+'</div>');
+    const payLabel = T.pay_btn.replace('{price}', PRICE);
+    box.innerHTML =
+      '<h1>'+esc(d.title||'')+'</h1>'+
+      photo+
+      '<div class="story"><div class="story-title">'+esc(d.title||'')+'</div>'+story+'</div>'+
+      '<div class="value-stack">'+
+        '<div class="row"><span>'+T.value_voice+'</span></div>'+
+        '<div class="row"><span>'+T.value_illust+'</span></div>'+
+        '<div class="row"><span>'+T.value_video+'</span></div>'+
+        '<div class="total"><span>'+T.total+'</span><span>'+PRICE+'</span></div>'+
+      '</div>'+
+      '<button class="btn btn-block" id="pay" style="margin-top:8px">'+payLabel+'</button>'+
+      '<div class="muted" style="text-align:center;font-size:13px;margin-top:6px">'+T.pay_lock+'</div>'+
+      '<div class="editbox"><textarea id="comment" placeholder="'+T.edit_ph+'"></textarea>'+
+        '<button class="btn2" id="edit" style="margin-top:10px">'+T.edit_btn+'</button> '+
+        '<a class="ghost" href="/create">'+T.or_new+'</a></div>';
+    document.getElementById('pay').onclick = pay;
+    document.getElementById('edit').onclick = editStory;
+    const inp = document.getElementById('pp-input');
+    if(inp) inp.addEventListener('change', uploadPhoto);
+    // Sticky pay observer
+    const mainPay = document.getElementById('pay');
+    if(mainPay && 'IntersectionObserver' in window){
+      const io = new IntersectionObserver(function(entries){
+        stickyWrap.classList.toggle('on', entries[0].intersectionRatio < 0.5);
+      }, {threshold:[0, 0.5, 1]});
+      io.observe(mainPay);
+    }
+    stickyBtn.onclick = pay;
+    return;
+  }
+
+  if(d.status === 'awaiting_payment'){
+    setStickyPay(false);
+    box.innerHTML = '<span class="spin"></span> <b>'+T.awaiting+'</b>'+
+      '<div class="muted" style="margin-top:8px"><a href="#" id="pa">'+T.pay_again+'</a></div>';
+    const pa = document.getElementById('pa'); if(pa){ pa.onclick = function(e){e.preventDefault(); pay();}; }
+    return;
+  }
+
+  if(d.status === 'generating'){
+    setStickyPay(false);
+    const stages = [
+      {em:'🎙', name: T.step_voice},
+      {em:'🎨', name: T.step_illust},
+      {em:'🎬', name: T.step_video},
+    ];
+    const p = (d.progress||'').toLowerCase();
+    let cur = 0;
+    // Recognise progress keywords across languages (rough)
+    if (p.includes('illu')||p.includes('image')||p.includes('scene')||p.includes('character')||
+        p.includes('иллюс')||p.includes('рисую')||p.includes('размеч')||p.includes('реф')) cur = 1;
+    if (p.includes('video')||p.includes('encod')||p.includes('ffmpeg')||
+        p.includes('видео')||p.includes('собира')) cur = 2;
+    const stepHtml = stages.map(function(s,i){
+      const cls = i < cur ? 'done' : (i === cur ? 'active' : '');
+      return '<div class="step '+cls+'"><span>'+s.em+'</span>'+s.name+'</div>';
+    }).join('');
+    const K='gen_started_'+OID;
+    let started = parseInt(localStorage.getItem(K)||'0',10);
+    if(!started){ started = Date.now(); try{ localStorage.setItem(K, String(started)); }catch(e){} }
+    const elapsed = Math.max(0, Math.floor((Date.now() - started)/1000));
+    const targetSec = 6*60;
+    const pct = Math.min(95, Math.floor(elapsed / targetSec * 100));
+    box.innerHTML =
+      '<b>'+T.generating+'</b>'+
+      '<div class="stepper">'+stepHtml+'</div>'+
+      '<div class="etabar"><i style="width:'+pct+'%"></i></div>';
+    return;
+  }
+
+  if(d.status === 'done'){
+    setStickyPay(false);
+    try{ localStorage.removeItem('gen_started_'+OID); }catch(e){}
+    const v = d.video_url||'', a = d.audio_url||'';
+    const player = v ? '<video class="done-video" controls preload="metadata" src="'+esc(v)+'"></video>' : '';
+    const illus = Array.isArray(d.illustrations) ? d.illustrations.filter(Boolean) : [];
+    const strip = illus.length ?
+      ('<div class="illust-strip">' +
+        illus.map(function(u){ return '<img src="'+esc(u)+'" alt="" loading="lazy">'; }).join('') +
+       '</div>') : '';
+    const rate = (d.rating ? '' : rateWidgetHTML());
+    box.innerHTML =
+      '<h1>'+T.done_title+'</h1>'+
+      player +
+      strip +
+      '<div class="done-actions">'+
+        (a ? '<a class="btn2" href="'+esc(a)+'" download>'+T.done_audio+'</a>' : '')+
+        '<a class="btn2" href="/create">'+T.done_again+'</a>'+
+      '</div>'+
+      rate;
+    wireRate();
+    return;
+  }
+
+  box.innerHTML = '<span class="spin"></span> '+T.loading;
+}
+
+function rateWidgetHTML(){
+  return '<div class="rate-card" id="ratecard">'+
+    '<div class="q">'+T.rate_q+'</div>'+
+    '<div class="rate-options">'+
+      '<button type="button" data-rate="5">'+T.rate_loved+'</button>'+
+      '<button type="button" data-rate="3">'+T.rate_ok+'</button>'+
+      '<button type="button" data-rate="1">'+T.rate_bad+'</button>'+
+    '</div></div>';
+}
+function wireRate(){
+  const card = document.getElementById('ratecard');
+  if(!card) return;
+  card.addEventListener('click', async function(e){
+    const b = e.target.closest('button[data-rate]');
+    if(!b) return;
+    const val = parseInt(b.dataset.rate, 10);
+    card.querySelectorAll('button').forEach(x => x.disabled = true);
+    b.classList.add('selected');
+    try{
+      const fd = new FormData(); fd.append('rating', val);
+      await fetch('/order/'+OID+'/rate', {method:'POST', body: fd});
+    }catch(e){}
+    card.innerHTML = '<div class="q">'+T.rate_thanks+'</div>';
+  });
+}
+
+async function pay(){
+  const b = document.getElementById('pay');
+  const sb = stickyBtn;
+  const restore = function(){
+    if(b){ b.disabled = false; b.textContent = T.pay_btn.replace('{price}', PRICE); }
+    if(sb){ sb.disabled = false; sb.textContent = T.pay_btn.replace('{price}', PRICE); }
+  };
+  if(b){ b.disabled = true; b.textContent = T.processing; }
+  if(sb){ sb.disabled = true; sb.textContent = T.processing; }
+  try{
+    const r = await fetch('/order/'+OID+'/pay', {method:'POST'});
+    const d = await r.json();
+    if(d.ok && d.confirmation_url){ window.location = d.confirmation_url; return; }
+    flash(T.err_payment, 'err');
+    restore();
+  }catch(e){
+    flash(T.err_network, 'err');
+    restore();
+  }
+}
+
+async function editStory(){
+  const ta = document.getElementById('comment');
+  const c = (ta && ta.value || '').trim();
+  if(!c){ if(ta) ta.focus(); return; }
+  const b = document.getElementById('edit');
+  if(b){ b.disabled = true; b.textContent = T.processing; }
+  try{
+    const fd = new FormData(); fd.append('comment', c);
+    const r = await fetch('/order/'+OID+'/edit', {method:'POST', body:fd});
+    if(r.ok){ clearBanner(); shownStatus = ''; start(); return; }
+    flash(T.err_network, 'err');
+    if(b){ b.disabled=false; b.textContent = T.edit_btn; }
+  }catch(e){
+    flash(T.err_network, 'err');
+    if(b){ b.disabled=false; b.textContent = T.edit_btn; }
+  }
+}
+
+async function uploadPhoto(ev){
+  const input = ev.target;
+  const wrap = document.getElementById('pp');
+  const status = document.getElementById('pp-status');
+  const file = input.files && input.files[0];
+  if(!file) return;
+  if(file.size > 10*1024*1024){
+    status.textContent = T.photo_too_large;
+    status.className = 'pp-status err';
+    input.value = '';
+    return;
+  }
+  status.textContent = T.processing;
+  status.className = 'pp-status';
+  try{
+    const fd = new FormData(); fd.append('photo', file);
+    const r = await fetch('/order/'+OID+'/photo', {method:'POST', body: fd});
+    const d = await r.json();
+    if(d.ok){
+      wrap.classList.add('has-photo');
+      wrap.querySelector('.pp-title').textContent = T.photo_done;
+      const sub = wrap.querySelector('.pp-sub'); if(sub) sub.remove();
+      wrap.querySelector('.pp-btn').textContent = T.photo_replace;
+      status.textContent = '';
+    } else {
+      status.textContent = T.err_network;
+      status.className = 'pp-status err';
+      input.value = '';
+    }
+  } catch(e){
+    status.textContent = T.err_network;
+    status.className = 'pp-status err';
+    input.value = '';
+  }
+}
+
+// Polling with simple backoff
+let polling = false, timer = null, pollAgeMs = 0, lastStatus = '';
+function nextDelay(){
+  if (pollAgeMs < 60000) return 3000;
+  if (pollAgeMs < 180000) return 6000;
+  return 10000;
+}
+async function poll(){
+  if(!polling) return;
+  try{
+    const r = await fetch('/order/'+OID+'/status');
+    if(r.ok){
+      const d = await r.json();
+      if(d.status !== lastStatus){ pollAgeMs = 0; lastStatus = d.status; }
+      render(d);
+    }
+  }catch(e){}
+  if(polling){
+    const dly = nextDelay();
+    pollAgeMs += dly;
+    timer = setTimeout(poll, dly);
+  }
+}
+function start(){
+  polling = true; pollAgeMs = 0; lastStatus = '';
+  if(timer){ clearTimeout(timer); timer = null; }
+  poll();
+}
+start();
+window.addEventListener('beforeunload', function(){ polling = false; if(timer) clearTimeout(timer); });
+</script>
+</body>
+</html>

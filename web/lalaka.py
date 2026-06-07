@@ -1,0 +1,584 @@
+"""
+Lalaka — international sibling of skazik.app.
+
+Routes live behind a host-routing middleware in web/app.py that rewrites
+lalaka.ai/<path> → /_lalaka/<path>. Skazik routes are not affected.
+
+Phase 1 ends with: landing → create → preview → pay (ЮKassa) → generate → done.
+ЮKassa charges RUB; we display local-currency prices via web/lalaka_pricing.
+FastSpring will replace ЮKassa in a future phase.
+"""
+from __future__ import annotations
+
+import asyncio
+import base64
+import json
+import logging
+import os
+import re
+import uuid
+from pathlib import Path
+from typing import Optional
+
+import aiohttp
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile, Response
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+
+from web import yookassa_client
+from web import lalaka_orders as L
+from web.lalaka_pricing import price_for, PRICES
+from web.format import format_story_html
+
+logger = logging.getLogger("lalaka")
+
+WEB_DIR = Path(__file__).parent
+LOCALES_DIR = WEB_DIR / "locales"
+UPLOAD_DIR = Path(os.environ.get("MEDIA_DIR", "./media")) / "_lalaka_uploads"
+
+PUBLIC_BASE = "https://lalaka.ai"
+
+SUPPORTED_LOCALES = ["en","de","es","fr","it","pl","pt-BR","tr","ja","ko","ar","ru","uk"]
+DEFAULT_LOCALE = "en"
+RTL_LOCALES = {"ar"}
+
+COUNTRY_TO_LOCALE = {
+    "DE": "de", "AT": "de", "CH": "de",
+    "ES": "es", "MX": "es", "AR": "es", "CO": "es", "CL": "es", "PE": "es",
+    "FR": "fr", "BE": "fr",
+    "IT": "it",
+    "PL": "pl",
+    "BR": "pt-BR", "PT": "pt-BR",
+    "TR": "tr",
+    "JP": "ja",
+    "KR": "ko",
+    "SA": "ar", "AE": "ar", "EG": "ar", "MA": "ar", "DZ": "ar", "IQ": "ar", "JO": "ar", "KW": "ar", "LB": "ar", "QA": "ar", "TN": "ar",
+    "RU": "ru",
+    "UA": "uk",
+}
+
+_TRANSLATIONS: dict[str, dict[str, str]] = {}
+for loc in SUPPORTED_LOCALES:
+    p = LOCALES_DIR / f"{loc}.json"
+    _TRANSLATIONS[loc] = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+
+LOCALE_NAMES = {
+    "en":"English","de":"Deutsch","es":"Español","fr":"Français","it":"Italiano","pl":"Polski",
+    "pt-BR":"Português (Brasil)","tr":"Türkçe","ja":"日本語","ko":"한국어","ar":"العربية",
+    "ru":"Русский","uk":"Українська",
+}
+LOCALE_FLAGS = {
+    "en":"🇬🇧","de":"🇩🇪","es":"🇪🇸","fr":"🇫🇷","it":"🇮🇹","pl":"🇵🇱","pt-BR":"🇧🇷",
+    "tr":"🇹🇷","ja":"🇯🇵","ko":"🇰🇷","ar":"🇸🇦","ru":"🇷🇺","uk":"🇺🇦",
+}
+
+
+# ── Locale detection ────────────────────────────────────────────────
+
+def _normalize_lang_tag(tag: str) -> Optional[str]:
+    if not tag:
+        return None
+    t = tag.strip().replace("_", "-")
+    for loc in SUPPORTED_LOCALES:
+        if t.lower() == loc.lower():
+            return loc
+    primary = t.split("-")[0].lower()
+    for loc in SUPPORTED_LOCALES:
+        if loc.lower() == primary or loc.lower().split("-")[0] == primary:
+            return loc
+    return None
+
+
+def _parse_accept_language(header: str) -> list[str]:
+    if not header:
+        return []
+    chosen: list[str] = []
+    for part in header.split(","):
+        token = part.split(";", 1)[0].strip()
+        loc = _normalize_lang_tag(token)
+        if loc and loc not in chosen:
+            chosen.append(loc)
+    return chosen
+
+
+def detect_locale(request: Request, explicit: str | None = None) -> str:
+    if explicit:
+        loc = _normalize_lang_tag(explicit)
+        if loc:
+            return loc
+    # URL path prefix
+    path = request.url.path
+    if path.startswith("/_lalaka"):
+        path = path[len("/_lalaka"):] or "/"
+    segments = [s for s in path.split("/") if s]
+    if segments:
+        loc = _normalize_lang_tag(segments[0])
+        if loc:
+            return loc
+    # Query
+    q = request.query_params.get("lang")
+    if q:
+        loc = _normalize_lang_tag(q)
+        if loc:
+            return loc
+    # Cookie
+    ck = request.cookies.get("lalaka_locale")
+    if ck:
+        loc = _normalize_lang_tag(ck)
+        if loc:
+            return loc
+    # Accept-Language
+    al = request.headers.get("accept-language", "")
+    for loc in _parse_accept_language(al):
+        return loc
+    # CF country
+    cc = request.headers.get("cf-ipcountry", "").upper()
+    if cc in COUNTRY_TO_LOCALE:
+        return COUNTRY_TO_LOCALE[cc]
+    return DEFAULT_LOCALE
+
+
+def t(locale: str, key: str, default: str | None = None) -> str:
+    val = _TRANSLATIONS.get(locale, {}).get(key)
+    if val:
+        return val
+    val = _TRANSLATIONS.get(DEFAULT_LOCALE, {}).get(key)
+    if val:
+        return val
+    return default if default is not None else key
+
+
+def _client_ip(request: Request) -> str:
+    return (request.headers.get("cf-connecting-ip")
+            or request.headers.get("x-real-ip")
+            or (request.client.host if request.client else "0.0.0.0"))
+
+
+def _build_context(request: Request, locale: str, extra: dict | None = None) -> dict:
+    # Path users see (e.g. "/", "/de", "/create"). The middleware in app.py
+    # rewrites the wire path to start with "/_lalaka"; strip that for canonical/hreflang.
+    canon_path = request.url.path
+    if canon_path.startswith("/_lalaka"):
+        canon_path = canon_path[len("/_lalaka"):] or "/"
+    ctx = {
+        "locale": locale,
+        "dir": "rtl" if locale in RTL_LOCALES else "ltr",
+        "t": _TRANSLATIONS.get(locale, _TRANSLATIONS[DEFAULT_LOCALE]),
+        "supported_locales": SUPPORTED_LOCALES,
+        "locale_names": LOCALE_NAMES,
+        "locale_flags": LOCALE_FLAGS,
+        "price": price_for(locale),
+        # SEO/OG helpers
+        "canonical_url": f"{PUBLIC_BASE}{canon_path}",
+        "og_image": f"{PUBLIC_BASE}/static/lalaka_demos/og_lalaka.jpg",
+        "current_year": 2026,
+        # Demo video path for current locale (relative to /static)
+        "demo_video": f"/static/lalaka_demos/{locale}.mp4",
+    }
+    if extra:
+        ctx.update(extra)
+    return ctx
+
+
+# ── Routes ──────────────────────────────────────────────────────────
+
+lalaka_router = APIRouter()
+templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
+
+
+def _set_locale_cookie(resp, locale: str):
+    resp.set_cookie("lalaka_locale", locale, max_age=365 * 86400, samesite="lax")
+    return resp
+
+
+@lalaka_router.get("/", response_class=HTMLResponse)
+async def home(request: Request, lang: str | None = None):
+    loc = detect_locale(request, explicit=lang)
+    ctx = _build_context(request, loc)
+    return _set_locale_cookie(templates.TemplateResponse(request, "lalaka/landing.html", ctx), loc)
+
+
+@lalaka_router.get("/health", response_class=JSONResponse)
+async def health():
+    return {"ok": True, "service": "lalaka", "locales": len(SUPPORTED_LOCALES)}
+
+
+@lalaka_router.get("/robots.txt", response_class=PlainTextResponse)
+async def robots_txt():
+    body = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /order/\n"
+        f"Sitemap: {PUBLIC_BASE}/sitemap.xml\n"
+    )
+    return PlainTextResponse(body)
+
+
+@lalaka_router.get("/sitemap.xml")
+async def sitemap_xml():
+    urls = [f"{PUBLIC_BASE}/"]
+    for loc in SUPPORTED_LOCALES:
+        urls.append(f"{PUBLIC_BASE}/{loc}")
+    urls.extend([f"{PUBLIC_BASE}/create", f"{PUBLIC_BASE}/privacy", f"{PUBLIC_BASE}/terms"])
+    items = []
+    for u in urls:
+        items.append(
+            f"  <url><loc>{u}</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>"
+        )
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + "\n".join(items) + "\n</urlset>\n"
+    )
+    return Response(content=body, media_type="application/xml")
+
+
+@lalaka_router.get("/favicon.ico")
+async def favicon_ico():
+    # Redirect to the Lalaka ribbon-L brand mark PNG.
+    return RedirectResponse(url="/static/lalaka_brand_32.png", status_code=301)
+
+
+@lalaka_router.get("/privacy", response_class=HTMLResponse)
+async def privacy_page(request: Request, lang: str | None = None):
+    loc = detect_locale(request, explicit=lang)
+    ctx = _build_context(request, loc, {
+        "page_title_override": f"Privacy Policy — Lalaka",
+        "legal_kind": "privacy",
+    })
+    return _set_locale_cookie(templates.TemplateResponse(request, "lalaka/legal.html", ctx), loc)
+
+
+@lalaka_router.get("/terms", response_class=HTMLResponse)
+async def terms_page(request: Request, lang: str | None = None):
+    loc = detect_locale(request, explicit=lang)
+    ctx = _build_context(request, loc, {
+        "page_title_override": f"Terms of Service — Lalaka",
+        "legal_kind": "terms",
+    })
+    return _set_locale_cookie(templates.TemplateResponse(request, "lalaka/legal.html", ctx), loc)
+
+
+@lalaka_router.get("/create", response_class=HTMLResponse)
+async def create_form(request: Request, lang: str | None = None):
+    loc = detect_locale(request, explicit=lang)
+    ctx = _build_context(request, loc)
+    return _set_locale_cookie(templates.TemplateResponse(request, "lalaka/create.html", ctx), loc)
+
+
+_EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$")
+
+
+@lalaka_router.post("/create")
+async def create_submit(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    topic: str = Form(...),
+    email: str = Form(...),
+    locale: str = Form(DEFAULT_LOCALE),
+    utm_source: str = Form(""),
+    utm_medium: str = Form(""),
+    utm_campaign: str = Form(""),
+    utm_term: str = Form(""),
+    utm_content: str = Form(""),
+    ref: str = Form(""),
+):
+    loc = _normalize_lang_tag(locale) or detect_locale(request)
+    topic = (topic or "").strip()[:2000]
+    email = (email or "").strip().lower()[:200]
+    if len(topic) < 10 or not _EMAIL_RE.match(email):
+        # Re-render with error inline isn't crucial for v1; redirect to /create.
+        return RedirectResponse(url="/create?err=1", status_code=303)
+
+    utm = {
+        "source": utm_source[:200] or None,
+        "medium": utm_medium[:200] or None,
+        "campaign": utm_campaign[:200] or None,
+        "term": utm_term[:200] or None,
+        "content": utm_content[:200] or None,
+    }
+    oid = await L.create_order(
+        locale=loc, topic=topic, email=email,
+        utm=utm,
+        referrer=(ref or request.headers.get("referer", ""))[:500] or None,
+        ip=_client_ip(request),
+        user_agent=(request.headers.get("user-agent") or "")[:500],
+    )
+    # Save price snapshot at order time (insulates from later table changes)
+    pr = price_for(loc)
+    await L.update_order(oid, currency=pr["currency"], display_amount=pr["display_amount"], amount_rub=pr["amount_rub"])
+    # Kick off free text generation in the background
+    background_tasks.add_task(_compose_lalaka, oid, topic, loc)
+    return RedirectResponse(url=f"/order/{oid}", status_code=303)
+
+
+@lalaka_router.get("/order/{oid}", response_class=HTMLResponse)
+async def order_page(request: Request, oid: str):
+    o = await L.get_order(oid)
+    if not o:
+        raise HTTPException(404)
+    loc = o.get("locale") or detect_locale(request)
+    ctx = _build_context(request, loc, {"oid": oid})
+    return _set_locale_cookie(templates.TemplateResponse(request, "lalaka/order.html", ctx), loc)
+
+
+@lalaka_router.get("/order/{oid}/status")
+async def order_status(oid: str):
+    o = await L.get_order(oid)
+    if not o:
+        raise HTTPException(404)
+    body = {
+        "status": o.get("status"),
+        "title": o.get("title"),
+        "story_text": o.get("story_text"),
+        "text_html": format_story_html(o.get("story_text") or "") if o.get("story_text") else "",
+        "photo_path": o.get("photo_path"),
+        "progress": o.get("progress"),
+        "video_url": o.get("video_url"),
+        "audio_url": o.get("audio_url"),
+        "illustrations": o.get("illustrations"),
+        "error": o.get("error"),
+        "locale": o.get("locale"),
+        "rating": o.get("rating"),
+    }
+    return JSONResponse(body)
+
+
+@lalaka_router.post("/order/{oid}/edit")
+async def order_edit(oid: str, background_tasks: BackgroundTasks, comment: str = Form(...)):
+    o = await L.get_order(oid)
+    if not o:
+        raise HTTPException(404)
+    if o.get("status") not in ("text_ready", "failed"):
+        return JSONResponse({"ok": False, "error": "wrong_status"}, status_code=400)
+    await L.update_order(oid, status="composing", progress=None)
+    background_tasks.add_task(
+        _revise_lalaka, oid, o.get("title") or "", o.get("story_text") or "",
+        (comment or "").strip()[:1000], o.get("topic") or "", o.get("locale") or DEFAULT_LOCALE,
+    )
+    return {"ok": True}
+
+
+@lalaka_router.post("/order/{oid}/rate")
+async def order_rate(oid: str, rating: int = Form(...), comment: str = Form("")):
+    o = await L.get_order(oid)
+    if not o:
+        raise HTTPException(404)
+    try:
+        rating = max(1, min(5, int(rating)))
+    except Exception:
+        return JSONResponse({"ok": False, "error": "bad_rating"}, status_code=400)
+    await L.set_order_rating(oid, rating, (comment or "").strip()[:2000] or None)
+    if rating <= 2:
+        title = (o.get("title") or "?")[:80]
+        loc = o.get("locale") or "?"
+        await _notify_admin(
+            f"🚨 Bad Lalaka rating ({rating}★) [{loc}] «{title}» — https://lalaka.ai/order/{oid}\n"
+            f"comment: {(comment or '')[:300]}"
+        )
+    return {"ok": True, "rating": rating}
+
+
+@lalaka_router.post("/order/{oid}/photo")
+async def order_photo(oid: str, photo: UploadFile = File(...)):
+    o = await L.get_order(oid)
+    if not o:
+        raise HTTPException(404)
+    # Save into per-order dir; do not overwrite once paid.
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    ext = (photo.filename or "img.jpg").split(".")[-1].lower()
+    if ext not in ("jpg", "jpeg", "png", "webp"):
+        ext = "jpg"
+    dest = UPLOAD_DIR / f"{oid}.{ext}"
+    data = await photo.read()
+    if len(data) > 10 * 1024 * 1024:
+        return JSONResponse({"ok": False, "error": "too_large"}, status_code=400)
+    dest.write_bytes(data)
+    await L.update_order(oid, photo_path=str(dest))
+    return {"ok": True}
+
+
+@lalaka_router.post("/order/{oid}/pay")
+async def order_pay(oid: str):
+    o = await L.get_order(oid)
+    if not o:
+        raise HTTPException(404)
+    if o.get("status") not in ("text_ready", "awaiting_payment"):
+        return JSONResponse({"ok": False, "error": "wrong_status"}, status_code=400)
+    pr = price_for(o.get("locale") or DEFAULT_LOCALE)
+    rub = o.get("amount_rub") or pr["amount_rub"]
+    return_url = f"{PUBLIC_BASE}/order/{oid}"
+    try:
+        resp = await yookassa_client.create_payment(
+            amount_rub=rub,
+            description=f"Lalaka story #{oid}",
+            return_url=return_url,
+            metadata={"lalaka_oid": oid, "locale": o.get("locale") or "en"},
+        )
+    except Exception as e:
+        logger.error("lalaka pay create failed for %s: %s", oid, e)
+        return JSONResponse({"ok": False, "error": "payment_failed"}, status_code=500)
+    if not resp.get("id"):
+        logger.warning("lalaka pay create: bad response oid=%s resp=%s", oid, resp)
+        return JSONResponse({"ok": False, "error": "payment_failed"}, status_code=500)
+    conf = (resp.get("confirmation") or {}).get("confirmation_url")
+    await L.update_order(oid, status="awaiting_payment", payment_id=resp["id"])
+    return {"ok": True, "confirmation_url": conf}
+
+
+@lalaka_router.post("/yookassa/webhook/lalaka")
+async def lalaka_webhook(request: Request, background_tasks: BackgroundTasks):
+    """ЮKassa webhook for Lalaka orders. Separate path from skazik so the two
+    flows never conflate."""
+    body = await request.json()
+    obj = (body or {}).get("object") or {}
+    md = obj.get("metadata") or {}
+    oid = md.get("lalaka_oid")
+    pid = obj.get("id")
+    if not oid or not pid:
+        return {"ok": False, "error": "no_oid"}
+    if obj.get("status") != "succeeded" or not obj.get("paid"):
+        logger.info("lalaka webhook non-paid for %s: status=%s paid=%s", oid, obj.get("status"), obj.get("paid"))
+        return {"ok": True}
+    claimed = await L.claim_for_generation(oid, pid)
+    if claimed:
+        background_tasks.add_task(_generate_lalaka, oid)
+    return {"ok": True}
+
+
+# Catch-all for locale prefixes /de, /ja, /pt-BR, etc.
+@lalaka_router.get("/{locale_path}", response_class=HTMLResponse)
+async def locale_or_fallback(request: Request, locale_path: str):
+    loc = _normalize_lang_tag(locale_path)
+    if not loc:
+        raise HTTPException(404)
+    ctx = _build_context(request, loc)
+    return _set_locale_cookie(templates.TemplateResponse(request, "lalaka/landing.html", ctx), loc)
+
+
+# Legacy /waitlist endpoint kept so prior email captures still flow.
+@lalaka_router.post("/waitlist", response_class=JSONResponse)
+async def waitlist(request: Request, email: str = Form(...), locale: str = Form(DEFAULT_LOCALE)):
+    email = (email or "").strip().lower()[:200]
+    if not _EMAIL_RE.match(email):
+        return JSONResponse({"ok": False, "error": "invalid_email"}, status_code=400)
+    loc = _normalize_lang_tag(locale) or DEFAULT_LOCALE
+    try:
+        import db.database as _dbmod
+        pool = getattr(_dbmod, "_pool", None)
+    except Exception:
+        pool = None
+    saved = False
+    if pool is not None:
+        try:
+            async with pool.acquire() as conn:
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS lalaka_waitlist (
+                        id BIGSERIAL PRIMARY KEY, email TEXT NOT NULL, locale TEXT NOT NULL,
+                        ip TEXT, ua TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        UNIQUE(email))""")
+                ip = _client_ip(request)
+                ua = (request.headers.get("user-agent") or "")[:500]
+                await conn.execute(
+                    "INSERT INTO lalaka_waitlist (email, locale, ip, ua) VALUES ($1,$2,$3,$4) "
+                    "ON CONFLICT (email) DO UPDATE SET locale = EXCLUDED.locale",
+                    email, loc, ip, ua)
+                saved = True
+        except Exception:
+            saved = False
+    return JSONResponse({"ok": True, "saved": saved, "locale": loc})
+
+
+# ── Background workers ──────────────────────────────────────────────
+
+async def _compose_lalaka(oid: str, topic: str, locale: str):
+    """Generate the free text preview. Mirrors skazik _compose but uses lalaka_orders + locale."""
+    from engine.llm_client import generate_story_text
+    try:
+        res = await generate_story_text(topic, locale=locale)
+        await L.update_order(oid, status="text_ready", title=res["title"], story_text=res["text"])
+        logger.info("lalaka order %s [%s]: text ready '%s'", oid, locale, res["title"])
+        # Optional admin ping
+        await _notify_admin(f"📝 Lalaka text ready [{locale}]: «{res['title']}»\nhttps://lalaka.ai/order/{oid}")
+    except Exception as e:
+        logger.error("lalaka compose %s failed: %s", oid, e, exc_info=True)
+        await L.update_order(oid, status="failed", error=str(e)[:500])
+        await _notify_admin(f"⚠️ Lalaka text failed [{locale}] {oid}: {str(e)[:200]}")
+
+
+async def _revise_lalaka(oid: str, prev_title: str, prev_text: str,
+                         instruction: str, original_topic: str, locale: str):
+    from engine.llm_client import revise_story_text
+    try:
+        res = await revise_story_text(prev_title, prev_text, instruction, original_topic, locale=locale)
+        await L.update_order(oid, status="text_ready", title=res["title"], story_text=res["text"])
+        logger.info("lalaka order %s revised: '%s'", oid, res["title"])
+    except Exception as e:
+        logger.error("lalaka revise %s failed: %s", oid, e, exc_info=True)
+        await L.update_order(oid, status="failed", error=str(e)[:500])
+
+
+async def _generate_lalaka(oid: str):
+    """Run TTS + illustrations + video. Mirrors skazik _generate but uses lalaka_orders + locale."""
+    o = await L.get_order(oid)
+    if not o:
+        return
+    locale = o.get("locale") or DEFAULT_LOCALE
+    try:
+        from engine.llm_client import convert_to_screenplay
+        from engine.pipeline import generate_fairytale
+
+        photos: list[str] = []
+        if o.get("photo_path") and Path(o["photo_path"]).exists():
+            photos = [base64.b64encode(Path(o["photo_path"]).read_bytes()).decode()]
+
+        async def on_status(msg: str):
+            await L.update_order(oid, progress=msg)
+
+        screenplay = await convert_to_screenplay(o["title"], o["story_text"], locale=locale)
+        result = await generate_fairytale(
+            context=o["topic"], screenplay=screenplay,
+            reference_photo_b64=(photos[0] if photos else None),
+            reference_photos=photos,
+            tempo=1.15, style="painted",
+            locale=locale,
+            on_status=on_status,
+        )
+        mid = result.get("order_id")
+        def url(p):
+            p = str(p).replace("/app/", "/")
+            if not p.startswith("/"):
+                p = "/" + p
+            return p
+        illus = [url(p) for p in result.get("illustrations", []) if p]
+        await L.update_order(
+            oid, status="done", media_order_id=mid, error=None,
+            video_url=(f"/media/{mid}/fairytale.mp4" if result.get("video_path") else None),
+            audio_url=(url(result["file_path"]) if result.get("file_path") else None),
+            illustrations=illus)
+        logger.info("lalaka order %s: generation done '%s'", oid, result.get("title"))
+        await _notify_admin(f"✅ Lalaka story DONE [{locale}] «{result.get('title')}»\nhttps://lalaka.ai/order/{oid}")
+    except Exception as e:
+        logger.error("lalaka generate %s failed: %s", oid, e, exc_info=True)
+        await L.update_order(oid, status="failed", error=str(e)[:500])
+        await _notify_admin(f"⚠️ Lalaka gen failed [{locale}] {oid}: {str(e)[:200]}")
+
+
+async def _notify_admin(text: str):
+    token = os.environ.get("BOT_TOKEN", "")
+    admins = os.environ.get("ADMIN_IDS", "")
+    if not token or not admins:
+        return
+    async with aiohttp.ClientSession() as s:
+        for aid in admins.split(","):
+            aid = aid.strip()
+            if not aid:
+                continue
+            try:
+                await s.post(
+                    f"https://api.telegram.org/bot{token}/sendMessage",
+                    json={"chat_id": aid, "text": text, "disable_web_page_preview": True},
+                    timeout=aiohttp.ClientTimeout(total=10),
+                )
+            except Exception:
+                pass

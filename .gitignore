@@ -32,3 +32,17 @@ child_photo.png
 test_fs.py
 test_photo.jpg
 photo_*.jpg
+
+# Lalaka logo R&D — 30 rejected concepts, ~9MB. Keep the winner only.
+web/static/lalaka_logo_options/
+web/static/lalaka_logo_symbol_square.png
+
+# Old short-lived favicon variant (superseded by lalaka_brand_*)
+web/static/favicon_lalaka.svg
+web/static/favicon_lalaka_*.png
+
+# Sound assets staging area (not used)
+assets/ambient_sounds_new/
+
+# Personal docs not part of repo
+*.pdf

@@ -30,6 +30,7 @@ async def generate_fairytale(
     story_id: int | None = None,
     tempo: float = 1.0,
     style: str | None = None,
+    locale: str | None = None,
 ) -> dict:
     """Generate a complete fairy tale: MP3 audio + illustrations.
 
@@ -74,16 +75,65 @@ async def generate_fairytale(
         voice_map: dict[str, VoiceProfile] = {}
         assigned: dict[str, str] = {}
 
+        # For non-Russian locales, draw from the ElevenLabs-fetched intl pool
+        # filtered by language. Skazik path (locale None/ru) stays exactly as before.
+        intl_voices = None
+        if locale and locale != "ru":
+            try:
+                from engine.voice_pool_intl import get_voices_for_locale
+                intl_voices = await get_voices_for_locale(locale)
+                logger.info("Lalaka voice pool for %s: %d voices", locale, len(intl_voices))
+            except Exception as e:
+                logger.warning("intl voice pool unavailable for %s: %s — falling back to skazik pool", locale, e)
+                intl_voices = None
+
+        def _intl_pick(char):
+            """Round-robin pick from the locale-filtered intl pool, gender-aware.
+            For narrator role, prefer the curated native voice if available."""
+            target_gender = char.get("gender", "female")
+            target_age = char.get("age", "middle")
+            role = char.get("role", "narrator")
+            used = set(assigned.values())
+            # For the narrator, strongly prefer the curated native voice
+            from engine.voice_pool_intl import CURATED_NARRATORS
+            if role == "narrator" and locale in CURATED_NARRATORS:
+                curated_id = CURATED_NARRATORS[locale]
+                for v in intl_voices:
+                    if v.voice_id == curated_id:
+                        return v
+            # Score: gender match > age match > unused > v3-verified, curated bonus
+            def score(v):
+                s = 0
+                if v.voice_id in used: s -= 1000
+                if v.voice_id == CURATED_NARRATORS.get(locale): s += 100
+                if v.gender == target_gender: s += 50
+                if v.age_group == target_age: s += 20
+                if v.is_v3_verified: s += 10
+                return s
+            candidates = sorted(intl_voices, key=score, reverse=True)
+            return candidates[0] if candidates else None
+
         for char in screenplay["characters"]:
-            voice = await pick_voice(
-                gender=char.get("gender", "female"),
-                age=char.get("age", "middle"),
-                role=char.get("role", "narrator"),
-                already_used=assigned,
-            )
+            v_intl = _intl_pick(char) if intl_voices else None
+            if v_intl is not None:
+                # Wrap into a VoiceProfile-shaped object the rest of the loop expects.
+                from engine.voice_pool import VoiceProfile as _VP
+                voice = _VP(
+                    voice_id=v_intl.voice_id, name=v_intl.name,
+                    gender=v_intl.gender, age_group=v_intl.age_group, tone=v_intl.tone,
+                    best_for=("narrator","hero","wise"),
+                    priority=1.3 if v_intl.is_v3_verified else 1.0,
+                )
+            else:
+                voice = await pick_voice(
+                    gender=char.get("gender", "female"),
+                    age=char.get("age", "middle"),
+                    role=char.get("role", "narrator"),
+                    already_used=assigned,
+                )
             voice_map[char["id"]] = voice
             assigned[char["id"]] = voice.voice_id
-            logger.info("Cast: %s -> %s (%s)", char["name"], voice.name, voice.voice_id)
+            logger.info("Cast [%s]: %s -> %s (%s)", locale or "ru", char["name"], voice.name, voice.voice_id)
 
             # Log to DB
             if story_id:
@@ -240,6 +290,7 @@ async def generate_fairytale(
                     story_id=story_id,
                     timeline_text=timeline_text,
                     style=style,
+                    locale=locale,
                 ),
                 timeout=600,  # 10 min
             )

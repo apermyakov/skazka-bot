@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}" dir="{{ dir }}">
+<head>
+{% set page_title = page_title_override %}
+{% set page_description = "Lalaka legal documents" %}
+{% include "lalaka/_head_meta.html" %}
+<meta name="robots" content="noindex,nofollow">
+{% include "lalaka/_base_styles.html" %}
+<style>
+  main{padding:18px 0 80px;max-width:720px}
+  h1{font-size:clamp(26px,4vw,34px);margin:14px 0 14px;letter-spacing:-0.02em}
+  h2{font-size:18px;margin:22px 0 8px;color:var(--ink)}
+  p{margin:0 0 12px;color:var(--ink);font-size:15px;line-height:1.65}
+  .lead{color:var(--muted);font-size:14px;margin-bottom:22px}
+  ul{padding-inline-start:22px;margin:0 0 12px}
+  li{font-size:15px;line-height:1.65;margin:4px 0}
+  .note{background:var(--soft);border-radius:10px;padding:12px 14px;color:var(--muted);font-size:13px;margin:18px 0}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="brand" href="/" aria-label="Lalaka"><span class="mark" aria-hidden="true"></span>Lalaka<span class="dot">.</span></a>
+    {% include "lalaka/_lang_picker.html" %}
+  </header>
+
+  <main>
+    {% if legal_kind == "privacy" %}
+      <h1>Privacy Policy</h1>
+      <p class="lead">Effective {{ current_year }}-06-07 · Available in English only at launch.</p>
+
+      <h2>What we collect</h2>
+      <ul>
+        <li><b>Email address</b> — to send you the generated story.</li>
+        <li><b>Story topic and child's name</b> — only as input to the AI for generation.</li>
+        <li><b>Photo of your child</b> (optional) — used to make the hero look like your child in the illustrations.</li>
+        <li><b>Payment metadata</b> — handled by our payment processor (YooKassa / FastSpring). We do not store card numbers.</li>
+        <li><b>Anonymous analytics</b> — Cloudflare anonymised request logs.</li>
+      </ul>
+
+      <h2>How we use your data</h2>
+      <ul>
+        <li>To generate the personalised story you requested.</li>
+        <li>To deliver the finished video and audio to you by email.</li>
+        <li>To respond to support requests.</li>
+        <li>To improve our service in aggregate, anonymised form.</li>
+      </ul>
+
+      <h2>Photos of children</h2>
+      <p>Photos are used <b>only</b> for the character reference in your story's illustrations. We do not publish them, share them, or use them to train other AI models. You can request deletion at any time by emailing us.</p>
+
+      <h2>Data retention</h2>
+      <p>Your story files (audio, video, illustrations) are stored for 12 months so you can re-download them. After that, files are deleted. Account email is kept for the same period unless you request earlier deletion.</p>
+
+      <h2>Your rights</h2>
+      <ul>
+        <li>Request a copy of your data.</li>
+        <li>Request correction or deletion of your data.</li>
+        <li>Withdraw consent at any time.</li>
+        <li>Contact a supervisory authority (in your country) if you believe your rights have been violated.</li>
+      </ul>
+
+      <h2>Contact</h2>
+      <p>For any privacy questions, email <a href="mailto:hello@lalaka.ai">hello@lalaka.ai</a>.</p>
+
+      <div class="note">Lalaka is operated by «СААС» LLC (Russia). EU/US users are protected under standard GDPR/CCPA principles; we process data only as needed for the service.</div>
+
+    {% else %}
+      <h1>Terms of Service</h1>
+      <p class="lead">Effective {{ current_year }}-06-07 · Available in English only at launch.</p>
+
+      <h2>What Lalaka does</h2>
+      <p>Lalaka generates a personalised audio fairy tale from your input (topic, child's name, age, optional photo). The output is a short audio file with illustrations and a video. The service is provided "as is" — we make our best effort to produce a quality result but cannot guarantee specific creative outcomes.</p>
+
+      <h2>Pricing and refunds</h2>
+      <p>You see the price before paying. If you are not happy with the result, contact us within 7 days at <a href="mailto:hello@lalaka.ai">hello@lalaka.ai</a> and we will either rewrite the story for free or refund the payment, our choice.</p>
+
+      <h2>Content rules</h2>
+      <p>You may not request content that is illegal, sexual, hateful, or describes real harm to real people. We may decline to generate stories that violate these rules. If we decline after payment, we will refund.</p>
+
+      <h2>Intellectual property</h2>
+      <p>You own the personalised story we generate for you. You may use it for personal and family enjoyment, share it with friends and relatives, and include it in family albums. You may not resell it or use it commercially without our written permission.</p>
+
+      <h2>Photo of your child</h2>
+      <p>By uploading a photo, you confirm you are the parent or legal guardian and consent to its use solely for character illustration in your story (see Privacy Policy).</p>
+
+      <h2>Service availability</h2>
+      <p>We do our best to keep Lalaka running. Occasional downtime may occur for maintenance. We are not liable for losses caused by interruptions to the service.</p>
+
+      <h2>Changes to these terms</h2>
+      <p>We may update these terms; we will display the new effective date at the top of this page. Continued use of Lalaka after a change means you accept the new terms.</p>
+
+      <h2>Contact</h2>
+      <p>For support or terms questions, email <a href="mailto:hello@lalaka.ai">hello@lalaka.ai</a>.</p>
+    {% endif %}
+
+    <p class="note">By using Lalaka you agree to the <a href="/terms">Terms of Service</a> and acknowledge the <a href="/privacy">Privacy Policy</a>.</p>
+  </main>
+
+  <footer>© {{ current_year }} Lalaka · {{ t.footer_rights }} · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></footer>
+</div>
+</body>
+</html>

@@ -119,6 +119,12 @@ async def lifespan(app: FastAPI):
     cfg.set_pool(db_mod._pool)
     await cfg.seed_defaults()
     await init_orders()
+    # Lalaka — separate orders table, additive only; skazik schema untouched.
+    try:
+        from web.lalaka_orders import init_lalaka_orders
+        await init_lalaka_orders()
+    except Exception as e:
+        logger.warning("lalaka init failed: %s", e)
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     # Email outbox: persistent queue + background worker
     try:
@@ -168,6 +174,33 @@ async def _noindex_uploads(request: Request, call_next):
     if p.startswith("/media/_web_uploads/"):
         resp.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive, noimageindex"
     return resp
+
+
+_LALAKA_HOSTS = {"lalaka.ai", "www.lalaka.ai"}
+_LALAKA_SHARED_PREFIXES = ("/static/", "/media/", "/_lalaka")
+
+
+@app.middleware("http")
+async def _lalaka_host_router(request: Request, call_next):
+    """
+    Route lalaka.ai/<path> → /_lalaka/<path> so skazik routes stay untouched.
+    Shared static assets pass through unchanged.
+    """
+    host = (request.headers.get("host") or "").split(":")[0].lower()
+    if host in _LALAKA_HOSTS:
+        path = request.scope.get("path", "/") or "/"
+        if not path.startswith(_LALAKA_SHARED_PREFIXES):
+            request.scope["path"] = "/_lalaka" + path
+            # raw_path is bytes; mirror the rewrite so downstream matches.
+            if "raw_path" in request.scope and request.scope["raw_path"]:
+                request.scope["raw_path"] = b"/_lalaka" + request.scope["raw_path"]
+    return await call_next(request)
+
+
+from web.lalaka import lalaka_router  # noqa: E402 — defined after app to avoid circular import
+app.include_router(lalaka_router, prefix="/_lalaka")
+
+
 templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
 templates.env.globals["metrika"] = METRIKA
 
