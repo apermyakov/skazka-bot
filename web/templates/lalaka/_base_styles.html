@@ -17,26 +17,24 @@
   }
   .wrap{max-width:780px;margin:0 auto;padding:0 22px}
   header{display:flex;align-items:center;justify-content:space-between;padding:22px 0;gap:14px;flex-wrap:wrap}
-  .brand{font-weight:800;font-size:22px;letter-spacing:-0.02em;color:var(--ink);text-decoration:none;
-    /* Force LTR for brand name regardless of page direction (so Arabic doesn't show ".Lalaka") */
-    direction:ltr;unicode-bidi:isolate;display:inline-flex;align-items:center}
-  .brand .mark{display:inline-block;width:30px;height:30px;flex:0 0 auto;margin-inline-end:8px;
-    background-repeat:no-repeat;background-position:center;background-size:contain;
-    background-image:url('/static/lalaka_brand_transparent.png')}
-  .brand .dot{color:var(--accent)}
+  /* Brand wordmark — image-based (g02 from OpenAI GPT-5 Image, soft purple Lalaka + pink heart) */
+  .brand{display:inline-block;text-decoration:none;line-height:0;
+    direction:ltr;unicode-bidi:isolate}
+  .brand img{display:block;height:34px;width:auto}
+  @media(max-width:480px){ .brand img{height:30px} }
   a{color:var(--accent)}
-  /* Language picker */
-  .lang-pick{position:relative}
+  /* Language picker (footer-mounted: dropdown opens upward) */
+  .lang-pick{position:relative;display:inline-block}
   .lang-btn{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1.5px solid var(--line);
-    color:var(--ink);border-radius:999px;padding:7px 14px;font:inherit;font-weight:600;font-size:14px;cursor:pointer;
+    color:var(--ink);border-radius:999px;padding:7px 14px;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;
     box-shadow:0 2px 8px rgba(43,35,80,.05)}
-  .lang-btn:hover{background:var(--soft)}
-  .lang-menu{position:absolute;top:calc(100% + 6px);inset-inline-end:0;background:#fff;border-radius:14px;
+  .lang-btn:hover{background:var(--soft);border-color:var(--accent)}
+  .lang-menu{position:absolute;bottom:calc(100% + 6px);inset-inline-start:0;background:#fff;border-radius:14px;
     box-shadow:0 12px 40px rgba(43,35,80,.18);padding:6px;display:none;min-width:220px;z-index:50;
     max-height:60vh;overflow-y:auto}
   .lang-menu.open{display:block}
   .lang-menu a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;
-    color:var(--ink);text-decoration:none;font-size:14.5px;font-weight:500}
+    color:var(--ink);text-decoration:none;font-size:14.5px;font-weight:500;text-align:start}
   .lang-menu a:hover{background:var(--soft)}
   .lang-menu a.active{background:var(--soft);font-weight:700;color:var(--accent)}
   .lang-menu a .flag{font-size:18px;line-height:1}
@@ -56,10 +54,17 @@
   .hint.warn{color:#c7800f}
   .hint.err{color:#c0392b;font-weight:600}
   .invalid{border-color:#e8a2a2 !important}
-  footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 0}
-  /* Keep mixed-script footer (© / year / Lalaka / lang / links) in stable LTR order */
-  footer{direction:ltr;unicode-bidi:isolate}
-  [dir="rtl"] footer{text-align:center}
+  footer{color:var(--muted);font-size:12.5px;padding:30px 0;
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;
+    border-top:1px solid var(--line);margin-top:30px}
+  footer .ftr-text{direction:ltr;unicode-bidi:isolate;text-align:start;flex:1 1 auto;min-width:0}
+  footer a{color:var(--muted);text-decoration:none}
+  footer a:hover{color:var(--accent)}
+  [dir="rtl"] footer .ftr-text{text-align:end}
+  @media(max-width:540px){
+    footer{justify-content:center;text-align:center;flex-direction:column-reverse;gap:12px}
+    footer .ftr-text{text-align:center}
+  }
   /* Counter "0 / 2000" stays LTR even on RTL pages so digits don't flip */
   .counter{direction:ltr;unicode-bidi:isolate}
   /* Spinner */

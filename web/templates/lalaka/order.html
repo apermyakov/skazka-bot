@@ -77,8 +77,7 @@
 <body>
 <div class="wrap">
   <header>
-    <a class="brand" href="/" aria-label="Lalaka"><span class="mark" aria-hidden="true"></span>Lalaka<span class="dot">.</span></a>
-    {% include "lalaka/_lang_picker.html" %}
+    <a class="brand" href="/" aria-label="Lalaka"><img src="/static/lalaka_wordmark_transparent.png" alt="Lalaka" width="220" height="98"></a>
   </header>
 
   <main>
@@ -90,7 +89,10 @@
     <button class="btn btn-block" id="stickybtn" type="button"></button>
   </div>
 
-  <footer>© {{ current_year }} Lalaka · {{ t.footer_rights }} · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></footer>
+  <footer>
+    {% include "lalaka/_lang_picker.html" %}
+    <div class="ftr-text">© {{ current_year }} Lalaka · {{ t.footer_rights }} · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></div>
+  </footer>
 </div>
 
 <script>

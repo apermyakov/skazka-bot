@@ -235,8 +235,8 @@ async def sitemap_xml():
 
 @lalaka_router.get("/favicon.ico")
 async def favicon_ico():
-    # Redirect to the Lalaka ribbon-L brand mark PNG.
-    return RedirectResponse(url="/static/lalaka_brand_32.png", status_code=301)
+    # Redirect to the Lalaka L-with-heart app-icon.
+    return RedirectResponse(url="/static/lalaka_favicon_32.png", status_code=301)
 
 
 @lalaka_router.get("/privacy", response_class=HTMLResponse)

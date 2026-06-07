@@ -77,21 +77,6 @@
 <div class="wrap">
   <header>
     <a class="brand" href="/">Lalaka<span class="dot">.</span></a>
-    <div class="lang-pick">
-      <button class="lang-btn" id="langbtn" type="button" aria-haspopup="true" aria-expanded="false">
-        <span class="flag">{{ locale_flags[locale] }}</span>
-        <span>{{ locale_names[locale] }}</span>
-        <span aria-hidden="true">▾</span>
-      </button>
-      <div class="lang-menu" id="langmenu" role="menu">
-        {% for loc in supported_locales %}
-        <a href="/?lang={{ loc }}" class="{% if loc == locale %}active{% endif %}" role="menuitem" data-loc="{{ loc }}">
-          <span class="flag">{{ locale_flags[loc] }}</span>
-          <span>{{ locale_names[loc] }}</span>
-        </a>
-        {% endfor %}
-      </div>
-    </div>
   </header>
 
   <main>
@@ -113,7 +98,10 @@
     </div>
   </main>
 
-  <footer>© {{ 2026 }} Lalaka · {{ t.footer_rights }}</footer>
+  <footer>
+    {% include "lalaka/_lang_picker.html" %}
+    <div class="ftr-text">© {{ 2026 }} Lalaka · {{ t.footer_rights }}</div>
+  </footer>
 </div>
 
 <script>
