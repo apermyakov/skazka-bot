@@ -180,13 +180,21 @@
     <section>
       <h2>{{ t.gallery_h2 }}</h2>
       <p class="section-lead">{{ t.gallery_sub }}</p>
+      <div class="compare">
+        <figure>
+          <img src="/static/lalaka_examples/{{ locale }}_photo.png" alt="" loading="lazy">
+          <figcaption>{{ t.gallery_photo_label }}</figcaption>
+        </figure>
+        <div class="arrow" aria-hidden="true">→</div>
+        <figure>
+          <img src="/static/lalaka_examples/{{ locale }}_hero.png" alt="" loading="lazy">
+          <figcaption>{{ t.gallery_hero_label }}</figcaption>
+        </figure>
+      </div>
       <div class="gallery">
         <figure><img src="/static/lalaka_examples/scene_bedtime.png" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_1 }}</figcaption></figure>
         <figure><img src="/static/lalaka_examples/scene_star.png" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_2 }}</figcaption></figure>
         <figure><img src="/static/lalaka_examples/scene_dreaming.png" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_3 }}</figcaption></figure>
-        <figure><img src="/static/lalaka_examples/scene_bavarian.png" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_4 }}</figcaption></figure>
-        <figure><img src="/static/lalaka_examples/scene_tatami.png" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_4 }}</figcaption></figure>
-        <figure><img src="/static/lalaka_examples/scene_mashrabiya.png" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_4 }}</figcaption></figure>
       </div>
     </section>
 

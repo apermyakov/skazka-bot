@@ -67,6 +67,21 @@
   }
   /* Counter "0 / 2000" stays LTR even on RTL pages so digits don't flip */
   .counter{direction:ltr;unicode-bidi:isolate}
+  /* Photo→hero comparison block */
+  .compare{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;
+    background:#fff;border-radius:18px;padding:18px;box-shadow:0 10px 30px rgba(43,35,80,.07);
+    margin:0 0 14px}
+  .compare figure{margin:0;flex:1 1 220px;max-width:300px}
+  .compare img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:14px;display:block;background:var(--soft)}
+  .compare figcaption{margin-top:8px;text-align:center;color:var(--muted);font-size:13px;font-weight:600}
+  .compare .arrow{flex:0 0 auto;font-size:34px;color:var(--accent);font-weight:800;line-height:1;
+    transform:none}
+  [dir="rtl"] .compare .arrow{transform:scaleX(-1)}
+  @media(max-width:560px){
+    .compare{flex-direction:column}
+    .compare .arrow{transform:rotate(90deg);font-size:28px}
+    [dir="rtl"] .compare .arrow{transform:rotate(90deg) scaleX(-1)}
+  }
   /* Spinner */
   .spin{display:inline-block;width:18px;height:18px;border:2px solid #cdc1ee;border-top-color:var(--accent);
     border-radius:50%;animation:sp .9s linear infinite;vertical-align:-3px;margin-inline-end:8px}
