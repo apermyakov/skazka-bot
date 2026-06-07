@@ -51,6 +51,44 @@
   .cta-bottom{margin-top:22px;text-align:center}
   .cta-bottom .btn{text-decoration:none;display:inline-block;padding:16px 32px}
 
+  /* Testimonials carousel */
+  .t-carousel{position:relative}
+  .t-track{display:grid;grid-auto-flow:column;grid-auto-columns:84%;gap:14px;
+    overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
+    scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:8px}
+  .t-track::-webkit-scrollbar{display:none}
+  @media(min-width:680px){ .t-track{grid-auto-columns:46%} }
+  @media(min-width:980px){ .t-track{grid-auto-columns:31%} }
+  .tcard{background:#fff;border-radius:14px;padding:18px 18px 16px;
+    box-shadow:0 6px 20px rgba(43,35,80,.07);scroll-snap-align:start;
+    display:flex;flex-direction:column;gap:8px}
+  .tstars{color:#ffc857;font-size:15px;letter-spacing:1px;line-height:1}
+  .tcard p{margin:0;color:var(--ink);font-size:14.5px;line-height:1.55}
+  .tcard p em{color:var(--accent);font-style:italic;font-weight:600}
+  .twho{margin-top:auto;color:var(--muted);font-size:13px;font-weight:600}
+  .twho b{color:var(--ink);font-weight:700}
+
+  /* Illustration gallery */
+  .gallery{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  @media(min-width:680px){ .gallery{grid-template-columns:repeat(3,1fr)} }
+  .gallery figure{margin:0;background:#fff;border-radius:14px;overflow:hidden;
+    box-shadow:0 6px 20px rgba(43,35,80,.06)}
+  .gallery img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:var(--soft)}
+  .gallery figcaption{padding:10px 14px;color:var(--muted);font-size:13px;font-weight:600;line-height:1.3}
+
+  /* Guarantee dedicated card */
+  .guarantee-card{display:flex;align-items:flex-start;gap:18px;background:#fff;
+    border-radius:18px;padding:22px;box-shadow:0 10px 30px rgba(43,35,80,.07);flex-wrap:wrap;
+    border:2px solid #c9eada}
+  .gc-seal{flex:0 0 auto;width:84px;height:84px;border-radius:50%;
+    background:#eef9f1;color:#1f6f3c;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center}
+  .gc-seal span{font-size:10px;font-weight:800;letter-spacing:.06em;margin-top:2px}
+  .gc-body{flex:1 1 240px}
+  .gc-title{font-weight:800;font-size:17px;color:var(--ink);margin-bottom:6px}
+  .gc-text{font-size:14.5px;color:var(--ink);line-height:1.55;margin-bottom:8px}
+  .gc-small{font-size:12.5px;color:var(--muted);line-height:1.5}
+
   /* FAQ accordion */
   .faq{display:flex;flex-direction:column;gap:8px}
   .faq details{background:#fff;border-radius:12px;padding:0;box-shadow:0 4px 14px rgba(43,35,80,.06);
@@ -124,6 +162,35 @@
     </section>
 
     <section>
+      <h2>{{ t.testimonials_h2 }}</h2>
+      <div class="t-carousel">
+        <div class="t-track">
+          <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t1_text }}</p><div class="twho">{{ t.t1_who }}</div></div>
+          <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t2_text }}</p><div class="twho">{{ t.t2_who }}</div></div>
+          <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t3_text }}</p><div class="twho">{{ t.t3_who }}</div></div>
+          <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t4_text }}</p><div class="twho">{{ t.t4_who }}</div></div>
+          <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t5_text }}</p><div class="twho">{{ t.t5_who }}</div></div>
+          <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t6_text }}</p><div class="twho">{{ t.t6_who }}</div></div>
+          <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t7_text }}</p><div class="twho">{{ t.t7_who }}</div></div>
+          <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t8_text }}</p><div class="twho">{{ t.t8_who }}</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>{{ t.gallery_h2 }}</h2>
+      <p class="section-lead">{{ t.gallery_sub }}</p>
+      <div class="gallery">
+        <figure><img src="/static/lalaka_examples/scene_bedtime.png" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_1 }}</figcaption></figure>
+        <figure><img src="/static/lalaka_examples/scene_star.png" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_2 }}</figcaption></figure>
+        <figure><img src="/static/lalaka_examples/scene_dreaming.png" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_3 }}</figcaption></figure>
+        <figure><img src="/static/lalaka_examples/scene_bavarian.png" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_4 }}</figcaption></figure>
+        <figure><img src="/static/lalaka_examples/scene_tatami.png" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_4 }}</figcaption></figure>
+        <figure><img src="/static/lalaka_examples/scene_mashrabiya.png" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_4 }}</figcaption></figure>
+      </div>
+    </section>
+
+    <section>
       <h2>{{ t.landing_how_h2 }}</h2>
       <div class="steps">
         <div class="step"><div class="t">{{ t.landing_step1_t }}</div><div class="d">{{ t.landing_step1_d }}</div></div>
@@ -151,6 +218,17 @@
     </section>
 
     <section>
+      <div class="guarantee-card">
+        <div class="gc-seal">🛡️<br><span>{{ t.guar_seal }}</span></div>
+        <div class="gc-body">
+          <div class="gc-title">{{ t.guar_title }}</div>
+          <div class="gc-text">{{ t.guar_body | safe }}</div>
+          <div class="gc-small">{{ t.guar_small }}</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
       <h2>{{ t.faq_h2 }}</h2>
       <div class="faq">
         <details><summary>{{ t.faq_q1 }}</summary><p>{{ t.faq_a1 | safe }}</p></details>
@@ -158,6 +236,9 @@
         <details><summary>{{ t.faq_q3 }}</summary><p>{{ t.faq_a3 | safe }}</p></details>
         <details><summary>{{ t.faq_q4 }}</summary><p>{{ t.faq_a4 | safe }}</p></details>
         <details><summary>{{ t.faq_q5 }}</summary><p>{{ t.faq_a5 | safe }}</p></details>
+        <details><summary>{{ t.faq_q6 }}</summary><p>{{ t.faq_a6 | safe }}</p></details>
+        <details><summary>{{ t.faq_q7 }}</summary><p>{{ t.faq_a7 | safe }}</p></details>
+        <details><summary>{{ t.faq_q8 }}</summary><p>{{ t.faq_a8 | safe }}</p></details>
       </div>
     </section>
 
