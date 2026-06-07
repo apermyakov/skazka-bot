@@ -88,5 +88,21 @@
   "chip_garden": "🎒 Idzie do przedszkola",
   "chip_garden_full": "Bajka o Kubie, 4 lata, który po raz pierwszy idzie do przedszkola i jest niespokojny. Niech znajdzie miłych przyjaciół i odkryje, że to świetna zabawa.",
   "chip_swim": "🏊 Uczy się pływać",
-  "chip_swim_full": "Bajka o Lence, 5 lat, która uczy się pływać i boi się wody. Niech spotka podwodnego przyjaciela, który pokaże, że woda też może być przyjacielem."
+  "chip_swim_full": "Bajka o Lence, 5 lat, która uczy się pływać i boi się wody. Niech spotka podwodnego przyjaciela, który pokaże, że woda też może być przyjacielem.",
+  "trust_free_preview": "📝 Darmowy podgląd",
+  "trust_minutes": "✨ Gotowe w 5–8 minut",
+  "trust_guarantee": "🛡️ Gwarancja zwrotu pieniędzy",
+  "faq_h2": "Często zadawane pytania",
+  "faq_q1": "Co jeśli mojemu dziecku nie spodoba się efekt?",
+  "faq_a1": "Zwrócimy Ci pieniądze w ciągu 24 godzin — wystarczy napisać do nas na <a href=\"mailto:hello@lalaka.ai\">adres e-mail</a>, bez zbędnej biurokracji.",
+  "faq_q2": "Jak bezpieczne jest zdjęcie mojego dziecka?",
+  "faq_a2": "Zdjęcie służy wyłącznie do tego, aby bohater w ilustracjach wyglądał jak Twoje dziecko. Nigdy nie publikujemy zdjęć, nigdy nie udostępniamy ich osobom trzecim i nigdy nie używamy ich do trenowania modeli AI. Możesz zażądać usunięcia w dowolnym momencie.",
+  "faq_q3": "Jak długa jest historia audio?",
+  "faq_a3": "Około 5 minut profesjonalnej narracji głosowej, dostosowanej do pory snu. W sam raz na przytulny rytuał bez pośpiechu.",
+  "faq_q4": "Co jeśli chcę coś zmienić w historii?",
+  "faq_a4": "Po darmowym podglądzie możesz swobodnie edytować — skrócić, dodać postać, zmienić zakończenie. Tyle razy, ile chcesz, wszystko za darmo.",
+  "faq_q5": "Czy mogę wykorzystać efekt komercyjnie?",
+  "faq_a5": "Historia jest przeznaczona do osobistego użytku Twojej rodziny — odtwarzanie w domu, w samochodzie, na tablecie. W przypadku użytku komercyjnego prosimy o wcześniejszy kontakt mailowy.",
+  "final_cta_title": "Podaruj swojemu dziecku jego własną historię",
+  "final_cta_sub": "5 minut na stworzenie, wspomnienie na całe życie. Pisanie za darmo, płacisz tylko, jeśli Ci się spodoba."
 }

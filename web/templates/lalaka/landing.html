@@ -7,7 +7,10 @@
   main{padding:18px 0 80px}
   .hero{position:relative}
   .hero h1{font-size:clamp(28px,5vw,46px);margin:0 0 14px;line-height:1.12;font-weight:800;letter-spacing:-0.02em}
-  .hero .sub{color:var(--muted);font-size:clamp(15px,2vw,18px);margin:0 0 26px;max-width:580px}
+  .hero .sub{color:var(--muted);font-size:clamp(15px,2vw,18px);margin:0 0 20px;max-width:580px}
+  .hero-trust{display:flex;gap:6px 14px;flex-wrap:wrap;color:#4b3f7a;font-size:13.5px;font-weight:600;
+    margin:0 0 22px;align-items:center}
+  .hero-trust .sep{color:#cdc1ee}
   .cta-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:36px}
   .cta-row .btn{padding:16px 28px;font-size:18px;text-decoration:none;display:inline-block}
   .cta-row .btn .arr{display:inline-block;transition:transform .15s ease;margin-inline-start:6px}
@@ -48,10 +51,39 @@
   .cta-bottom{margin-top:22px;text-align:center}
   .cta-bottom .btn{text-decoration:none;display:inline-block;padding:16px 32px}
 
+  /* FAQ accordion */
+  .faq{display:flex;flex-direction:column;gap:8px}
+  .faq details{background:#fff;border-radius:12px;padding:0;box-shadow:0 4px 14px rgba(43,35,80,.06);
+    overflow:hidden;border:1px solid var(--line)}
+  .faq summary{padding:14px 18px;font-weight:700;color:var(--ink);cursor:pointer;list-style:none;
+    font-size:15px;display:flex;justify-content:space-between;gap:12px;align-items:center}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::after{content:'+';color:var(--accent);font-weight:800;font-size:20px;line-height:1}
+  .faq details[open] summary::after{content:'−'}
+  .faq details p{margin:0;padding:0 18px 16px;color:var(--ink);font-size:14.5px;line-height:1.6}
+
+  /* Final CTA */
+  .final-cta{background:linear-gradient(135deg,#f6e8ff 0%,#ffe7f0 100%);border-radius:22px;
+    padding:36px 24px;text-align:center;margin-top:42px}
+  .final-cta h2{margin:0 0 14px}
+  .final-cta p{color:var(--ink);font-size:15px;margin:0 0 24px;max-width:520px;margin-left:auto;margin-right:auto}
+  .final-cta .btn{text-decoration:none;display:inline-block;padding:16px 32px;font-size:18px}
+
+  /* Sticky mobile CTA */
+  .stickycta{position:fixed;left:0;right:0;bottom:0;padding:10px 14px 14px;z-index:30;
+    background:linear-gradient(to top,#fbf7ff 70%,rgba(251,247,255,0));display:none;pointer-events:none}
+  .stickycta.on{display:block}
+  .stickycta .btn{pointer-events:auto;display:block;text-align:center;text-decoration:none;
+    width:100%;max-width:540px;margin:0 auto;padding:14px;font-size:17px;
+    box-shadow:0 8px 24px rgba(124,92,255,.32)}
+  @media(min-width:681px){ .stickycta{display:none !important} }
+  body.has-stickycta{padding-bottom:96px}
+
   @media(max-width:480px){
     section{margin:32px 0}
     .price-card{padding:20px}
     .price-card .pp{font-size:32px;min-width:0}
+    .final-cta{padding:30px 20px}
   }
 </style>
 </head>
@@ -65,6 +97,13 @@
     <section class="hero">
       <h1>{{ t.headline }}</h1>
       <p class="sub">{{ t.subhead }}</p>
+      <div class="hero-trust">
+        <span>{{ t.trust_free_preview }}</span>
+        <span class="sep">·</span>
+        <span>{{ t.trust_minutes }}</span>
+        <span class="sep">·</span>
+        <span>{{ t.trust_guarantee }}</span>
+      </div>
       <div class="cta-row">
         <a class="btn" href="/create">{{ t.landing_cta }}<span class="arr" aria-hidden="true">{% if dir == 'rtl' %}←{% else %}→{% endif %}</span></a>
         <span class="price-line">{{ t.create_lead }}</span>
@@ -110,6 +149,23 @@
         <a class="btn" href="/create">{{ t.landing_cta }}<span class="arr" aria-hidden="true">{% if dir == 'rtl' %}←{% else %}→{% endif %}</span></a>
       </div>
     </section>
+
+    <section>
+      <h2>{{ t.faq_h2 }}</h2>
+      <div class="faq">
+        <details><summary>{{ t.faq_q1 }}</summary><p>{{ t.faq_a1 | safe }}</p></details>
+        <details><summary>{{ t.faq_q2 }}</summary><p>{{ t.faq_a2 | safe }}</p></details>
+        <details><summary>{{ t.faq_q3 }}</summary><p>{{ t.faq_a3 | safe }}</p></details>
+        <details><summary>{{ t.faq_q4 }}</summary><p>{{ t.faq_a4 | safe }}</p></details>
+        <details><summary>{{ t.faq_q5 }}</summary><p>{{ t.faq_a5 | safe }}</p></details>
+      </div>
+    </section>
+
+    <section class="final-cta">
+      <h2>{{ t.final_cta_title }}</h2>
+      <p>{{ t.final_cta_sub }}</p>
+      <a class="btn" href="/create">{{ t.landing_cta }}<span class="arr" aria-hidden="true" style="margin-inline-start:6px">{% if dir == 'rtl' %}←{% else %}→{% endif %}</span></a>
+    </section>
   </main>
 
   <footer>
@@ -117,5 +173,24 @@
     <div class="ftr-text">© {{ current_year }} Lalaka · {{ t.footer_rights }} · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></div>
   </footer>
 </div>
+
+<div class="stickycta" id="stickycta">
+  <a class="btn" href="/create">{{ t.landing_cta }}</a>
+</div>
+
+<script>
+  (function(){
+    const sticky = document.getElementById('stickycta');
+    const main = document.querySelector('main');
+    if(!sticky || !main || !('IntersectionObserver' in window)) return;
+    const firstCTA = main.querySelector('.cta-row .btn');
+    if(!firstCTA) return;
+    document.body.classList.add('has-stickycta');
+    const io = new IntersectionObserver(function(entries){
+      sticky.classList.toggle('on', entries[0].intersectionRatio < 0.5);
+    }, {threshold:[0, 0.5, 1]});
+    io.observe(firstCTA);
+  })();
+</script>
 </body>
 </html>

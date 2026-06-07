@@ -47,8 +47,6 @@ CURATED_NARRATORS: dict[str, str] = {
     "ja":    "3JDquces8E8bkmvbh6Bc",  # Otani (Japanese native male)
     "ko":    "uyVNoMrnUku1dZyVEXwD",  # Anna Kim (Korean native female)
     "ar":    "IES4nrmZdUBHByLBde0P",  # Haytham — Conversation (Arabic native)
-    "ru":    "rxEz5E7hIAPk7D3bXwf6",  # Anna — Calm Russian woman
-    "uk":    "ymDCYd8puC7gYjxIamPt",  # TatanaLuke (calm, verified uk)
 }
 
 

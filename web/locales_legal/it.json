@@ -1,0 +1,55 @@
+{
+  "privacy": {
+    "title": "Informativa sulla Privacy",
+    "lead": "In vigore dal 2026-06-07 · Disponibile nella tua lingua",
+    "h_collect": "Cosa raccogliamo",
+    "collect_li": [
+      "<b>Indirizzo email</b> — per inviarti la storia generata.",
+      "<b>Argomento della storia e nome del bambino</b> — solo come input per l'IA per la generazione.",
+      "<b>Foto del tuo bambino</b> (opzionale) — utilizzata per far sì che l'eroe assomigli al tuo bambino nelle illustrazioni.",
+      "<b>Metadati di pagamento</b> — gestiti dal nostro processore di pagamento (YooKassa / FastSpring). Non memorizziamo i numeri delle carte.",
+      "<b>Analisi anonime</b> — Log di richieste anonimizzati di Cloudflare."
+    ],
+    "h_use": "Come utilizziamo i tuoi dati",
+    "use_li": [
+      "Per generare la storia personalizzata che hai richiesto.",
+      "Per consegnarti il video e l'audio finiti via email.",
+      "Per rispondere alle richieste di supporto.",
+      "Per migliorare il nostro servizio in forma aggregata e anonimizzata."
+    ],
+    "h_photos": "Foto di bambini",
+    "p_photos": "Le foto vengono utilizzate <b>solo</b> come riferimento per il personaggio nelle illustrazioni della tua storia. Non le pubblichiamo, non le condividiamo e non le utilizziamo per addestrare altri modelli di IA. Puoi richiederne la cancellazione in qualsiasi momento inviandoci un'email.",
+    "h_retention": "Conservazione dei dati",
+    "p_retention": "I file della tua storia (audio, video, illustrazioni) vengono conservati per 12 mesi in modo che tu possa scaricarli nuovamente. Successivamente, i file vengono eliminati. L'email dell'account viene conservata per lo stesso periodo a meno che tu non richieda una cancellazione anticipata.",
+    "h_rights": "I tuoi diritti",
+    "rights_li": [
+      "Richiedere una copia dei tuoi dati.",
+      "Richiedere la correzione o la cancellazione dei tuoi dati.",
+      "Revocare il consenso in qualsiasi momento.",
+      "Contattare un'autorità di controllo (nel tuo paese) se ritieni che i tuoi diritti siano stati violati."
+    ],
+    "h_contact": "Contatti",
+    "p_contact": "Per qualsiasi domanda sulla privacy, invia un'email a <a href=\"mailto:hello@lalaka.ai\">hello@lalaka.ai</a>.",
+    "note": "Lalaka è gestita da «СААС» LLC (Russia). Gli utenti UE/USA sono protetti secondo i principi standard GDPR/CCPA; elaboriamo i dati solo nella misura necessaria per il servizio."
+  },
+  "terms": {
+    "title": "Termini di Servizio",
+    "lead": "In vigore dal 2026-06-07 · Disponibile nella tua lingua",
+    "h_what": "Cosa fa Lalaka",
+    "p_what": "Lalaka genera una fiaba audio personalizzata dal tuo input (argomento, nome del bambino, età, foto opzionale). L'output è un breve file audio con illustrazioni e un video. Il servizio è fornito \"così com'è\" — facciamo del nostro meglio per produrre un risultato di qualità ma non possiamo garantire esiti creativi specifici.",
+    "h_pricing": "Prezzi e rimborsi",
+    "p_pricing": "Vedi il prezzo prima di pagare. Se non sei soddisfatto del risultato, contattaci entro 7 giorni a <a href=\"mailto:hello@lalaka.ai\">hello@lalaka.ai</a> e riscriveremo la storia gratuitamente o rimborseremo il pagamento, a nostra scelta.",
+    "h_content": "Regole sui contenuti",
+    "p_content": "Non puoi richiedere contenuti illegali, sessuali, che incitano all'odio o che descrivono danni reali a persone reali. Potremmo rifiutarci di generare storie che violano queste regole. Se rifiutiamo dopo il pagamento, rimborseremo.",
+    "h_ip": "Proprietà intellettuale",
+    "p_ip": "Sei proprietario della storia personalizzata che generiamo per te. Puoi usarla per il divertimento personale e familiare, condividerla con amici e parenti e includerla negli album di famiglia. Non puoi rivenderla o usarla commercialmente senza la nostra autorizzazione scritta.",
+    "h_photo": "Foto del tuo bambino",
+    "p_photo": "Caricando una foto, confermi di essere il genitore o il tutore legale e acconsenti al suo utilizzo esclusivamente per l'illustrazione del personaggio nella tua storia (vedi Informativa sulla Privacy).",
+    "h_avail": "Disponibilità del servizio",
+    "p_avail": "Facciamo del nostro meglio per mantenere Lalaka in funzione. Occasionalmente potrebbero verificarsi interruzioni per manutenzione. Non siamo responsabili per perdite causate da interruzioni del servizio.",
+    "h_changes": "Modifiche a questi termini",
+    "p_changes": "Potremmo aggiornare questi termini; visualizzeremo la nuova data di entrata in vigore nella parte superiore di questa pagina. L'uso continuato di Lalaka dopo una modifica implica l'accettazione dei nuovi termini.",
+    "h_contact": "Contatti",
+    "p_contact": "Per supporto o domande sui termini, invia un'email a <a href=\"mailto:hello@lalaka.ai\">hello@lalaka.ai</a>."
+  }
+}

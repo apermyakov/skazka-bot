@@ -88,5 +88,21 @@
   "chip_garden": "🎒 Empieza la guardería",
   "chip_garden_full": "Un cuento sobre Diego, 4 años, que va a la guardería por primera vez y está nervioso. Que haga amigos amables y descubra que es divertido.",
   "chip_swim": "🏊 Aprende a nadar",
-  "chip_swim_full": "Un cuento sobre Emma, 5 años, que aprende a nadar y le teme al agua. Que conozca a un amigo submarino que le enseñe que el agua puede ser su amiga."
+  "chip_swim_full": "Un cuento sobre Emma, 5 años, que aprende a nadar y le teme al agua. Que conozca a un amigo submarino que le enseñe que el agua puede ser su amiga.",
+  "trust_free_preview": "📝 Vista previa gratuita",
+  "trust_minutes": "✨ Listo en 5–8 minutos",
+  "trust_guarantee": "🛡️ Garantía de devolución de dinero",
+  "faq_h2": "Preguntas frecuentes",
+  "faq_q1": "¿Qué pasa si a mi hijo no le gusta el resultado?",
+  "faq_a1": "Te reembolsaremos en 24 horas; solo escríbenos a través del <a href=\"mailto:hello@lalaka.ai\">correo electrónico de contacto</a>, sin burocracia.",
+  "faq_q2": "¿Qué tan segura es la foto de mi hijo?",
+  "faq_a2": "La foto se usa solo para que el héroe se parezca a tu hijo en las ilustraciones. Nunca publicamos fotos, nunca las compartimos con terceros y nunca las usamos para entrenar modelos de IA. Puedes solicitar su eliminación en cualquier momento.",
+  "faq_q3": "¿Cuánto dura el cuento en audio?",
+  "faq_a3": "Aproximadamente 5 minutos de narración de voz profesional, con un ritmo adecuado para la hora de dormir. Justo lo suficiente para un ritual acogedor sin prisas.",
+  "faq_q4": "¿Qué pasa si quiero cambiar algo en el cuento?",
+  "faq_a4": "Después de la vista previa gratuita, puedes reescribir libremente: acortarlo, añadir un personaje, cambiar el final. Tantas veces como quieras, todo gratis.",
+  "faq_q5": "¿Puedo usar el resultado comercialmente?",
+  "faq_a5": "El cuento es para el disfrute personal de tu familia: reproducirlo en casa, en el coche, en una tableta. Para uso comercial, por favor, envíanos un correo electrónico primero.",
+  "final_cta_title": "Dale a tu hijo su propia historia",
+  "final_cta_sub": "5 minutos para crear, un recuerdo para toda la vida. Gratis para escribir, paga solo si te encanta."
 }

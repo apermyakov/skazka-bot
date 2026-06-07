@@ -13,20 +13,20 @@ rub_amount       — what ЮKassa actually charges
 """
 
 # locale → (currency_code, display_amount_local, display_string, rub_amount)
+# Re-tiered 2026-06-07 to $19.99 equivalent — international families pay
+# premium for personalised audio storybook; RUB charge updated for ЮKassa.
 PRICES: dict[str, tuple[str, float, str, int]] = {
-    "en":    ("USD",   9.99,  "$9.99",      1000),
-    "de":    ("EUR",   9.99,  "9,99 €",     1050),
-    "es":    ("EUR",   9.99,  "9,99 €",     1050),
-    "fr":    ("EUR",   9.99,  "9,99 €",     1050),
-    "it":    ("EUR",   9.99,  "9,99 €",     1050),
-    "pl":    ("PLN",  39.00,  "39 zł",      1000),
-    "pt-BR": ("BRL",  49.00,  "R$ 49",      1000),
-    "tr":    ("TRY", 349.00,  "₺349",       1100),
-    "ja":    ("JPY", 1490,    "¥1,490",     1000),
-    "ko":    ("KRW", 13900,   "₩13,900",    1000),
-    "ar":    ("USD",   9.99,  "$9.99",      1000),  # SAR has no symbol consensus; use USD for KSA/UAE
-    "ru":    ("RUB",   599,   "599 ₽",       599),  # native — pass through
-    "uk":    ("UAH",  399,    "₴399",       1100),
+    "en":    ("USD",  19.99,  "$19.99",     2000),
+    "de":    ("EUR",  18.99,  "18,99 €",    2100),
+    "es":    ("EUR",  18.99,  "18,99 €",    2100),
+    "fr":    ("EUR",  18.99,  "18,99 €",    2100),
+    "it":    ("EUR",  18.99,  "18,99 €",    2100),
+    "pl":    ("PLN",  79.00,  "79 zł",      2000),
+    "pt-BR": ("BRL",  99.00,  "R$ 99",      2000),
+    "tr":    ("TRY", 699.00,  "₺699",       2200),
+    "ja":    ("JPY", 2990,    "¥2,990",     2000),
+    "ko":    ("KRW", 26900,   "₩26,900",    2000),
+    "ar":    ("USD",  19.99,  "$19.99",     2000),  # KSA/UAE — USD widely accepted
 }
 
 DEFAULT_LOCALE = "en"

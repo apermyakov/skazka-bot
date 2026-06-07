@@ -1,0 +1,55 @@
+{
+  "privacy": {
+    "title": "Gizlilik Politikası",
+    "lead": "Yürürlük tarihi: 2026-06-07 · Kendi dilinizde mevcut",
+    "h_collect": "Neler topluyoruz",
+    "collect_li": [
+      "<b>E-posta adresi</b> — oluşturulan hikayeyi size göndermek için.",
+      "<b>Hikaye konusu ve çocuğun adı</b> — yalnızca yapay zekaya üretim için girdi olarak.",
+      "<b>Çocuğunuzun fotoğrafı</b> (isteğe bağlı) — illüstrasyonlarda kahramanın çocuğunuza benzemesini sağlamak için kullanılır.",
+      "<b>Ödeme meta verileri</b> — ödeme işlemcimiz (YooKassa / FastSpring) tarafından işlenir. Kart numaralarını saklamıyoruz.",
+      "<b>Anonim analitik</b> — Cloudflare anonimleştirilmiş istek günlükleri."
+    ],
+    "h_use": "Verilerinizi nasıl kullanıyoruz",
+    "use_li": [
+      "Talep ettiğiniz kişiselleştirilmiş hikayeyi oluşturmak için.",
+      "Bitmiş video ve sesi size e-posta ile ulaştırmak için.",
+      "Destek taleplerine yanıt vermek için.",
+      "Hizmetimizi toplu, anonimleştirilmiş biçimde iyileştirmek için."
+    ],
+    "h_photos": "Çocuk fotoğrafları",
+    "p_photos": "Fotoğraflar <b>yalnızca</b> hikayenizin illüstrasyonlarındaki karakter referansı için kullanılır. Bunları yayınlamaz, paylaşmaz veya başka yapay zeka modellerini eğitmek için kullanmayız. İstediğiniz zaman bize e-posta göndererek silme talebinde bulunabilirsiniz.",
+    "h_retention": "Veri saklama",
+    "p_retention": "Hikaye dosyalarınız (ses, video, illüstrasyonlar) yeniden indirebilmeniz için 12 ay boyunca saklanır. Bu sürenin sonunda dosyalar silinir. Hesap e-postası, daha erken silme talebinde bulunmadığınız sürece aynı süre boyunca saklanır.",
+    "h_rights": "Haklarınız",
+    "rights_li": [
+      "Verilerinizin bir kopyasını talep edin.",
+      "Verilerinizin düzeltilmesini veya silinmesini talep edin.",
+      "İstediğiniz zaman rızanızı geri çekin.",
+      "Haklarınızın ihlal edildiğini düşünüyorsanız bir denetleyici makamla (ülkenizde) iletişime geçin."
+    ],
+    "h_contact": "İletişim",
+    "p_contact": "Gizlilikle ilgili tüm sorularınız için <a href=\"mailto:hello@lalaka.ai\">hello@lalaka.ai</a> adresine e-posta gönderin.",
+    "note": "Lalaka, «СААС» LLC (Rusya) tarafından işletilmektedir. AB/ABD kullanıcıları standart GDPR/CCPA ilkeleri kapsamında korunmaktadır; verileri yalnızca hizmet için gerektiği kadar işleriz."
+  },
+  "terms": {
+    "title": "Hizmet Şartları",
+    "lead": "Yürürlük tarihi: 2026-06-07 · Kendi dilinizde mevcut",
+    "h_what": "Lalaka ne yapar",
+    "p_what": "Lalaka, girdilerinizden (konu, çocuğun adı, yaş, isteğe bağlı fotoğraf) kişiselleştirilmiş bir sesli masal oluşturur. Çıktı, illüstrasyonlar ve bir video içeren kısa bir ses dosyasıdır. Hizmet \"olduğu gibi\" sağlanır — kaliteli bir sonuç üretmek için elimizden gelenin en iyisini yaparız ancak belirli yaratıcı sonuçları garanti edemeyiz.",
+    "h_pricing": "Fiyatlandırma ve iadeler",
+    "p_pricing": "Ödeme yapmadan önce fiyatı görürsünüz. Sonuçtan memnun kalmazsanız, 7 gün içinde <a href=\"mailto:hello@lalaka.ai\">hello@lalaka.ai</a> adresinden bizimle iletişime geçin; hikayeyi ücretsiz olarak yeniden yazacağız veya ödemeyi iade edeceğiz, seçim bize aittir.",
+    "h_content": "İçerik kuralları",
+    "p_content": "Yasa dışı, cinsel içerikli, nefret dolu veya gerçek kişilere gerçek zarar veren içerik talep edemezsiniz. Bu kuralları ihlal eden hikayeleri oluşturmayı reddedebiliriz. Ödeme sonrası reddedersek, iade yaparız.",
+    "h_ip": "Fikri mülkiyet",
+    "p_ip": "Sizin için oluşturduğumuz kişiselleştirilmiş hikayenin sahibi sizsiniz. Bunu kişisel ve aile eğlencesi için kullanabilir, arkadaşlarınız ve akrabalarınızla paylaşabilir ve aile albümlerinize dahil edebilirsiniz. Yazılı iznimiz olmadan yeniden satamaz veya ticari olarak kullanamazsınız.",
+    "h_photo": "Çocuğunuzun fotoğrafı",
+    "p_photo": "Bir fotoğraf yükleyerek, ebeveyn veya yasal vasi olduğunuzu ve fotoğrafın yalnızca hikayenizdeki karakter illüstrasyonu için kullanılmasına (Gizlilik Politikası'na bakın) rıza gösterdiğinizi onaylarsınız.",
+    "h_avail": "Hizmet kullanılabilirliği",
+    "p_avail": "Lalaka'yı çalışır durumda tutmak için elimizden gelenin en iyisini yapıyoruz. Bakım nedeniyle zaman zaman kesintiler yaşanabilir. Hizmetteki kesintilerden kaynaklanan kayıplardan sorumlu değiliz.",
+    "h_changes": "Bu şartlarda yapılan değişiklikler",
+    "p_changes": "Bu şartları güncelleyebiliriz; bu sayfanın üst kısmında yeni yürürlük tarihini göstereceğiz. Bir değişiklikten sonra Lalaka'yı kullanmaya devam etmeniz, yeni şartları kabul ettiğiniz anlamına gelir.",
+    "h_contact": "İletişim",
+    "p_contact": "Destek veya şartlarla ilgili sorularınız için <a href=\"mailto:hello@lalaka.ai\">hello@lalaka.ai</a> adresine e-posta gönderin."
+  }
+}

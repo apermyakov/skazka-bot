@@ -88,5 +88,21 @@
   "chip_garden": "🎒 Anaokuluna başlıyor",
   "chip_garden_full": "4 yaşındaki Mert'in masalı. İlk kez anaokuluna gidiyor ve endişeli. İyi arkadaşlar edinip orada eğlenceli olduğunu keşfetsin.",
   "chip_swim": "🏊 Yüzme öğreniyor",
-  "chip_swim_full": "5 yaşındaki Defne'nin masalı. Yüzme öğreniyor ve sudan biraz korkuyor. Su altından bir arkadaş tanıyıp suyun da dostluk olabileceğini keşfetsin."
+  "chip_swim_full": "5 yaşındaki Defne'nin masalı. Yüzme öğreniyor ve sudan biraz korkuyor. Su altından bir arkadaş tanıyıp suyun da dostluk olabileceğini keşfetsin.",
+  "trust_free_preview": "📝 Ücretsiz önizleme",
+  "trust_minutes": "✨ 5-8 dakikada hazır",
+  "trust_guarantee": "🛡️ Para iade garantisi",
+  "faq_h2": "Sıkça sorulan sorular",
+  "faq_q1": "Çocuğum sonucu beğenmezse ne olur?",
+  "faq_a1": "24 saat içinde paranızı iade ederiz — sadece <a href=\"mailto:hello@lalaka.ai\">iletişim e-postası</a> aracılığıyla bize yazın, bürokrasi yok.",
+  "faq_q2": "Çocuğumun fotoğrafı ne kadar güvenli?",
+  "faq_a2": "Fotoğraf sadece kahramanın illüstrasyonlarda çocuğunuza benzemesi için kullanılır. Fotoğrafları asla yayınlamayız, üçüncü taraflarla paylaşmayız ve yapay zeka modellerini eğitmek için kullanmayız. İstediğiniz zaman silinmesini talep edebilirsiniz.",
+  "faq_q3": "Sesli hikaye ne kadar uzun?",
+  "faq_a3": "Yaklaşık 5 dakikalık profesyonel seslendirme, uyku zamanı için ayarlanmış. Acele etmeden rahat bir ritüel için yeterli.",
+  "faq_q4": "Hikayede bir şeyi değiştirmek istersem ne olur?",
+  "faq_a4": "Ücretsiz önizlemeden sonra istediğiniz gibi yeniden yazabilirsiniz — kısaltın, bir karakter ekleyin, sonunu değiştirin. İstediğiniz kadar, hepsi ücretsiz.",
+  "faq_q5": "Sonucu ticari olarak kullanabilir miyim?",
+  "faq_a5": "Hikaye ailenizin kişisel keyfi içindir — evde, arabada, tablette oynatmak için. Ticari kullanım için lütfen önce bize e-posta gönderin.",
+  "final_cta_title": "Çocuğunuza kendi hikayesini verin",
+  "final_cta_sub": "Oluşturmak 5 dakika, ömür boyu sürecek bir anı. Yazması ücretsiz, sadece beğenirseniz ödeyin."
 }

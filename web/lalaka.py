@@ -38,7 +38,8 @@ UPLOAD_DIR = Path(os.environ.get("MEDIA_DIR", "./media")) / "_lalaka_uploads"
 
 PUBLIC_BASE = "https://lalaka.ai"
 
-SUPPORTED_LOCALES = ["en","de","es","fr","it","pl","pt-BR","tr","ja","ko","ar","ru","uk"]
+# Lalaka serves 11 international locales. Russian/Ukrainian users → skazik.app.
+SUPPORTED_LOCALES = ["en","de","es","fr","it","pl","pt-BR","tr","ja","ko","ar"]
 DEFAULT_LOCALE = "en"
 RTL_LOCALES = {"ar"}
 
@@ -53,8 +54,7 @@ COUNTRY_TO_LOCALE = {
     "JP": "ja",
     "KR": "ko",
     "SA": "ar", "AE": "ar", "EG": "ar", "MA": "ar", "DZ": "ar", "IQ": "ar", "JO": "ar", "KW": "ar", "LB": "ar", "QA": "ar", "TN": "ar",
-    "RU": "ru",
-    "UA": "uk",
+    # RU/UA intentionally route to default (en) — those audiences belong on skazik.app
 }
 
 _TRANSLATIONS: dict[str, dict[str, str]] = {}
@@ -65,11 +65,10 @@ for loc in SUPPORTED_LOCALES:
 LOCALE_NAMES = {
     "en":"English","de":"Deutsch","es":"Español","fr":"Français","it":"Italiano","pl":"Polski",
     "pt-BR":"Português (Brasil)","tr":"Türkçe","ja":"日本語","ko":"한국어","ar":"العربية",
-    "ru":"Русский","uk":"Українська",
 }
 LOCALE_FLAGS = {
     "en":"🇬🇧","de":"🇩🇪","es":"🇪🇸","fr":"🇫🇷","it":"🇮🇹","pl":"🇵🇱","pt-BR":"🇧🇷",
-    "tr":"🇹🇷","ja":"🇯🇵","ko":"🇰🇷","ar":"🇸🇦","ru":"🇷🇺","uk":"🇺🇦",
+    "tr":"🇹🇷","ja":"🇯🇵","ko":"🇰🇷","ar":"🇸🇦",
 }
 
 
@@ -239,12 +238,28 @@ async def favicon_ico():
     return RedirectResponse(url="/static/lalaka_favicon_32.png", status_code=301)
 
 
+_LEGAL_DIR = WEB_DIR / "locales_legal"
+_LEGAL_DOCS: dict[str, dict] = {}
+for _f in (_LEGAL_DIR.glob("*.json") if _LEGAL_DIR.exists() else []):
+    try:
+        _LEGAL_DOCS[_f.stem] = json.loads(_f.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+
+
+def _legal_doc(locale: str, kind: str) -> dict:
+    doc = _LEGAL_DOCS.get(locale) or _LEGAL_DOCS.get(DEFAULT_LOCALE, {})
+    return doc.get(kind, {})
+
+
 @lalaka_router.get("/privacy", response_class=HTMLResponse)
 async def privacy_page(request: Request, lang: str | None = None):
     loc = detect_locale(request, explicit=lang)
+    doc = _legal_doc(loc, "privacy")
     ctx = _build_context(request, loc, {
-        "page_title_override": f"Privacy Policy — Lalaka",
+        "page_title_override": f"{doc.get('title','Privacy Policy')} — Lalaka",
         "legal_kind": "privacy",
+        "legal": doc,
     })
     return _set_locale_cookie(templates.TemplateResponse(request, "lalaka/legal.html", ctx), loc)
 
@@ -252,9 +267,11 @@ async def privacy_page(request: Request, lang: str | None = None):
 @lalaka_router.get("/terms", response_class=HTMLResponse)
 async def terms_page(request: Request, lang: str | None = None):
     loc = detect_locale(request, explicit=lang)
+    doc = _legal_doc(loc, "terms")
     ctx = _build_context(request, loc, {
-        "page_title_override": f"Terms of Service — Lalaka",
+        "page_title_override": f"{doc.get('title','Terms of Service')} — Lalaka",
         "legal_kind": "terms",
+        "legal": doc,
     })
     return _set_locale_cookie(templates.TemplateResponse(request, "lalaka/legal.html", ctx), loc)
 

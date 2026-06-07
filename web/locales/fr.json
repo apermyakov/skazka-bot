@@ -88,5 +88,21 @@
   "chip_garden": "🎒 Commence la maternelle",
   "chip_garden_full": "Une histoire sur Tom, 4 ans, qui va à la maternelle pour la première fois et est anxieux. Qu'il se fasse de gentils amis et découvre que c'est amusant.",
   "chip_swim": "🏊 Apprend à nager",
-  "chip_swim_full": "Une histoire sur Chloé, 5 ans, qui apprend à nager et a un peu peur de l'eau. Qu'elle rencontre un ami sous-marin qui lui montre que l'eau peut être amie."
+  "chip_swim_full": "Une histoire sur Chloé, 5 ans, qui apprend à nager et a un peu peur de l'eau. Qu'elle rencontre un ami sous-marin qui lui montre que l'eau peut être amie.",
+  "trust_free_preview": "📝 Aperçu gratuit",
+  "trust_minutes": "✨ Prêt en 5 à 8 minutes",
+  "trust_guarantee": "🛡️ Garantie satisfait ou remboursé",
+  "faq_h2": "Questions fréquemment posées",
+  "faq_q1": "Et si mon enfant n'aime pas le résultat ?",
+  "faq_a1": "Nous vous rembourserons dans les 24 heures — il suffit de nous écrire via l'<a href=\"mailto:hello@lalaka.ai\">adresse e-mail de contact</a>, sans bureaucratie.",
+  "faq_q2": "Quelle est la sécurité de la photo de mon enfant ?",
+  "faq_a2": "La photo est utilisée uniquement pour que le héros ressemble à votre enfant dans les illustrations. Nous ne publions jamais de photos, ne les partageons jamais avec des tiers et ne les utilisons jamais pour entraîner des modèles d'IA. Vous pouvez demander leur suppression à tout moment.",
+  "faq_q3": "Quelle est la durée de l'histoire audio ?",
+  "faq_a3": "Environ 5 minutes de narration vocale professionnelle, rythmée pour l'heure du coucher. Juste assez pour un rituel douillet sans précipitation.",
+  "faq_q4": "Et si je veux changer quelque chose dans l'histoire ?",
+  "faq_a4": "Après l'aperçu gratuit, vous pouvez réécrire librement — la raccourcir, ajouter un personnage, changer la fin. Autant de fois que vous le souhaitez, tout est gratuit.",
+  "faq_q5": "Puis-je utiliser le résultat à des fins commerciales ?",
+  "faq_a5": "L'histoire est destinée au plaisir personnel de votre famille — lecture à la maison, en voiture, sur une tablette. Pour un usage commercial, veuillez nous envoyer un e-mail au préalable.",
+  "final_cta_title": "Offrez à votre enfant sa propre histoire",
+  "final_cta_sub": "5 minutes pour créer, un souvenir pour la vie. Gratuit à écrire, ne payez que si vous l'aimez."
 }
