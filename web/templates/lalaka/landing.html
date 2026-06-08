@@ -59,10 +59,23 @@
   .t-carousel{position:relative}
   .t-track{display:grid;grid-auto-flow:column;grid-auto-columns:84%;gap:14px;
     overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
-    scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:8px}
+    scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:8px;
+    scroll-behavior:smooth}
   .t-track::-webkit-scrollbar{display:none}
   @media(min-width:680px){ .t-track{grid-auto-columns:46%} }
   @media(min-width:980px){ .t-track{grid-auto-columns:31%} }
+  /* Prev/next arrows — visible on desktop, hidden when scroll exhausted */
+  .t-nav{position:absolute;top:50%;transform:translateY(-50%);width:42px;height:42px;
+    border-radius:50%;background:#fff;border:1.5px solid var(--line);color:var(--accent);
+    font-size:22px;font-weight:800;line-height:1;cursor:pointer;display:none;
+    align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(43,35,80,.14);
+    z-index:5;padding:0;transition:background .12s, transform .12s}
+  .t-nav:hover{background:var(--soft);transform:translateY(-50%) scale(1.06)}
+  .t-nav:disabled{opacity:.35;cursor:default;transform:translateY(-50%)}
+  .t-prev{inset-inline-start:-12px}
+  .t-next{inset-inline-end:-12px}
+  @media(hover:hover){ .t-nav{display:flex} }
+  @media(max-width:520px){ .t-nav{display:none !important} }
   .tcard{background:#fff;border-radius:14px;padding:18px 18px 16px;
     box-shadow:0 6px 20px rgba(43,35,80,.07);scroll-snap-align:start;
     display:flex;flex-direction:column;gap:8px}
@@ -167,8 +180,9 @@
 
     <section>
       <h2>{{ t.testimonials_h2 }}</h2>
-      <div class="t-carousel">
-        <div class="t-track">
+      <div class="t-carousel" id="tcarousel">
+        <button type="button" class="t-nav t-prev" id="tprev" aria-label="Previous">{% if dir == 'rtl' %}›{% else %}‹{% endif %}</button>
+        <div class="t-track" id="ttrack">
           <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t1_text }}</p><div class="twho">{{ t.t1_who }}</div></div>
           <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t2_text }}</p><div class="twho">{{ t.t2_who }}</div></div>
           <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t3_text }}</p><div class="twho">{{ t.t3_who }}</div></div>
@@ -178,6 +192,7 @@
           <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t7_text }}</p><div class="twho">{{ t.t7_who }}</div></div>
           <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t8_text }}</p><div class="twho">{{ t.t8_who }}</div></div>
         </div>
+        <button type="button" class="t-nav t-next" id="tnext" aria-label="Next">{% if dir == 'rtl' %}‹{% else %}›{% endif %}</button>
       </div>
     </section>
 
@@ -283,6 +298,53 @@
       sticky.classList.toggle('on', entries[0].intersectionRatio < 0.5);
     }, {threshold:[0, 0.5, 1]});
     io.observe(firstCTA);
+  })();
+
+  // Testimonials carousel — arrows + vertical-wheel → horizontal scroll
+  (function(){
+    const track = document.getElementById('ttrack');
+    const prev = document.getElementById('tprev');
+    const next = document.getElementById('tnext');
+    if(!track || !prev || !next) return;
+    const isRTL = document.documentElement.dir === 'rtl';
+
+    // RTL note: in RTL containers, scrollLeft is negative on Chromium and the
+    // "next" direction is toward more-negative. We use sign-agnostic arithmetic.
+    function step(){
+      const card = track.querySelector('.tcard');
+      const gap = parseFloat(getComputedStyle(track).columnGap || '14') || 14;
+      return (card ? card.getBoundingClientRect().width : track.clientWidth * 0.84) + gap;
+    }
+    function scrollByDir(sign){
+      // sign = +1 means "next", -1 means "prev" (visually, regardless of RTL)
+      const delta = step() * sign * (isRTL ? -1 : 1);
+      track.scrollBy({left: delta, behavior: 'smooth'});
+    }
+    prev.addEventListener('click', () => scrollByDir(-1));
+    next.addEventListener('click', () => scrollByDir(+1));
+
+    function updateBtns(){
+      const max = track.scrollWidth - track.clientWidth;
+      const pos = isRTL ? -track.scrollLeft : track.scrollLeft;
+      prev.disabled = pos <= 2;
+      next.disabled = pos >= max - 2;
+    }
+    track.addEventListener('scroll', updateBtns, {passive:true});
+    window.addEventListener('resize', updateBtns);
+    updateBtns();
+
+    // Vertical mouse wheel → horizontal scroll while hovering the carousel
+    track.addEventListener('wheel', function(e){
+      // Trackpad horizontal swipes already work natively (deltaX). Only redirect
+      // primarily-vertical wheel events from a real mouse wheel.
+      if(Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      const max = track.scrollWidth - track.clientWidth;
+      const pos = isRTL ? -track.scrollLeft : track.scrollLeft;
+      // Let the page scroll normally if we're already at the edge in that direction
+      if((e.deltaY > 0 && pos >= max - 2) || (e.deltaY < 0 && pos <= 2)) return;
+      e.preventDefault();
+      track.scrollBy({left: e.deltaY * (isRTL ? -1 : 1), behavior: 'auto'});
+    }, {passive:false});
   })();
 </script>
 </body>
