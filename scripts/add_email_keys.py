@@ -38,7 +38,7 @@ EN_KEYS = {
 
     # Shared footer
     "email_footer_team":        "With warmth,<br>the Lalaka team",
-    "email_footer_addr":        "Airotie 2 C, Helsinki, Uusimaa 4524116, Finland",
+    "email_footer_addr":        "Lapinlahdenkatu 16, 00180 Helsinki",
     "email_footer_unsub":       "If you don't want to receive these updates, reply to this email and we'll remove you immediately.",
 }
 
