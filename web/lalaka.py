@@ -114,8 +114,8 @@ def detect_locale(request: Request, explicit: str | None = None) -> str:
         loc = _normalize_lang_tag(segments[0])
         if loc:
             return loc
-    # Query
-    q = request.query_params.get("lang")
+    # Query (?lang=de or ?locale=de — both accepted for deeplink friendliness)
+    q = request.query_params.get("lang") or request.query_params.get("locale")
     if q:
         loc = _normalize_lang_tag(q)
         if loc:
