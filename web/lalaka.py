@@ -378,6 +378,86 @@ async def order_edit(oid: str, background_tasks: BackgroundTasks, comment: str =
     return {"ok": True}
 
 
+@lalaka_router.get("/admin/stats", response_class=HTMLResponse)
+async def admin_stats(request: Request, token: str = ""):
+    """Token-gated KPI dashboard for Lalaka orders."""
+    if not token or token != os.environ.get("ADMIN_TOKEN"):
+        return HTMLResponse("Forbidden", status_code=403)
+    import db.database as _dbmod
+    pool = getattr(_dbmod, "_pool", None)
+    if pool is None:
+        return HTMLResponse("DB not ready", status_code=503)
+    async with pool.acquire() as conn:
+        by_status = await conn.fetch(
+            "SELECT status, COUNT(*) AS n FROM lalaka_orders GROUP BY status ORDER BY n DESC"
+        )
+        by_locale = await conn.fetch(
+            "SELECT locale, COUNT(*) AS total, "
+            "COUNT(*) FILTER (WHERE status='text_ready') AS preview, "
+            "COUNT(*) FILTER (WHERE paid_at IS NOT NULL) AS paid, "
+            "COUNT(*) FILTER (WHERE status='done') AS done, "
+            "COALESCE(SUM(display_amount) FILTER (WHERE paid_at IS NOT NULL), 0) AS revenue, "
+            "COALESCE(MAX(currency) FILTER (WHERE paid_at IS NOT NULL), MAX(currency)) AS currency "
+            "FROM lalaka_orders GROUP BY locale ORDER BY total DESC"
+        )
+        recent = await conn.fetch(
+            "SELECT id, locale, status, title, email, currency, display_amount, paid_at, created_at "
+            "FROM lalaka_orders ORDER BY created_at DESC LIMIT 25"
+        )
+        funnel = await conn.fetchrow(
+            "SELECT COUNT(*) AS visits, "
+            "COUNT(*) FILTER (WHERE status IN ('text_ready','awaiting_payment','generating','done')) AS preview_ready, "
+            "COUNT(*) FILTER (WHERE paid_at IS NOT NULL) AS paid, "
+            "COUNT(*) FILTER (WHERE status='done') AS delivered "
+            "FROM lalaka_orders"
+        )
+    # Tiny HTML render
+    def esc(s):
+        return ("" if s is None else str(s)).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+    rows_locale = "".join(
+        f"<tr><td>{esc(r['locale'])}</td><td>{r['total']}</td><td>{r['preview']}</td>"
+        f"<td>{r['paid']}</td><td>{r['done']}</td>"
+        f"<td>{r['revenue']:.2f} {esc(r['currency'] or '')}</td></tr>"
+        for r in by_locale
+    )
+    rows_status = "".join(f"<tr><td>{esc(r['status'])}</td><td>{r['n']}</td></tr>" for r in by_status)
+    rows_recent = "".join(
+        f"<tr><td><code>{esc(r['id'][:10])}</code></td><td>{esc(r['locale'])}</td>"
+        f"<td>{esc(r['status'])}</td><td>{esc((r['title'] or '')[:40])}</td>"
+        f"<td>{esc(r['email'] or '—')}</td>"
+        f"<td>{r['display_amount'] or '—'} {esc(r['currency'] or '')}</td>"
+        f"<td>{esc(str(r['created_at']).split('.')[0])}</td></tr>"
+        for r in recent
+    )
+    pv = max(funnel['visits'], 1)
+    body = (
+        f"<style>"
+        f"body{{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#fbf7ff;color:#241c44;padding:24px;max-width:1280px;margin:0 auto}}"
+        f"h1{{margin:0 0 18px;font-size:24px}}h2{{font-size:18px;margin:26px 0 10px}}"
+        f"table{{border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;width:100%;font-size:13.5px;margin-bottom:18px;box-shadow:0 4px 14px rgba(43,35,80,.06)}}"
+        f"th,td{{padding:8px 12px;text-align:left;border-bottom:1px solid #f1ebff}}th{{background:#f1ebff;font-weight:700}}"
+        f"code{{background:#f1ebff;padding:2px 5px;border-radius:4px;font-size:12px}}"
+        f".kpi{{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 18px}}"
+        f".k{{flex:1 1 160px;background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 4px 14px rgba(43,35,80,.06)}}"
+        f".k .v{{font-size:22px;font-weight:800;color:#7c5cff}}.k .l{{color:#6b6390;font-size:12.5px;font-weight:600;margin-top:2px}}"
+        f"</style>"
+        f"<h1>📊 Lalaka — admin stats</h1>"
+        f"<div class='kpi'>"
+        f"<div class='k'><div class='v'>{funnel['visits']}</div><div class='l'>orders created</div></div>"
+        f"<div class='k'><div class='v'>{funnel['preview_ready']}</div><div class='l'>preview ready ({funnel['preview_ready']*100//pv}%)</div></div>"
+        f"<div class='k'><div class='v'>{funnel['paid']}</div><div class='l'>paid ({funnel['paid']*100//pv}%)</div></div>"
+        f"<div class='k'><div class='v'>{funnel['delivered']}</div><div class='l'>delivered ({funnel['delivered']*100//pv}%)</div></div>"
+        f"</div>"
+        f"<h2>By locale</h2>"
+        f"<table><thead><tr><th>locale</th><th>total</th><th>preview</th><th>paid</th><th>done</th><th>revenue</th></tr></thead><tbody>{rows_locale}</tbody></table>"
+        f"<h2>By status</h2>"
+        f"<table><thead><tr><th>status</th><th>count</th></tr></thead><tbody>{rows_status}</tbody></table>"
+        f"<h2>Recent 25 orders</h2>"
+        f"<table><thead><tr><th>id</th><th>loc</th><th>status</th><th>title</th><th>email</th><th>price</th><th>created</th></tr></thead><tbody>{rows_recent}</tbody></table>"
+    )
+    return HTMLResponse(body)
+
+
 @lalaka_router.post("/transcribe", response_class=JSONResponse)
 async def transcribe(request: Request, audio: UploadFile = File(...), locale: str = Form(DEFAULT_LOCALE)):
     """Locale-aware voice → text. Used by /create mic button."""
@@ -590,7 +670,19 @@ async def _compose_lalaka(oid: str, topic: str, locale: str):
         res = await generate_story_text(topic, locale=locale)
         await L.update_order(oid, status="text_ready", title=res["title"], story_text=res["text"])
         logger.info("lalaka order %s [%s]: text ready '%s'", oid, locale, res["title"])
-        # Optional admin ping
+        # Locale-aware email to the buyer (tab-close safety net)
+        order = await L.get_order(oid)
+        buyer_email = (order or {}).get("email")
+        if buyer_email:
+            try:
+                from web import lalaka_mailer
+                price = price_for(locale)["display"]
+                await lalaka_mailer.send_text_ready(
+                    buyer_email, res["title"], f"{PUBLIC_BASE}/order/{oid}", locale, price,
+                )
+            except Exception as e:
+                logger.warning("lalaka text_ready email %s: %s", oid, e)
+        # Admin ping
         await _notify_admin(f"📝 Lalaka text ready [{locale}]: «{res['title']}»\nhttps://lalaka.ai/order/{oid}")
     except Exception as e:
         logger.error("lalaka compose %s failed: %s", oid, e, exc_info=True)
@@ -649,6 +741,17 @@ async def _generate_lalaka(oid: str):
             audio_url=(url(result["file_path"]) if result.get("file_path") else None),
             illustrations=illus)
         logger.info("lalaka order %s: generation done '%s'", oid, result.get("title"))
+        # Locale-aware story-ready email to the buyer
+        buyer_email = (o.get("email") or "").strip()
+        if buyer_email:
+            try:
+                from web import lalaka_mailer
+                await lalaka_mailer.send_story_ready(
+                    buyer_email, result.get("title", ""),
+                    f"{PUBLIC_BASE}/order/{oid}", locale,
+                )
+            except Exception as e:
+                logger.warning("lalaka story_ready email %s: %s", oid, e)
         await _notify_admin(f"✅ Lalaka story DONE [{locale}] «{result.get('title')}»\nhttps://lalaka.ai/order/{oid}")
     except Exception as e:
         logger.error("lalaka generate %s failed: %s", oid, e, exc_info=True)
