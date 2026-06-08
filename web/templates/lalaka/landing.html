@@ -11,7 +11,10 @@
   .hero-trust{display:flex;gap:6px 14px;flex-wrap:wrap;color:#4b3f7a;font-size:13.5px;font-weight:600;
     margin:0 0 22px;align-items:center}
   .hero-trust .sep{color:#cdc1ee}
-  .cta-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:36px}
+  .cta-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:36px;justify-content:center;text-align:center}
+  .hero{text-align:center}
+  .hero h1,.hero .sub{margin-left:auto;margin-right:auto}
+  .hero-trust{justify-content:center}
   .cta-row .btn{padding:16px 28px;font-size:18px;text-decoration:none;display:inline-block}
   .cta-row .btn .arr{display:inline-block;transition:transform .15s ease;margin-inline-start:6px}
   .cta-row .btn:hover .arr{transform:translateX(2px)}
@@ -192,9 +195,9 @@
         </figure>
       </div>
       <div class="gallery">
-        <figure><img src="/static/lalaka_examples/scene_bedtime.png" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_1 }}</figcaption></figure>
-        <figure><img src="/static/lalaka_examples/scene_star.png" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_2 }}</figcaption></figure>
-        <figure><img src="/static/lalaka_examples/scene_dreaming.png" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_3 }}</figcaption></figure>
+        <figure><img src="/static/lalaka_examples/{{ locale }}_scene0.png?v=painted" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_1 }}</figcaption></figure>
+        <figure><img src="/static/lalaka_examples/{{ locale }}_scene1.png?v=painted" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_2 }}</figcaption></figure>
+        <figure><img src="/static/lalaka_examples/{{ locale }}_scene2.png?v=painted" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_3 }}</figcaption></figure>
       </div>
     </section>
 

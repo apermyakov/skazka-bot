@@ -162,6 +162,7 @@ def _build_context(request: Request, locale: str, extra: dict | None = None) -> 
     ctx = {
         "locale": locale,
         "dir": "rtl" if locale in RTL_LOCALES else "ltr",
+        "cf_analytics_token": os.environ.get("CF_WEB_ANALYTICS_TOKEN", ""),
         "t": _TRANSLATIONS.get(locale, _TRANSLATIONS[DEFAULT_LOCALE]),
         "supported_locales": SUPPORTED_LOCALES,
         "locale_names": LOCALE_NAMES,

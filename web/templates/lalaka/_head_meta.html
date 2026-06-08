@@ -44,3 +44,10 @@
 {% else %}
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 {% endif %}
+
+{# Cloudflare Web Analytics — GDPR-friendly, no cookies, free.
+   Set CF_WEB_ANALYTICS_TOKEN in .env once you have it from CF dashboard. #}
+{% if cf_analytics_token %}
+<script defer src='https://static.cloudflareinsights.com/beacon.min.js'
+  data-cf-beacon='{"token": "{{ cf_analytics_token }}"}'></script>
+{% endif %}
