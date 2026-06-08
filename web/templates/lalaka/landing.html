@@ -11,7 +11,8 @@
   .hero-trust{display:flex;gap:6px 14px;flex-wrap:wrap;color:#4b3f7a;font-size:13.5px;font-weight:600;
     margin:0 0 22px;align-items:center}
   .hero-trust .sep{color:#cdc1ee}
-  .cta-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:36px;justify-content:center;text-align:center}
+  .cta-row{display:flex;flex-direction:column;gap:10px;align-items:center;margin-bottom:36px;text-align:center}
+  .cta-row .price-line{max-width:520px}
   .hero{text-align:center}
   .hero h1,.hero .sub{margin-left:auto;margin-right:auto}
   .hero-trust{justify-content:center}
@@ -185,19 +186,19 @@
       <p class="section-lead">{{ t.gallery_sub }}</p>
       <div class="compare">
         <figure>
-          <img src="/static/lalaka_examples/{{ locale }}_photo.png?v=painted" alt="" loading="lazy">
+          <img src="/static/lalaka_examples/{{ locale }}_photo.png?v=varied" alt="" loading="lazy">
           <figcaption>{{ t.gallery_photo_label }}</figcaption>
         </figure>
         <div class="arrow" aria-hidden="true">→</div>
         <figure>
-          <img src="/static/lalaka_examples/{{ locale }}_hero.png?v=painted" alt="" loading="lazy">
+          <img src="/static/lalaka_examples/{{ locale }}_hero.png?v=varied" alt="" loading="lazy">
           <figcaption>{{ t.gallery_hero_label }}</figcaption>
         </figure>
       </div>
       <div class="gallery">
-        <figure><img src="/static/lalaka_examples/{{ locale }}_scene0.png?v=painted" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_1 }}</figcaption></figure>
-        <figure><img src="/static/lalaka_examples/{{ locale }}_scene1.png?v=painted" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_2 }}</figcaption></figure>
-        <figure><img src="/static/lalaka_examples/{{ locale }}_scene2.png?v=painted" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_3 }}</figcaption></figure>
+        <figure><img src="/static/lalaka_examples/{{ locale }}_scene0.png?v=varied" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_1 }}</figcaption></figure>
+        <figure><img src="/static/lalaka_examples/{{ locale }}_scene1.png?v=varied" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_2 }}</figcaption></figure>
+        <figure><img src="/static/lalaka_examples/{{ locale }}_scene2.png?v=varied" alt="" loading="lazy"><figcaption>{{ t.gallery_caption_3 }}</figcaption></figure>
       </div>
     </section>
 

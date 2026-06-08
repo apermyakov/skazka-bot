@@ -6,9 +6,15 @@
 {% include "lalaka/_head_meta.html" %}
 {% include "lalaka/_base_styles.html" %}
 <style>
-  main{padding:18px 0 80px}
-  h1{font-size:clamp(26px,4vw,34px);margin:14px 0 6px;letter-spacing:-0.02em}
-  .lead{color:var(--muted);margin:0 0 18px;font-size:15px}
+  /* /create wrap is narrower than the rest of the site — same focused feel as skazik */
+  .wrap{max-width:640px !important}
+  main{padding:6px 0 80px}
+  h1{font-size:28px;margin:16px 0 6px;letter-spacing:-0.02em}
+  .lead{color:var(--muted);margin:0 0 22px;font-size:15px}
+  .ex{background:var(--soft);border-radius:10px;padding:10px 13px;color:var(--muted);font-size:14px;margin-bottom:14px}
+  .create-trust{margin-top:12px;display:flex;flex-wrap:wrap;justify-content:center;
+    gap:6px 10px;color:#4b3f7a;font-size:13px;font-weight:600;text-align:center;line-height:1.5}
+  .create-trust span.sep{color:#cdc1ee}
   .errbox{background:#fff2f2;border:1.5px solid #f5c2c2;color:#a02020;border-radius:12px;
     padding:12px 14px;font-size:14px;font-weight:600;margin:0 0 16px;display:none}
   .errbox.on{display:block}
@@ -67,6 +73,7 @@
 
     <div class="card">
       <form method="post" action="/create" id="cf" novalidate enctype="multipart/form-data">
+        <div class="ex">{{ t.create_example }}</div>
         <label for="topic">{{ t.create_topic_label }}</label>
         <div class="chips" id="chips" role="group" aria-label="{{ t.create_topic_label }}">
           <button type="button" class="chip" data-preset="{{ t.chip_dark_full }}">{{ t.chip_dark }}</button>
@@ -101,10 +108,12 @@
         <input type="hidden" name="utm_content"  id="utm_content">
         <input type="hidden" name="ref"          id="ref">
 
-        <button class="btn btn-block" type="submit" id="submitbtn" style="margin-top:18px">{{ t.create_submit }}</button>
+        <button class="btn btn-block" type="submit" id="submitbtn" style="margin-top:22px">{{ t.create_submit }}</button>
         <div class="note">{{ t.create_note }}</div>
-        <div class="trust">
-          <span>{{ t.create_trust }}</span>
+        <div class="create-trust">
+          <span>{{ t.create_trust_a }}</span>
+          <span class="sep">·</span>
+          <span>{{ t.create_trust_b }}</span>
         </div>
       </form>
     </div>

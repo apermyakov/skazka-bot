@@ -168,5 +168,8 @@
   "email_rate_cta": "💜 Puan ver",
   "email_footer_team": "Sevgiyle,<br>Lalaka ekibi",
   "email_footer_addr": "Airotie 2 C, Helsinki, Uusimaa 4524116, Finlandiya",
-  "email_footer_unsub": "Bu güncellemeleri almak istemiyorsanız, bu e-postayı yanıtlayın ve sizi hemen kaldıracağız."
+  "email_footer_unsub": "Bu güncellemeleri almak istemiyorsanız, bu e-postayı yanıtlayın ve sizi hemen kaldıracağız.",
+  "create_example": "Bize çocuğun adını, yaşını ve bir konuyu söyleyin — örneğin, \"Karanlıktan korkan 4 yaşındaki Elif hakkında bir hikaye.\"",
+  "create_trust_a": "📝 Metni yazmak serbest",
+  "create_trust_b": "💜 Sonra seslendirin — ya da etmeyin"
 }

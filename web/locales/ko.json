@@ -168,5 +168,8 @@
   "email_rate_cta": "💜 평가 남기기",
   "email_footer_team": "따뜻한 마음을 담아,<br>랄라카 팀 드림",
   "email_footer_addr": "Airotie 2 C, Helsinki, Uusimaa 4524116, Finland",
-  "email_footer_unsub": "이러한 업데이트를 받고 싶지 않으시면, 이 이메일에 회신해 주시면 즉시 삭제해 드리겠습니다."
+  "email_footer_unsub": "이러한 업데이트를 받고 싶지 않으시면, 이 이메일에 회신해 주시면 즉시 삭제해 드리겠습니다.",
+  "create_example": "아이의 이름, 나이, 주제를 알려주세요. 예를 들어, \"어둠을 무서워하는 4살 서윤이 이야기\"처럼요.",
+  "create_trust_a": "📝 자유롭게 이야기를 써보세요",
+  "create_trust_b": "💜 나중에 음성으로 만들 수도 있고, 안 만들어도 괜찮아요"
 }
