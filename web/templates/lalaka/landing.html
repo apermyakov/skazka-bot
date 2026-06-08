@@ -80,6 +80,7 @@
     box-shadow:0 6px 20px rgba(43,35,80,.07);scroll-snap-align:start;
     display:flex;flex-direction:column;gap:8px}
   .tstars{color:#ffc857;font-size:15px;letter-spacing:1px;line-height:1}
+  .tstars .dim{color:#e4dcfb}
   .tcard p{margin:0;color:var(--ink);font-size:14.5px;line-height:1.55}
   .tcard p em{color:var(--accent);font-style:italic;font-weight:600}
   .twho{margin-top:auto;color:var(--muted);font-size:13px;font-weight:600}
@@ -185,10 +186,10 @@
         <div class="t-track" id="ttrack">
           <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t1_text }}</p><div class="twho">{{ t.t1_who }}</div></div>
           <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t2_text }}</p><div class="twho">{{ t.t2_who }}</div></div>
-          <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t3_text }}</p><div class="twho">{{ t.t3_who }}</div></div>
+          <div class="tcard"><div class="tstars">★★★★<span class="dim">★</span></div><p>{{ t.t3_text }}</p><div class="twho">{{ t.t3_who }}</div></div>
           <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t4_text }}</p><div class="twho">{{ t.t4_who }}</div></div>
           <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t5_text }}</p><div class="twho">{{ t.t5_who }}</div></div>
-          <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t6_text }}</p><div class="twho">{{ t.t6_who }}</div></div>
+          <div class="tcard"><div class="tstars">★★★★<span class="dim">★</span></div><p>{{ t.t6_text }}</p><div class="twho">{{ t.t6_who }}</div></div>
           <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t7_text }}</p><div class="twho">{{ t.t7_who }}</div></div>
           <div class="tcard"><div class="tstars">★★★★★</div><p>{{ t.t8_text }}</p><div class="twho">{{ t.t8_who }}</div></div>
         </div>
@@ -278,7 +279,7 @@
 
   <footer>
     {% include "lalaka/_lang_picker.html" %}
-    <div class="ftr-text">© {{ current_year }} Lalaka · {{ t.footer_rights }} · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a><br><span style="opacity:.7">Lapinlahdenkatu 16, 00180 Helsinki</span></div>
+    <div class="ftr-text">© {{ current_year }} Lalaka · {{ t.footer_rights }} · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a><br><span style="opacity:.7">Lapinlahdenkatu 16, 00180 Helsinki, Finland</span></div>
   </footer>
 </div>
 
