@@ -139,5 +139,16 @@
   "faq_q8": "Qu'est-ce que j'obtiens au final ?",
   "faq_a8": "Une vidéo HD avec une narration chaleureuse et 10 à 15 illustrations, plus un fichier audio séparé — à regarder ensemble sur grand écran, à écouter sur un téléphone au moment du coucher.",
   "gallery_photo_label": "Photo de votre enfant",
-  "gallery_hero_label": "Héros de l'histoire"
+  "gallery_hero_label": "Héros de l'histoire",
+  "chip_puppy": "🐶 Veut un chiot",
+  "chip_puppy_full": "Une histoire sur Léa, 5 ans, qui veut vraiment un chiot. Laissez-la faire une petite bonne action et prouver qu'elle est prête à s'occuper d'un animal de compagnie.",
+  "mic_record": "🎙 Enregistrer par la voix",
+  "mic_stop": "⏹ Arrêter l'enregistrement",
+  "mic_starting": "⏳ Démarrage du micro…",
+  "mic_processing": "⏳ Transcription…",
+  "mic_no_support": "La saisie vocale n'est pas prise en charge dans ce navigateur",
+  "mic_no_perm": "Impossible d'accéder au microphone. Veuillez autoriser l'accès au microphone.",
+  "mic_failed": "Impossible de transcrire — veuillez réessayer.",
+  "topic_voice_hint": "Appuyez sur 🎙 pour dicter. Le narrateur peut lire le nom de famille avec un accent différent.",
+  "sticky_note": "📝 Texte libre d'abord · 💜 Payez seulement si vous aimez"
 }

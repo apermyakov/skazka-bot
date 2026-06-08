@@ -139,5 +139,16 @@
   "faq_q8": "O que eu recebo no final?",
   "faq_a8": "Um vídeo HD com narração calorosa e 10–15 ilustrações, além de um arquivo de áudio separado — assista junto em uma tela grande, ouça no telefone na hora de dormir.",
   "gallery_photo_label": "Foto do seu filho/a",
-  "gallery_hero_label": "Herói do conto"
+  "gallery_hero_label": "Herói do conto",
+  "chip_puppy": "🐶 Quer um cachorrinho",
+  "chip_puppy_full": "Uma história sobre Ana, de 5 anos, que quer muito um cachorrinho. Deixe-a fazer uma pequena boa ação e provar que está pronta para cuidar de um animal de estimação.",
+  "mic_record": "🎙 Gravar por voz",
+  "mic_stop": "⏹ Parar gravação",
+  "mic_starting": "⏳ Iniciando microfone…",
+  "mic_processing": "⏳ Transcrevendo…",
+  "mic_no_support": "A entrada de voz não é suportada neste navegador",
+  "mic_no_perm": "Não foi possível acessar o microfone. Por favor, permita o acesso ao microfone.",
+  "mic_failed": "Não foi possível transcrever — por favor, tente novamente.",
+  "topic_voice_hint": "Toque em 🎙 para ditar. O narrador pode ler o sobrenome com uma entonação diferente.",
+  "sticky_note": "📝 Texto livre primeiro · 💜 Pague só se amar"
 }

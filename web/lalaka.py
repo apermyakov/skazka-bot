@@ -377,6 +377,79 @@ async def order_edit(oid: str, background_tasks: BackgroundTasks, comment: str =
     return {"ok": True}
 
 
+@lalaka_router.post("/transcribe", response_class=JSONResponse)
+async def transcribe(request: Request, audio: UploadFile = File(...), locale: str = Form(DEFAULT_LOCALE)):
+    """Locale-aware voice → text. Used by /create mic button."""
+    loc = _normalize_lang_tag(locale) or DEFAULT_LOCALE
+    lang_map = {
+        "en": "English", "de": "German", "es": "Spanish", "fr": "French",
+        "it": "Italian", "pl": "Polish", "pt-BR": "Brazilian Portuguese",
+        "tr": "Turkish", "ja": "Japanese", "ko": "Korean", "ar": "Arabic",
+    }
+    lang_name = lang_map.get(loc, "English")
+    try:
+        import base64
+        import tempfile
+        # Read uploaded audio; ffmpeg-convert to MP3 (Gemini accepts mp3)
+        raw = await audio.read()
+        if len(raw) > 8 * 1024 * 1024:
+            return JSONResponse({"ok": False, "error": "too_large"}, status_code=413)
+        with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as f:
+            f.write(raw)
+            in_path = f.name
+        out_path = in_path.replace(".webm", ".mp3")
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg", "-y", "-i", in_path, "-ar", "16000", "-ac", "1", "-b:a", "64k", out_path,
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+        await proc.communicate()
+        try:
+            os.unlink(in_path)
+        except Exception:
+            pass
+        if not os.path.exists(out_path):
+            return JSONResponse({"ok": False, "error": "convert_failed"}, status_code=500)
+        with open(out_path, "rb") as fh:
+            mp3_b64 = base64.b64encode(fh.read()).decode("ascii")
+        try:
+            os.unlink(out_path)
+        except Exception:
+            pass
+        api = os.environ["OPENROUTER_API_KEY"]
+        body = {
+            "model": "google/gemini-2.5-flash",
+            "messages": [{
+                "role": "user",
+                "content": [
+                    {"type": "input_audio", "input_audio": {"data": mp3_b64, "format": "mp3"}},
+                    {"type": "text", "text": (
+                        f"Transcribe this voice memo in {lang_name}. The speaker is describing a "
+                        f"child for a personalised fairy tale — pay special attention to the child's "
+                        f"name, age, and the story topic. Return ONLY the transcribed text in "
+                        f"{lang_name}, no commentary."
+                    )},
+                ],
+            }],
+            "max_tokens": 500,
+            "temperature": 0.1,
+        }
+        async with aiohttp.ClientSession() as s:
+            async with s.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                json=body,
+                headers={"Authorization": f"Bearer {api}"},
+                timeout=aiohttp.ClientTimeout(total=60),
+            ) as r:
+                data = await r.json()
+        text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "").strip()
+        if not text:
+            return JSONResponse({"ok": False, "error": "empty"}, status_code=500)
+        return {"ok": True, "text": text[:2000]}
+    except Exception as e:
+        logger.error("lalaka transcribe failed: %s", e, exc_info=True)
+        return JSONResponse({"ok": False, "error": "internal"}, status_code=500)
+
+
 @lalaka_router.post("/order/{oid}/rate")
 async def order_rate(oid: str, rating: int = Form(...), comment: str = Form("")):
     o = await L.get_order(oid)

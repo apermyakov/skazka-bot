@@ -139,5 +139,16 @@
   "faq_q8": "Sonunda ne alıyorum?",
   "faq_a8": "Sıcak bir anlatım ve 10-15 illüstrasyon içeren bir HD video, ayrıca ayrı bir ses dosyası — büyük ekranda birlikte izleyin, yatmadan önce telefondan dinleyin.",
   "gallery_photo_label": "Çocuğunuzun fotoğrafı",
-  "gallery_hero_label": "Masalın kahramanı"
+  "gallery_hero_label": "Masalın kahramanı",
+  "chip_puppy": "🐶 Bir köpek yavrusu istiyor",
+  "chip_puppy_full": "5 yaşındaki Elif'in çok istediği bir köpek yavrusu hakkında bir hikaye. Küçük bir iyilik yapmasına ve bir evcil hayvana bakmaya hazır olduğunu kanıtlamasına izin verin.",
+  "mic_record": "🎙 Sesle kaydet",
+  "mic_stop": "⏹ Kaydı durdur",
+  "mic_starting": "⏳ Mikrofon başlatılıyor…",
+  "mic_processing": "⏳ Metne dönüştürülüyor…",
+  "mic_no_support": "Bu tarayıcıda ses girişi desteklenmiyor",
+  "mic_no_perm": "Mikrofona erişilemedi. Lütfen mikrofon erişimine izin verin.",
+  "mic_failed": "Metne dönüştürülemedi — lütfen tekrar deneyin.",
+  "topic_voice_hint": "Dikte etmek için 🎙 dokunun. Anlatıcı soyadını farklı bir vurguyla okuyabilir.",
+  "sticky_note": "📝 Önce serbest metin · 💜 Sadece beğenirsen öde"
 }

@@ -139,5 +139,16 @@
   "faq_q8": "¿Qué obtengo al final?",
   "faq_a8": "Un video HD con narración cálida y 10-15 ilustraciones, además de un archivo de audio separado. Mírenlo juntos en una pantalla grande, escúchenlo en un teléfono a la hora de dormir.",
   "gallery_photo_label": "Foto de tu hijo/a",
-  "gallery_hero_label": "Héroe del cuento"
+  "gallery_hero_label": "Héroe del cuento",
+  "chip_puppy": "🐶 Quiere un cachorro",
+  "chip_puppy_full": "Una historia sobre Sofía, de 5 años, que realmente quiere un cachorro. Que realice un pequeño acto de bondad y demuestre que está lista para cuidar una mascota.",
+  "mic_record": "🎙 Grabar con la voz",
+  "mic_stop": "⏹ Detener grabación",
+  "mic_starting": "⏳ Iniciando micrófono…",
+  "mic_processing": "⏳ Transcribiendo…",
+  "mic_no_support": "La entrada de voz no es compatible con este navegador",
+  "mic_no_perm": "No se pudo acceder al micrófono. Por favor, permite el acceso al micrófono.",
+  "mic_failed": "No se pudo transcribir — por favor, inténtalo de nuevo.",
+  "topic_voice_hint": "Toca 🎙 para dictar. El narrador podría leer el apellido con un acento diferente.",
+  "sticky_note": "📝 Texto libre primero · 💜 Paga solo si te encanta"
 }

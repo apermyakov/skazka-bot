@@ -139,5 +139,16 @@
   "faq_q8": "Was bekomme ich am Ende?",
   "faq_a8": "Ein HD-Video mit warmer Erzählung und 10–15 Illustrationen, plus eine separate Audiodatei – gemeinsam auf einem großen Bildschirm ansehen, auf dem Handy vor dem Schlafengehen anhören.",
   "gallery_photo_label": "Foto Ihres Kindes",
-  "gallery_hero_label": "Held der Geschichte"
+  "gallery_hero_label": "Held der Geschichte",
+  "chip_puppy": "🐶 Möchte einen Welpen",
+  "chip_puppy_full": "Eine Geschichte über Lena, 5 Jahre alt, die sich sehnlichst einen Welpen wünscht. Lass sie eine kleine gute Tat vollbringen und beweisen, dass sie bereit ist, sich um ein Haustier zu kümmern.",
+  "mic_record": "🎙 Per Stimme aufnehmen",
+  "mic_stop": "⏹ Aufnahme stoppen",
+  "mic_starting": "⏳ Mikrofon startet…",
+  "mic_processing": "⏳ Transkribiere…",
+  "mic_no_support": "Spracheingabe wird in diesem Browser nicht unterstützt",
+  "mic_no_perm": "Konnte nicht auf das Mikrofon zugreifen. Bitte erlaube den Mikrofonzugriff.",
+  "mic_failed": "Konnte nicht transkribieren – bitte versuche es erneut.",
+  "topic_voice_hint": "Tippe auf 🎙 zum Diktieren. Der Erzähler könnte den Nachnamen mit einer anderen Betonung lesen.",
+  "sticky_note": "📝 Zuerst Freitext · 💜 Zahl nur, wenn es dir gefällt"
 }

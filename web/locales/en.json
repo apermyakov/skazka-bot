@@ -139,5 +139,16 @@
   "faq_q8": "What do I get in the end?",
   "faq_a8": "An HD video with warm narration and 10–15 illustrations, plus a separate audio file — watch together on a big screen, listen on a phone at bedtime.",
   "gallery_photo_label": "Your child's photo",
-  "gallery_hero_label": "Hero of the story"
+  "gallery_hero_label": "Hero of the story",
+  "chip_puppy": "🐶 Wants a puppy",
+  "chip_puppy_full": "A story about Mia, 5 years old, who really wants a puppy. Let her perform a small act of kindness and prove she's ready to care for a pet.",
+  "mic_record": "🎙 Record by voice",
+  "mic_stop": "⏹ Stop recording",
+  "mic_starting": "⏳ Starting mic…",
+  "mic_processing": "⏳ Transcribing…",
+  "mic_no_support": "Voice input is not supported in this browser",
+  "mic_no_perm": "Couldn't access the microphone. Please allow microphone access.",
+  "mic_failed": "Couldn't transcribe — please try again.",
+  "topic_voice_hint": "Tap 🎙 to dictate. The narrator may read the surname with a different stress.",
+  "sticky_note": "📝 Free text first · 💜 Pay only if you love it"
 }

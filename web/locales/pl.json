@@ -139,5 +139,16 @@
   "faq_q8": "Co otrzymuję na koniec?",
   "faq_a8": "Film HD z ciepłą narracją i 10–15 ilustracjami, plus osobny plik audio — oglądajcie razem na dużym ekranie, słuchajcie na telefonie przed snem.",
   "gallery_photo_label": "Zdjęcie Twojego dziecka",
-  "gallery_hero_label": "Bohater bajki"
+  "gallery_hero_label": "Bohater bajki",
+  "chip_puppy": "🐶 Chce szczeniaczka",
+  "chip_puppy_full": "Historia o 5-letniej Zosi, która bardzo chce mieć szczeniaczka. Niech wykona mały akt dobroci i udowodni, że jest gotowa zaopiekować się zwierzakiem.",
+  "mic_record": "🎙 Nagraj głosem",
+  "mic_stop": "⏹ Zatrzymaj nagrywanie",
+  "mic_starting": "⏳ Uruchamiam mikrofon…",
+  "mic_processing": "⏳ Transkrybuję…",
+  "mic_no_support": "Wprowadzanie głosowe nie jest obsługiwane w tej przeglądarce",
+  "mic_no_perm": "Nie udało się uzyskać dostępu do mikrofonu. Proszę zezwolić na dostęp do mikrofonu.",
+  "mic_failed": "Nie udało się przetranskrybować — spróbuj ponownie.",
+  "topic_voice_hint": "Dotknij 🎙, aby podyktować. Lektor może przeczytać nazwisko z innym akcentem.",
+  "sticky_note": "📝 Najpierw darmowy tekst · 💜 Zapłać tylko, jeśli Ci się spodoba"
 }

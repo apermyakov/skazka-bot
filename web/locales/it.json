@@ -139,5 +139,16 @@
   "faq_q8": "Cosa ottengo alla fine?",
   "faq_a8": "Un video HD con narrazione calda e 10–15 illustrazioni, più un file audio separato — guardalo insieme su un grande schermo, ascoltalo su un telefono prima di dormire.",
   "gallery_photo_label": "Foto di tuo figlio/a",
-  "gallery_hero_label": "Eroe della storia"
+  "gallery_hero_label": "Eroe della storia",
+  "chip_puppy": "🐶 Vuole un cucciolo",
+  "chip_puppy_full": "Una storia su Sofia, di 5 anni, che desidera tanto un cucciolo. Lasciala compiere un piccolo atto di gentilezza e dimostrare di essere pronta a prendersi cura di un animale domestico.",
+  "mic_record": "🎙 Registra con la voce",
+  "mic_stop": "⏹ Interrompi registrazione",
+  "mic_starting": "⏳ Avvio microfono…",
+  "mic_processing": "⏳ Trascrizione…",
+  "mic_no_support": "L'input vocale non è supportato in questo browser",
+  "mic_no_perm": "Impossibile accedere al microfono. Si prega di consentire l'accesso al microfono.",
+  "mic_failed": "Impossibile trascrivere — riprova.",
+  "topic_voice_hint": "Tocca 🎙 per dettare. Il narratore potrebbe leggere il cognome con un'enfasi diversa.",
+  "sticky_note": "📝 Testo libero prima · 💜 Paga solo se ti piace"
 }
