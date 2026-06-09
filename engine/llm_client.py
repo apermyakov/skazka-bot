@@ -312,11 +312,12 @@ def _detect_story_locale(text: str, fallback: str | None) -> str | None:
         o = ord(ch)
         if 0x0400 <= o <= 0x04FF:   counts["ru"] += 1   # Cyrillic
         elif 0x3040 <= o <= 0x30FF: counts["ja"] += 1   # Hiragana + Katakana
+        elif 0x4E00 <= o <= 0x9FFF: counts["ja"] += 1   # CJK Unified Ideographs (Kanji)
         elif 0xAC00 <= o <= 0xD7A3: counts["ko"] += 1   # Hangul syllables
         elif 0x0600 <= o <= 0x06FF: counts["ar"] += 1   # Arabic
         elif (0x0041 <= o <= 0x005A) or (0x0061 <= o <= 0x007A): counts["en"] += 1
     total = sum(counts.values())
-    if total < 30:
+    if total < 15:
         return fallback
     dominant = max(counts, key=lambda k: counts[k])
     if counts[dominant] / total < 0.4:
