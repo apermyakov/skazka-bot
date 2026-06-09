@@ -749,46 +749,39 @@ async def transcribe(request: Request, audio: UploadFile = File(...), locale: st
             os.unlink(out_path)
         except Exception:
             pass
+        # OpenRouter's /audio/transcriptions endpoint (OpenAI-style, but JSON
+        # body with input_audio.data base64 — NOT multipart). Routes to
+        # openai/gpt-4o-mini-transcribe, a dedicated speech-to-text model that
+        # returns empty .text on silence/noise (no hallucination) and costs
+        # ~$0.00003 per second of audio.
         api = os.environ["OPENROUTER_API_KEY"]
+        iso_lang = (loc.split("-")[0] or "en").lower()
         body = {
-            "model": "google/gemini-2.5-flash",
-            "messages": [{
-                "role": "system",
-                "content": (
-                    "You are a verbatim speech-to-text engine. Output ONLY what is actually spoken, "
-                    "word for word. Do NOT invent content. Do NOT guess. Do NOT add introductions, "
-                    "headers, or commentary. Do NOT translate. If the audio contains no intelligible "
-                    "speech (silence, noise, music, a single tone), return the literal string "
-                    "<<NO_SPEECH>> and nothing else."
-                ),
-            }, {
-                "role": "user",
-                "content": [
-                    {"type": "input_audio", "input_audio": {"data": mp3_b64, "format": "mp3"}},
-                    {"type": "text", "text": (
-                        f"Transcribe the above audio verbatim in {lang_name}. "
-                        "If there is no speech, output <<NO_SPEECH>>."
-                    )},
-                ],
-            }],
-            "max_tokens": 500,
-            "temperature": 0.0,
+            "model": "openai/gpt-4o-mini-transcribe",
+            "input_audio": {"data": mp3_b64, "format": "mp3"},
+            "response_format": "json",
+            "language": iso_lang,
         }
         async with aiohttp.ClientSession() as s:
             async with s.post(
-                "https://openrouter.ai/api/v1/chat/completions",
+                "https://openrouter.ai/api/v1/audio/transcriptions",
                 json=body,
                 headers={"Authorization": f"Bearer {api}"},
                 timeout=aiohttp.ClientTimeout(total=60),
             ) as r:
-                data = await r.json()
-        text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "").strip()
-        # Strip the model's verbatim quote wrappers + any "no speech" sentinel.
-        if "<<NO_SPEECH>>" in text or text.upper().strip() in ("NO_SPEECH", "<NO_SPEECH>"):
+                raw = await r.text()
+                if r.status != 200:
+                    logger.warning("lalaka transcribe non-200: %s %s", r.status, raw[:200])
+                    return JSONResponse({"ok": False, "error": "upstream"}, status_code=200)
+                try:
+                    data = json.loads(raw)
+                except Exception:
+                    data = {"text": raw}
+        text = (data.get("text") or "").strip().strip("\"' \n\t")
+        # Whisper-class models return empty .text on silence; also guard a
+        # couple of well-known sentinel hallucinations seen in the wild.
+        if not text or text.lower() in ("you", "thanks for watching!", "."):
             return JSONResponse({"ok": False, "error": "no_speech"}, status_code=200)
-        text = text.strip("\"' \n\t")
-        if not text:
-            return JSONResponse({"ok": False, "error": "empty"}, status_code=200)
         return {"ok": True, "text": text[:2000]}
     except Exception as e:
         logger.error("lalaka transcribe failed: %s", e, exc_info=True)
