@@ -127,7 +127,7 @@
   "gallery_caption_1": "Cosy bedtime scene",
   "gallery_caption_2": "Magical helper arrives",
   "gallery_caption_3": "Drifting into dreams",
-  "gallery_caption_4": "Same story, different traditions",
+  "gallery_caption_4": "Under the moonlit sea",
   "guar_seal": "GUARANTEE",
   "guar_title": "Don't love it — we'll refund",
   "guar_body": "If the finished story doesn't land with your child — write to us at <a href=\"mailto:hello@lalaka.ai\">hello@lalaka.ai</a> within 24 hours. We'll refund without questions, without bureaucracy.",
@@ -180,5 +180,7 @@
   "order_rewriting": "Rewriting with your feedback…",
   "order_revised_ok": "✓ Your feedback was applied — here's the new version",
   "order_read_more": "Read full story",
-  "order_read_less": "Collapse"
+  "order_read_less": "Collapse",
+  "gallery_caption_5": "Aurora over the peak",
+  "gallery_caption_6": "Sky-castle garden"
 }

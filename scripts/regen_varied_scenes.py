@@ -88,7 +88,7 @@ def scene_prompt(locale: str, idx: int) -> str:
             "canopy. A trail of golden sparkles follows the child's flight. Mood: wonder, magic, "
             "wide-eyed delight. The child's arms are spread joyfully."
         )
-    else:  # idx == 2
+    elif idx == 2:
         action = (
             "FINALE — magical RIVER and STARLIT SKY scene. Wide landscape (16:9). The child is "
             f"sitting on a SOFT WHITE CLOUD floating gently above a shimmering moonlit RIVER and "
@@ -96,6 +96,32 @@ def scene_prompt(locale: str, idx: int) -> str:
             "constellations and falling stars. Below: lily pads, a sleeping deer, a gentle waterfall. "
             "The child smiles dreamily, blanket draped around her shoulders. Mood: peaceful awe, "
             "the magic settling toward sleep."
+        )
+    elif idx == 3:
+        action = (
+            "UNDERWATER PALACE adventure. Wide landscape (16:9). The child is swimming gracefully "
+            "inside a glowing CORAL PALACE in a warm sapphire-blue ocean. Schools of luminous "
+            "tropical fish, a friendly silver dolphin, and gently swaying sea-plants surround her. "
+            f"{helper} hovers nearby in a bubble. Shafts of moonlight pierce the water from above. "
+            "Mood: wonder, weightlessness, a treasure-room glow. The child laughs in delight."
+        )
+    elif idx == 4:
+        action = (
+            "MOUNTAIN-PEAK CAMPFIRE scene. Wide landscape (16:9). The child sits on a soft "
+            "blanket on a high meadow at the very top of a snow-dusted mountain, beside a small "
+            f"crackling campfire. {helper} floats just above the flames. Below: a sea of clouds "
+            "stretching to the horizon, mountain silhouettes poking through. Above: an enormous "
+            "AURORA BOREALIS painting the sky in greens, purples, pinks. A friendly mountain "
+            "owl perched on a nearby rock. Mood: hush, awe, the world far below."
+        )
+    else:  # idx == 5
+        action = (
+            "FLOATING SKY-CASTLE garden. Wide landscape (16:9). The child stands in a "
+            "BLOSSOMING GARDEN built atop a floating sky-castle in a sunset-violet sky. "
+            "Hot-air balloons drift in the distance, friendly little dragons curl on the "
+            f"battlements, butterfly-clouds float past. {helper} circles around her with a "
+            "trail of golden sparkles. Tall flowers taller than the child sway in a warm breeze. "
+            "Mood: joyful imagination, late-afternoon golden hour, fairy-tale grandeur."
         )
     return f"{action}\n\n{FACE_LOCK}\n\nSTYLE: {PAINTED}\n\nWide cinematic 16:9 landscape composition."
 
@@ -145,6 +171,8 @@ async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--locale", help="Only this locale")
     ap.add_argument("--concurrency", type=int, default=6)
+    ap.add_argument("--idx-range", nargs=2, type=int, default=[0, 3],
+                    help="Inclusive-exclusive scene index range, e.g. 3 6 for scenes 3,4,5")
     args = ap.parse_args()
 
     locs = [args.locale] if args.locale else LOCALES
@@ -156,7 +184,8 @@ async def main():
             log.error(f"  {loc}: photo not found at {photo_path}")
             continue
         photo_b64 = base64.b64encode(photo_path.read_bytes()).decode()
-        for idx in range(3):
+        idx_range = range(*args.idx_range)
+        for idx in idx_range:
             tasks.append(asyncio.create_task(gen_scene(loc, idx, photo_b64, sem)))
     await asyncio.gather(*tasks)
     log.info(f"Done. {len(tasks)} scenes generated.")

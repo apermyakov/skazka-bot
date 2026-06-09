@@ -127,7 +127,7 @@
   "gallery_caption_1": "مشهد نوم مريح",
   "gallery_caption_2": "وصول المساعد السحري",
   "gallery_caption_3": "الانجراف إلى الأحلام",
-  "gallery_caption_4": "نفس القصة، تقاليد مختلفة",
+  "gallery_caption_4": "تحت بحر مقمر",
   "guar_seal": "ضمان",
   "guar_title": "إذا لم تعجبك — سنعيد لك أموالك",
   "guar_body": "إذا لم تلقَ القصة النهائية إعجاب طفلك — راسلنا على <a href=\"mailto:hello@lalaka.ai\">hello@lalaka.ai</a> في غضون 24 ساعة. سنعيد لك أموالك دون أسئلة، ودون بيروقراطية.",
@@ -180,5 +180,7 @@
   "order_rewriting": "أعيد الكتابة بناءً على ملاحظاتك…",
   "order_revised_ok": "✓ تم تطبيق ملاحظاتك — إليك النسخة الجديدة",
   "order_read_more": "اقرأ القصة كاملة",
-  "order_read_less": "طي"
+  "order_read_less": "طي",
+  "gallery_caption_5": "شفق فوق القمة",
+  "gallery_caption_6": "حديقة قصر السماء"
 }

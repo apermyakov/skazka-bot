@@ -127,7 +127,7 @@
   "gallery_caption_1": "Acogedora escena para dormir",
   "gallery_caption_2": "Llega un ayudante mágico",
   "gallery_caption_3": "Flotando en sueños",
-  "gallery_caption_4": "La misma historia, diferentes tradiciones",
+  "gallery_caption_4": "Bajo el mar lunar",
   "guar_seal": "GARANTÍA",
   "guar_title": "Si no te encanta, te devolvemos el dinero",
   "guar_body": "Si la historia terminada no le gusta a tu hijo, escríbenos a <a href=\"mailto:hello@lalaka.ai\">hello@lalaka.ai</a> dentro de las 24 horas. Te reembolsaremos sin preguntas, sin burocracia.",
@@ -180,5 +180,7 @@
   "order_rewriting": "Reescribiendo con tus comentarios…",
   "order_revised_ok": "✓ Tus comentarios fueron aplicados — aquí tienes la nueva versión",
   "order_read_more": "Leer más",
-  "order_read_less": "Colapsar"
+  "order_read_less": "Colapsar",
+  "gallery_caption_5": "Aurora sobre la cima",
+  "gallery_caption_6": "Jardín de castillo-cielo"
 }

@@ -127,7 +127,7 @@
   "gallery_caption_1": "Scène douillette avant le coucher",
   "gallery_caption_2": "L'aide magique arrive",
   "gallery_caption_3": "S'envoler vers les rêves",
-  "gallery_caption_4": "Même histoire, différentes traditions",
+  "gallery_caption_4": "Sous la mer lunaire",
   "guar_seal": "GARANTIE",
   "guar_title": "Si vous n'aimez pas — nous vous remboursons",
   "guar_body": "Si l'histoire terminée ne plaît pas à votre enfant — écrivez-nous à <a href=\"mailto:hello@lalaka.ai\">hello@lalaka.ai</a> dans les 24 heures. Nous vous rembourserons sans questions, sans bureaucratie.",
@@ -180,5 +180,7 @@
   "order_rewriting": "Réécriture avec tes retours…",
   "order_revised_ok": "✓ Tes retours ont été appliqués — voici la nouvelle version",
   "order_read_more": "Lire la suite",
-  "order_read_less": "Réduire"
+  "order_read_less": "Réduire",
+  "gallery_caption_5": "Aurore sur le pic",
+  "gallery_caption_6": "Jardin du château céleste"
 }
