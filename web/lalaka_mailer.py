@@ -70,8 +70,25 @@ def _t(locale: str, key: str, **fmt) -> str:
     return val
 
 
+async def _send(to_addr: str, subject: str, plain: str, html: str) -> bool:
+    """Route via Resend (Western provider). Fallback to skazik's UniSender
+    queue ONLY if Resend isn't configured yet — that way nothing breaks while
+    DNS/keys are being set up, and once RESEND_API_KEY lands, all lalaka
+    emails route through Resend automatically."""
+    from web.lalaka_email_provider import _is_configured, send_via_resend
+    if _is_configured():
+        ok = await send_via_resend(to_addr, subject, plain, html)
+        if ok:
+            return True
+        # If Resend fails (e.g. quota), fall through to queue so the email
+        # at least lands somewhere instead of being silently dropped.
+    from web.email_queue import enqueue_email
+    await enqueue_email(to_addr, subject, plain, html)
+    return True
+
+
 async def send_text_ready(to_addr: str, title: str, order_url: str, locale: str, price: str) -> bool:
-    """Free preview ready. Locale-aware. Reuses skazik's enqueue_email."""
+    """Free preview ready. Locale-aware."""
     subj = _t(locale, "email_text_ready_subject", title=title)
     h1   = _t(locale, "email_text_ready_h1")
     body = _t(locale, "email_text_ready_body", title=f"<b>{_esc(title)}</b>")
@@ -86,9 +103,7 @@ async def send_text_ready(to_addr: str, title: str, order_url: str, locale: str,
         f"{h1}\n\n«{title}»\n\n{body.replace('<b>','').replace('</b>','')}\n\n"
         f"{cta}: {order_url}\n\n{team}\n{addr}\n{unsub}"
     )
-    from web.email_queue import enqueue_email
-    await enqueue_email(to_addr, subj, plain, html)
-    return True
+    return await _send(to_addr, subj, plain, html)
 
 
 async def send_story_ready(to_addr: str, title: str, order_url: str, locale: str) -> bool:
@@ -106,9 +121,7 @@ async def send_story_ready(to_addr: str, title: str, order_url: str, locale: str
         f"{h1}\n\n«{title}»\n\n{body.replace('<b>','').replace('</b>','')}\n\n"
         f"{cta}: {order_url}\n\n{team}\n{addr}\n{unsub}"
     )
-    from web.email_queue import enqueue_email
-    await enqueue_email(to_addr, subj, plain, html)
-    return True
+    return await _send(to_addr, subj, plain, html)
 
 
 async def send_followup_rating(to_addr: str, title: str, order_url: str, locale: str) -> bool:
@@ -125,6 +138,4 @@ async def send_followup_rating(to_addr: str, title: str, order_url: str, locale:
         f"{h1}\n\n«{title}»\n\n{body.replace('<b>','').replace('</b>','')}\n\n"
         f"{cta}: {order_url}#rate\n\n{team}\n{addr}\n{unsub}"
     )
-    from web.email_queue import enqueue_email
-    await enqueue_email(to_addr, subj, plain, html)
-    return True
+    return await _send(to_addr, subj, plain, html)

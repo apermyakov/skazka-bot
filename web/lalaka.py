@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import re
+import time
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -191,6 +192,71 @@ templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
 def _set_locale_cookie(resp, locale: str):
     resp.set_cookie("lalaka_locale", locale, max_age=365 * 86400, samesite="lax")
     return resp
+
+
+# In-memory IP rate limiter for /create. We only need to stop a single bad
+# actor from flooding the endpoint — a process-local dict is fine; a
+# multi-worker setup would replace this with Redis, but the lalaka container
+# runs uvicorn with workers=1.
+_CREATE_RATE_BUCKET: dict[str, list[float]] = {}
+_CREATE_RATE_WINDOW = 3600          # 1 hour
+_CREATE_RATE_LIMIT = 5              # 5 fresh creates per hour per IP
+
+
+def _client_ip(request: Request) -> str:
+    return (
+        request.headers.get("cf-connecting-ip")
+        or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        or (request.client.host if request.client else "0.0.0.0")
+    )
+
+
+def _create_rate_limited(request: Request) -> bool:
+    """Return True if this IP has already burned its quota in the last hour."""
+    ip = _client_ip(request)
+    now = time.time()
+    bucket = _CREATE_RATE_BUCKET.setdefault(ip, [])
+    # Drop expired hits
+    cutoff = now - _CREATE_RATE_WINDOW
+    bucket[:] = [t for t in bucket if t > cutoff]
+    if len(bucket) >= _CREATE_RATE_LIMIT:
+        return True
+    bucket.append(now)
+    # Garbage-collect occasionally so the dict doesn't grow forever
+    if len(_CREATE_RATE_BUCKET) > 5000:
+        for k in list(_CREATE_RATE_BUCKET):
+            if not _CREATE_RATE_BUCKET[k] or _CREATE_RATE_BUCKET[k][-1] < cutoff:
+                _CREATE_RATE_BUCKET.pop(k, None)
+    return False
+
+
+async def _verify_recaptcha(token: str, remote_ip: str) -> bool:
+    """Validate a Google reCAPTCHA v3 token. Returns True if score ≥ 0.5.
+
+    Skip-verify when RECAPTCHA_SECRET isn't configured (dev/early-launch),
+    so the captcha hooks can be wired into the form before a key is provisioned.
+    """
+    secret = os.environ.get("RECAPTCHA_SECRET", "").strip()
+    if not secret:
+        return True  # not enforced yet
+    if not token:
+        return False
+    url = "https://www.google.com/recaptcha/api/siteverify"
+    data = {"secret": secret, "response": token, "remoteip": remote_ip}
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as s:
+            async with s.post(url, data=data) as r:
+                if r.status != 200:
+                    return False
+                j = await r.json()
+        if not j.get("success"):
+            return False
+        # v3 returns "score" (0.0-1.0). Below 0.5 = likely bot.
+        score = float(j.get("score") or 0)
+        return score >= 0.5
+    except Exception:
+        # Don't punish users for our network blip — treat as pass.
+        return True
 
 
 @lalaka_router.get("/", response_class=HTMLResponse)
