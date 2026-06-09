@@ -173,5 +173,6 @@
   "create_trust_a": "📝 Metni yazmak serbest",
   "create_trust_b": "💜 Sonra seslendirin — ya da etmeyin",
   "create_err_rate": "Bu cihazdan son bir saat içinde çok fazla hikaye oluşturuldu. Lütfen daha sonra tekrar dene.",
-  "create_err_captcha": "İnsan olduğun doğrulanamadı. Lütfen sayfayı yenileyip tekrar dene."
+  "create_err_captcha": "İnsan olduğun doğrulanamadı. Lütfen sayfayı yenileyip tekrar dene.",
+  "mic_no_speech": "Hiç ses algılayamadık, tekrar dener misin, biraz daha net konuşarak?"
 }

@@ -753,19 +753,26 @@ async def transcribe(request: Request, audio: UploadFile = File(...), locale: st
         body = {
             "model": "google/gemini-2.5-flash",
             "messages": [{
+                "role": "system",
+                "content": (
+                    "You are a verbatim speech-to-text engine. Output ONLY what is actually spoken, "
+                    "word for word. Do NOT invent content. Do NOT guess. Do NOT add introductions, "
+                    "headers, or commentary. Do NOT translate. If the audio contains no intelligible "
+                    "speech (silence, noise, music, a single tone), return the literal string "
+                    "<<NO_SPEECH>> and nothing else."
+                ),
+            }, {
                 "role": "user",
                 "content": [
                     {"type": "input_audio", "input_audio": {"data": mp3_b64, "format": "mp3"}},
                     {"type": "text", "text": (
-                        f"Transcribe this voice memo in {lang_name}. The speaker is describing a "
-                        f"child for a personalised fairy tale — pay special attention to the child's "
-                        f"name, age, and the story topic. Return ONLY the transcribed text in "
-                        f"{lang_name}, no commentary."
+                        f"Transcribe the above audio verbatim in {lang_name}. "
+                        "If there is no speech, output <<NO_SPEECH>>."
                     )},
                 ],
             }],
             "max_tokens": 500,
-            "temperature": 0.1,
+            "temperature": 0.0,
         }
         async with aiohttp.ClientSession() as s:
             async with s.post(
@@ -776,8 +783,12 @@ async def transcribe(request: Request, audio: UploadFile = File(...), locale: st
             ) as r:
                 data = await r.json()
         text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "").strip()
+        # Strip the model's verbatim quote wrappers + any "no speech" sentinel.
+        if "<<NO_SPEECH>>" in text or text.upper().strip() in ("NO_SPEECH", "<NO_SPEECH>"):
+            return JSONResponse({"ok": False, "error": "no_speech"}, status_code=200)
+        text = text.strip("\"' \n\t")
         if not text:
-            return JSONResponse({"ok": False, "error": "empty"}, status_code=500)
+            return JSONResponse({"ok": False, "error": "empty"}, status_code=200)
         return {"ok": True, "text": text[:2000]}
     except Exception as e:
         logger.error("lalaka transcribe failed: %s", e, exc_info=True)

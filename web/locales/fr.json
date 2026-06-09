@@ -173,5 +173,6 @@
   "create_trust_a": "📝 Le texte est libre d'être écrit",
   "create_trust_b": "💜 Doublez-le plus tard — ou pas",
   "create_err_rate": "Trop d'histoires ont été créées depuis cet appareil au cours de la dernière heure. Veuillez réessayer plus tard.",
-  "create_err_captcha": "Nous n'avons pas pu vérifier que vous êtes humain. Veuillez rafraîchir la page et réessayer."
+  "create_err_captcha": "Nous n'avons pas pu vérifier que vous êtes humain. Veuillez rafraîchir la page et réessayer.",
+  "mic_no_speech": "On n'a pas entendu de son, réessaie en parlant bien fort."
 }

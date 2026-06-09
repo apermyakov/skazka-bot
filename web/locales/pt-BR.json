@@ -173,5 +173,6 @@
   "create_trust_a": "📝 O texto é livre para escrever",
   "create_trust_b": "💜 Duble depois — ou não",
   "create_err_rate": "Muitas histórias foram criadas neste aparelho na última hora. Por favor, tente novamente mais tarde.",
-  "create_err_captcha": "Não conseguimos verificar que você é um humano. Por favor, atualize a página e tente novamente."
+  "create_err_captcha": "Não conseguimos verificar que você é um humano. Por favor, atualize a página e tente novamente.",
+  "mic_no_speech": "Não ouvimos nada, meu amor. Tenta de novo, falando bem direitinho, tá?"
 }

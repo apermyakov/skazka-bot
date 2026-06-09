@@ -173,5 +173,6 @@
   "create_trust_a": "📝 Der Text ist frei zu gestalten",
   "create_trust_b": "💜 Später vertonen – oder auch nicht",
   "create_err_rate": "In der letzten Stunde wurden zu viele Geschichten von diesem Gerät erstellt. Bitte versuche es später noch einmal.",
-  "create_err_captcha": "Wir konnten nicht überprüfen, ob du ein Mensch bist. Bitte lade die Seite neu und versuche es noch einmal."
+  "create_err_captcha": "Wir konnten nicht überprüfen, ob du ein Mensch bist. Bitte lade die Seite neu und versuche es noch einmal.",
+  "mic_no_speech": "Wir haben nichts gehört – versuch's nochmal und sprich deutlich."
 }

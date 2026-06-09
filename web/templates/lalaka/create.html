@@ -161,27 +161,60 @@
     if(id) document.getElementById(id)?.classList.add('on');
   })();
 
-  // Google reCAPTCHA v3 — only attaches when recaptcha_site_key is provided.
-  // We grab a token on submit and stuff it into the hidden field, then resubmit.
+  // Google reCAPTCHA v3 — lazy-load on first interaction so the script is
+  // typically ready by the time the user clicks submit. On submit, if the
+  // script still isn't ready, we preventDefault and poll for up to 5s
+  // instead of letting the form sail through without a token (which used
+  // to bounce mobile users to ?err=captcha).
   (function(){
     const KEY = {{ recaptcha_site_key | tojson if recaptcha_site_key else 'null' }};
     if(!KEY) return;
-    const s = document.createElement('script');
-    s.src = 'https://www.google.com/recaptcha/api.js?render=' + encodeURIComponent(KEY);
-    s.async = true; s.defer = true;
-    document.head.appendChild(s);
     const cf = document.getElementById('cf');
     if(!cf) return;
+    let loadStarted = false;
+    function loadRecaptcha(){
+      if(loadStarted) return;
+      loadStarted = true;
+      const s = document.createElement('script');
+      s.src = 'https://www.google.com/recaptcha/api.js?render=' + encodeURIComponent(KEY);
+      s.async = true; s.defer = true;
+      document.head.appendChild(s);
+    }
+    // Load on first form interaction so it's warm by submit time.
+    ['focus','click','touchstart','input'].forEach(ev =>
+      cf.addEventListener(ev, loadRecaptcha, {once:true, capture:true, passive:true}));
+
     cf.addEventListener('submit', function(e){
-      if(cf.dataset.recaptchaDone === '1' || !window.grecaptcha) return;
+      if(cf.dataset.recaptchaDone === '1') return;
       e.preventDefault();
-      grecaptcha.ready(function(){
-        grecaptcha.execute(KEY, {action: 'create'}).then(function(token){
-          document.getElementById('g-recaptcha-response').value = token;
+      loadRecaptcha();
+      const b = document.getElementById('submitbtn');
+      if(b){ b.disabled = true; b.textContent = T.busy; }
+      let tries = 0;
+      const MAX = 30;  // ~6 seconds at 200ms
+      (function poll(){
+        if(window.grecaptcha && grecaptcha.execute){
+          grecaptcha.ready(function(){
+            grecaptcha.execute(KEY, {action: 'create'}).then(function(token){
+              document.getElementById('g-recaptcha-response').value = token;
+              cf.dataset.recaptchaDone = '1';
+              cf.requestSubmit ? cf.requestSubmit() : cf.submit();
+            }).catch(function(){
+              // Captcha errored — submit anyway, server will return err=captcha
+              cf.dataset.recaptchaDone = '1';
+              cf.requestSubmit ? cf.requestSubmit() : cf.submit();
+            });
+          });
+          return;
+        }
+        if(++tries > MAX){
+          // Give up — submit anyway; user will see err=captcha and can retry.
           cf.dataset.recaptchaDone = '1';
           cf.requestSubmit ? cf.requestSubmit() : cf.submit();
-        });
-      });
+          return;
+        }
+        setTimeout(poll, 200);
+      })();
     }, true);
   })();
 
@@ -298,6 +331,7 @@
       no_support: {{ t.mic_no_support | tojson }},
       no_perm:    {{ t.mic_no_perm | tojson }},
       failed:     {{ t.mic_failed | tojson }},
+      no_speech:  {{ t.mic_no_speech | tojson }},
     };
     let rec = null, chunks = [], stream = null, busy = false;
     function setBusy(label){ busy=true; mic.disabled=true; mic.textContent=label; }
@@ -334,6 +368,8 @@
           if(d && d.ok && d.text){
             topicEl.value = (topicEl.value.trim() ? topicEl.value.trim()+' ' : '') + d.text;
             refresh(); saveDraft(); topicEl.focus();
+          } else if(d && d.error === 'no_speech'){
+            alert(MT.no_speech);
           } else { alert(MT.failed); }
         } catch(e){ alert(MT.failed); }
         finally{ rec = null; setIdle(); }

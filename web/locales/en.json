@@ -173,5 +173,6 @@
   "create_trust_a": "📝 The text is free to write",
   "create_trust_b": "💜 Voice it later — or not",
   "create_err_rate": "Too many stories from this device in the past hour. Please try again later.",
-  "create_err_captcha": "We couldn't verify you're human. Please refresh the page and try again."
+  "create_err_captcha": "We couldn't verify you're human. Please refresh the page and try again.",
+  "mic_no_speech": "We didn't catch any speech — try again, speaking clearly."
 }
