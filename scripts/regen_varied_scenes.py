@@ -154,15 +154,28 @@ async def call_image_api(prompt: str, photo_b64: str) -> bytes:
     raise RuntimeError(f"no image in response: {json.dumps(data)[:200]}")
 
 
+def _png_to_webp(png_bytes: bytes, out_path: Path, quality: int = 82) -> int:
+    """Pillow is loaded lazily so the script still imports without it."""
+    import io
+    from PIL import Image
+    im = Image.open(io.BytesIO(png_bytes))
+    if im.mode == "RGBA":
+        im = im.convert("RGB")
+    im.save(out_path, "webp", quality=quality, method=6)
+    return out_path.stat().st_size
+
+
 async def gen_scene(locale: str, idx: int, photo_b64: str, sem: asyncio.Semaphore):
     async with sem:
-        out = EXAMPLES / f"{locale}_scene{idx}.png"
+        out = EXAMPLES / f"{locale}_scene{idx}.webp"
         prompt = scene_prompt(locale, idx)
         log.info(f"  {locale}/scene{idx} → generating…")
         try:
             img = await call_image_api(prompt, photo_b64)
-            out.write_bytes(img)
-            log.info(f"  {locale}/scene{idx} ✓ {len(img)//1024}KB")
+            # Convert the model's PNG response straight to WebP so the gallery
+            # stays a tenth the size it would otherwise be.
+            written = _png_to_webp(img, out)
+            log.info(f"  {locale}/scene{idx} ✓ {len(img)//1024}KB png → {written//1024}KB webp")
         except Exception as e:
             log.error(f"  {locale}/scene{idx} ✗ {e!r}")
 
