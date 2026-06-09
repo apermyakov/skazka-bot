@@ -31,6 +31,16 @@
   .value-stack .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--line);font-size:14.5px;color:var(--ink);gap:10px}
   .value-stack .row:last-child{border-bottom:0}
   .total{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:18px;color:var(--ink);margin-top:8px;padding-top:10px;border-top:1.5px solid var(--accent)}
+  /* "rewriting with your feedback" banner during user-triggered revise */
+  .rewrite-banner{display:flex;align-items:flex-start;gap:14px;background:#f1ebff;
+    border:1.5px solid #c9b8ff;border-radius:14px;padding:14px 16px;margin:0 0 14px;color:var(--ink)}
+  .rewrite-banner .spin{flex:0 0 auto;margin-top:2px}
+  .rewrite-banner b{color:var(--accent);display:block;margin-bottom:6px}
+  .rewrite-quote{background:#fff;border-left:3px solid var(--accent);padding:8px 12px;
+    border-radius:8px;font-style:italic;color:var(--ink);font-size:14.5px;line-height:1.5}
+  .story.prev-dim{opacity:.55;filter:saturate(.7)}
+  .story.prev-dim::before{content:'';display:block;height:2px;background:linear-gradient(90deg,
+    transparent,var(--line),transparent);margin-bottom:14px}
   /* awaiting payment banner */
   .awaiting-banner{display:flex;align-items:center;gap:14px;background:#fff8e1;border:1.5px solid #f7d77c;
     border-radius:14px;padding:14px 16px;margin:0 0 14px;color:#7a5a00}
@@ -126,6 +136,8 @@ const T = {
   pay_again:      {{ t.order_pay_again | tojson }},
   pay_again_full: {{ t.order_pay_again_full | tojson }},
   awaiting_sub:   {{ t.order_awaiting_sub | tojson }},
+  rewriting:      {{ t.order_rewriting | tojson }},
+  revised_ok:     {{ t.order_revised_ok | tojson }},
   generating:     {{ t.order_generating | tojson }},
   step_voice:     {{ t.order_step_voice | tojson }},
   step_illust:    {{ t.order_step_illust | tojson }},
@@ -180,7 +192,25 @@ function render(d){
 
   if(d.status === 'composing'){
     setStickyPay(false);
-    box.innerHTML = '<b><span class="spin"></span>'+T.composing+'</b><div class="muted" style="margin-top:8px">'+T.composing_sub+'</div>';
+    if(editingCtx){
+      // Rich "your edit is being applied" view: echo what they asked for +
+      // keep the previous story visible (dimmed) so they have context.
+      box.innerHTML =
+        '<div class="rewrite-banner">'+
+          '<span class="spin"></span>'+
+          '<div>'+
+            '<b>'+T.rewriting+'</b>'+
+            '<div class="rewrite-quote">'+esc(editingCtx.comment)+'</div>'+
+            '<div class="muted" style="font-size:13px;margin-top:4px">'+T.composing_sub+'</div>'+
+          '</div>'+
+        '</div>'+
+        '<div class="story prev-dim">'+
+          '<div class="story-title">'+esc(editingCtx.prevTitle)+'</div>'+
+          editingCtx.prevTextHtml+
+        '</div>';
+    } else {
+      box.innerHTML = '<b><span class="spin"></span>'+T.composing+'</b><div class="muted" style="margin-top:8px">'+T.composing_sub+'</div>';
+    }
     return;
   }
 
@@ -193,6 +223,9 @@ function render(d){
 
   if(d.status === 'text_ready' || d.status === 'awaiting_payment'){
     const isAwaiting = d.status === 'awaiting_payment';
+    // If we just finished a user-initiated revision, flash a confirmation.
+    const justRevised = editingCtx !== null && !isAwaiting;
+    if(justRevised) editingCtx = null;
     setStickyPay(true);
     const hasPhoto = !!d.photo_path;
     const ppTitle = hasPhoto ? T.photo_done : T.photo_title;
@@ -218,8 +251,12 @@ function render(d){
           '<div><b>'+T.awaiting+'</b><div class="muted" style="font-size:13px;margin-top:2px">'+T.awaiting_sub+'</div></div>'+
         '</div>'
       : '';
+    const revisedBanner = justRevised
+      ? '<div class="ibanner ok on">'+T.revised_ok+'</div>'
+      : '';
     box.innerHTML =
       awaitBanner+
+      revisedBanner+
       '<h1>'+esc(d.title||'')+'</h1>'+
       photo+
       '<div class="story"><div class="story-title">'+esc(d.title||'')+'</div>'+story+'</div>'+
@@ -355,19 +392,33 @@ async function pay(){
   }
 }
 
+// Tracks an in-flight user revision so the composing screen can show
+// "Rewriting with: «your feedback»" instead of a generic spinner.
+let editingCtx = null;  // {comment, prevTitle, prevTextHtml}
+
 async function editStory(){
   const ta = document.getElementById('comment');
   const c = (ta && ta.value || '').trim();
   if(!c){ if(ta) ta.focus(); return; }
+  // Snapshot the visible story before we redraw — used by composing render.
+  const titleEl = document.querySelector('#box h1');
+  const storyEl = document.querySelector('#box .story');
+  editingCtx = {
+    comment: c,
+    prevTitle: titleEl ? titleEl.textContent : '',
+    prevTextHtml: storyEl ? storyEl.innerHTML : '',
+  };
   const b = document.getElementById('edit');
   if(b){ b.disabled = true; b.textContent = T.processing; }
   try{
     const fd = new FormData(); fd.append('comment', c);
     const r = await fetch('/order/'+OID+'/edit', {method:'POST', body:fd});
     if(r.ok){ clearBanner(); shownStatus = ''; start(); return; }
+    editingCtx = null;
     flash(T.err_network, 'err');
     if(b){ b.disabled=false; b.textContent = T.edit_btn; }
   }catch(e){
+    editingCtx = null;
     flash(T.err_network, 'err');
     if(b){ b.disabled=false; b.textContent = T.edit_btn; }
   }

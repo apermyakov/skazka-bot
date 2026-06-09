@@ -176,5 +176,7 @@
   "create_err_captcha": "Non siamo riusciti a verificare che tu sia una persona. Aggiorna la pagina e riprova.",
   "mic_no_speech": "Non abbiamo sentito nulla, tesoro. Prova a parlare di nuovo, più chiaramente.",
   "order_pay_again_full": "💜 Paga di nuovo {price}",
-  "order_awaiting_sub": "Se non hai completato l'acquisto, la storia è ancora qui: rivedila qui sotto e clicca su paga quando sei pronto."
+  "order_awaiting_sub": "Se non hai completato l'acquisto, la storia è ancora qui: rivedila qui sotto e clicca su paga quando sei pronto.",
+  "order_rewriting": "Riscrivo con il tuo feedback…",
+  "order_revised_ok": "✓ Il tuo feedback è stato applicato — ecco la nuova versione"
 }

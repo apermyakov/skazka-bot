@@ -287,7 +287,9 @@
     topicEl.focus();
   });
 
-  // Submit with inline validation
+  // Submit with inline validation. Runs in CAPTURE phase so it sees the
+  // event before the reCAPTCHA polling handler — if validation fails we
+  // never set the busy state, never start polling, and stay clickable.
   document.getElementById('cf').addEventListener('submit', function(e){
     const v = topicEl.value.trim();
     let ok = true;
@@ -311,13 +313,18 @@
     }
     if(!ok){
       e.preventDefault();
+      e.stopImmediatePropagation();   // don't let reCAPTCHA handler run + lock the btn
+      // Belt-and-braces: clear any stale busy state from a previous attempt.
+      const b = document.getElementById('submitbtn');
+      if(b){ b.disabled = false; b.textContent = T.submit; }
+      cf.dataset.recaptchaDone = '';  // allow retry once user fixes the form
       (topicEl.classList.contains('invalid') ? topicEl : emailEl).focus();
       return;
     }
     try{ localStorage.removeItem(DRAFT_KEY); }catch(e){}
     const b = document.getElementById('submitbtn');
     if(b){ b.disabled = true; b.textContent = T.busy; }
-  });
+  }, true);  // capture phase — runs BEFORE the reCAPTCHA handler
 
   // Voice input — record → /transcribe → fill topic
   (function(){

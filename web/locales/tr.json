@@ -176,5 +176,7 @@
   "create_err_captcha": "İnsan olduğun doğrulanamadı. Lütfen sayfayı yenileyip tekrar dene.",
   "mic_no_speech": "Hiç ses algılayamadık, tekrar dener misin, biraz daha net konuşarak?",
   "order_pay_again_full": "💜 {price} tutarını tekrar öde",
-  "order_awaiting_sub": "Eğer ödeme işlemini tamamlamadıysan, hikaye hala burada duruyor — aşağıdan gözden geçir ve hazır olduğunda öde tuşuna bas."
+  "order_awaiting_sub": "Eğer ödeme işlemini tamamlamadıysan, hikaye hala burada duruyor — aşağıdan gözden geçir ve hazır olduğunda öde tuşuna bas.",
+  "order_rewriting": "Geri bildirimlerinle yeniden yazılıyor…",
+  "order_revised_ok": "✓ Geri bildirimlerin uygulandı — işte yeni versiyon"
 }

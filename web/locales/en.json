@@ -176,5 +176,7 @@
   "create_err_captcha": "We couldn't verify you're human. Please refresh the page and try again.",
   "mic_no_speech": "We didn't catch any speech — try again, speaking clearly.",
   "order_pay_again_full": "💜 Pay {price} again",
-  "order_awaiting_sub": "If you didn't complete checkout, the story is still here — review it below and click pay when you're ready."
+  "order_awaiting_sub": "If you didn't complete checkout, the story is still here — review it below and click pay when you're ready.",
+  "order_rewriting": "Rewriting with your feedback…",
+  "order_revised_ok": "✓ Your feedback was applied — here's the new version"
 }
