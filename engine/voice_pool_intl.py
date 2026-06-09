@@ -42,11 +42,11 @@ CURATED_NARRATORS: dict[str, str] = {
     "fr":    "McVZB9hVxVSk3Equu8EH",  # Audrey (French native)
     "it":    "wJqPPQ618aTW29mptyoc",  # Ana-Rita2 (soft female, verified it)
     "pl":    "xsSg7GkDPDhaGZpbKOLn",  # Tomasz Z — Fairyland Storyteller (male)
-    "pt-BR": "wJqPPQ618aTW29mptyoc",  # Ana-Rita2 (soft female, verified pt)
+    "pt-BR": "RVmX026jCrF5VqUvpCk0",  # Giselli — Voice Library, native BR, "calm clear voice for narration"
     "tr":    "Sm1seazb4gs7RSlUVw7c",  # Anika — Animated and Friendly
-    "ja":    "3JDquces8E8bkmvbh6Bc",  # Otani (Japanese native male)
+    "ja":    "HQ1o7gECNyaEC0RiqY4w",  # Sui — Voice Library, female JP native, "perfect for audiobooks, bedtime"
     "ko":    "uyVNoMrnUku1dZyVEXwD",  # Anna Kim (Korean native female)
-    "ar":    "IES4nrmZdUBHByLBde0P",  # Haytham — Conversation (Arabic native)
+    "ar":    "3AH0h1SXwwhE8vUUWuQW",  # Maryam — Voice Library, Kuwaiti soft warm storytelling
 }
 
 
