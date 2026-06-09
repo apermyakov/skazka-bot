@@ -210,6 +210,10 @@ function render(d){
           '<div class="story-title">'+esc(editingCtx.prevTitle)+'</div>'+
           editingCtx.prevTextHtml+
         '</div>';
+      // Edit button lived at the bottom of the previous page; after the
+      // redraw the user is still scrolled there and would miss the spinner
+      // banner up top. Smooth-scroll to the top so the new state is visible.
+      try{ window.scrollTo({top: 0, behavior: 'smooth'}); }catch(_){ window.scrollTo(0,0); }
     } else {
       box.innerHTML = '<b><span class="spin"></span>'+T.composing+'</b><div class="muted" style="margin-top:8px">'+T.composing_sub+'</div>';
     }
