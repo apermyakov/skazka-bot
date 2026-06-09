@@ -46,6 +46,10 @@
   .mic:hover{background:#e9e0ff}
   .mic.rec{background:#ffe2ea;border-color:#ff9bbb;color:#c0392b}
   .mic[disabled]{opacity:.6;cursor:default}
+  /* Hide reCAPTCHA badge — legal compliance via notice below the submit button */
+  .grecaptcha-badge{visibility:hidden !important}
+  .recaptcha-notice{color:#a59cc7;font-size:11px;text-align:center;margin-top:10px;line-height:1.5}
+  .recaptcha-notice a{color:#a59cc7;text-decoration:underline}
   /* Sticky submit (mobile-only) */
   .sticky-submit{position:fixed;left:0;right:0;bottom:0;padding:10px 14px 14px;z-index:30;
     background:linear-gradient(to top,#fbf7ff 70%,rgba(251,247,255,0));display:none;pointer-events:none}
@@ -118,6 +122,13 @@
           <span class="sep">·</span>
           <span>{{ t.create_trust_b }}</span>
         </div>
+        {% if recaptcha_site_key %}
+        <div class="recaptcha-notice">
+          Protected by reCAPTCHA &mdash;
+          <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Privacy</a> &amp;
+          <a href="https://policies.google.com/terms" target="_blank" rel="noopener">Terms</a>
+        </div>
+        {% endif %}
       </form>
     </div>
   </main>
