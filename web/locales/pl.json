@@ -171,5 +171,7 @@
   "email_footer_unsub": "Jeśli nie chcesz otrzymywać tych wiadomości, odpowiedz na ten e-mail, a natychmiast Cię usuniemy.",
   "create_example": "Podaj nam imię i wiek dziecka oraz temat — np. „Bajka o Zosi, która ma 4 latka i boi się ciemności.”",
   "create_trust_a": "📝 Tekst jest do swobodnego pisania",
-  "create_trust_b": "💜 Nagraj głos później — lub wcale"
+  "create_trust_b": "💜 Nagraj głos później — lub wcale",
+  "create_err_rate": "W ciągu ostatniej godziny dodano zbyt wiele historii z tego urządzenia. Spróbuj ponownie później.",
+  "create_err_captcha": "Nie udało nam się sprawdzić, czy jesteś człowiekiem. Odśwież stronę i spróbuj ponownie."
 }

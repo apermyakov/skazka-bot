@@ -171,5 +171,7 @@
   "email_footer_unsub": "If you don't want to receive these updates, reply to this email and we'll remove you immediately.",
   "create_example": "Tell us the child's name, age, and a topic — e.g. \"A story about Mia, 4 years old, who is afraid of the dark.\"",
   "create_trust_a": "📝 The text is free to write",
-  "create_trust_b": "💜 Voice it later — or not"
+  "create_trust_b": "💜 Voice it later — or not",
+  "create_err_rate": "Too many stories from this device in the past hour. Please try again later.",
+  "create_err_captcha": "We couldn't verify you're human. Please refresh the page and try again."
 }

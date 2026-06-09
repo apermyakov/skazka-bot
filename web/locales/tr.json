@@ -171,5 +171,7 @@
   "email_footer_unsub": "Bu güncellemeleri almak istemiyorsanız, bu e-postayı yanıtlayın ve sizi hemen kaldıracağız.",
   "create_example": "Bize çocuğun adını, yaşını ve bir konuyu söyleyin — örneğin, \"Karanlıktan korkan 4 yaşındaki Elif hakkında bir hikaye.\"",
   "create_trust_a": "📝 Metni yazmak serbest",
-  "create_trust_b": "💜 Sonra seslendirin — ya da etmeyin"
+  "create_trust_b": "💜 Sonra seslendirin — ya da etmeyin",
+  "create_err_rate": "Bu cihazdan son bir saat içinde çok fazla hikaye oluşturuldu. Lütfen daha sonra tekrar dene.",
+  "create_err_captcha": "İnsan olduğun doğrulanamadı. Lütfen sayfayı yenileyip tekrar dene."
 }

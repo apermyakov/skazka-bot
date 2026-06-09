@@ -171,5 +171,7 @@
   "email_footer_unsub": "Wenn du diese Updates nicht erhalten möchtest, antworte auf diese E-Mail und wir werden dich sofort entfernen.",
   "create_example": "Nenne uns den Namen, das Alter und ein Thema des Kindes – z.B. „Eine Geschichte über Lena, 4 Jahre alt, die Angst vor der Dunkelheit hat.“",
   "create_trust_a": "📝 Der Text ist frei zu gestalten",
-  "create_trust_b": "💜 Später vertonen – oder auch nicht"
+  "create_trust_b": "💜 Später vertonen – oder auch nicht",
+  "create_err_rate": "In der letzten Stunde wurden zu viele Geschichten von diesem Gerät erstellt. Bitte versuche es später noch einmal.",
+  "create_err_captcha": "Wir konnten nicht überprüfen, ob du ein Mensch bist. Bitte lade die Seite neu und versuche es noch einmal."
 }

@@ -171,5 +171,7 @@
   "email_footer_unsub": "Si no quieres recibir estas actualizaciones, responde a este correo electrónico y te eliminaremos de inmediato.",
   "create_example": "Dinos el nombre del niño/a, su edad y un tema — por ejemplo, \"Un cuento sobre Sofía, de 4 años, que tiene miedo a la oscuridad.\"",
   "create_trust_a": "📝 El texto es libre de escribir",
-  "create_trust_b": "💜 Ponle voz después — o no"
+  "create_trust_b": "💜 Ponle voz después — o no",
+  "create_err_rate": "Demasiadas historias desde este dispositivo en la última hora. Por favor, inténtalo de nuevo más tarde.",
+  "create_err_captcha": "No pudimos verificar que eres humano. Por favor, actualiza la página e inténtalo de nuevo."
 }

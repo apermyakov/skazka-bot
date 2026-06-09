@@ -171,5 +171,7 @@
   "email_footer_unsub": "Si tu ne souhaites pas recevoir ces mises à jour, réponds à cet e-mail et nous te retirerons immédiatement.",
   "create_example": "Dites-nous le nom de l'enfant, son âge et un sujet — par exemple : « Une histoire sur Léo, 4 ans, qui a peur du noir. »",
   "create_trust_a": "📝 Le texte est libre d'être écrit",
-  "create_trust_b": "💜 Doublez-le plus tard — ou pas"
+  "create_trust_b": "💜 Doublez-le plus tard — ou pas",
+  "create_err_rate": "Trop d'histoires ont été créées depuis cet appareil au cours de la dernière heure. Veuillez réessayer plus tard.",
+  "create_err_captcha": "Nous n'avons pas pu vérifier que vous êtes humain. Veuillez rafraîchir la page et réessayer."
 }

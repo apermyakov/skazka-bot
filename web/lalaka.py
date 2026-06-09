@@ -165,6 +165,7 @@ def _build_context(request: Request, locale: str, extra: dict | None = None) -> 
         "locale": locale,
         "dir": "rtl" if locale in RTL_LOCALES else "ltr",
         "cf_analytics_token": os.environ.get("CF_WEB_ANALYTICS_TOKEN", ""),
+        "recaptcha_site_key": os.environ.get("RECAPTCHA_SITE_KEY", ""),
         "t": _TRANSLATIONS.get(locale, _TRANSLATIONS[DEFAULT_LOCALE]),
         "supported_locales": SUPPORTED_LOCALES,
         "locale_names": LOCALE_NAMES,
@@ -362,6 +363,8 @@ async def create_submit(
     topic: str = Form(...),
     email: str = Form(...),
     locale: str = Form(DEFAULT_LOCALE),
+    website: str = Form(""),                          # honeypot (must stay empty)
+    g_recaptcha_response: str = Form("", alias="g-recaptcha-response"),
     utm_source: str = Form(""),
     utm_medium: str = Form(""),
     utm_campaign: str = Form(""),
@@ -375,6 +378,24 @@ async def create_submit(
     if len(topic) < 10 or not _EMAIL_RE.match(email):
         # Re-render with error inline isn't crucial for v1; redirect to /create.
         return RedirectResponse(url="/create?err=1", status_code=303)
+
+    # Honeypot: legitimate users can't fill a position:absolute -9999px input;
+    # bots happily fill every field. Silently 303 to the form so abusers don't
+    # learn what tripped them.
+    if website.strip():
+        logger.warning("create honeypot tripped ip=%s", _client_ip(request))
+        return RedirectResponse(url="/create?err=1", status_code=303)
+
+    # IP rate-limit (5 fresh creates per hour). Returns 429 with a friendly
+    # redirect so the user sees a hint rather than a raw 429.
+    if _create_rate_limited(request):
+        logger.info("create rate-limited ip=%s", _client_ip(request))
+        return RedirectResponse(url="/create?err=rate", status_code=303)
+
+    # reCAPTCHA v3 — only enforced when RECAPTCHA_SECRET is configured.
+    if not await _verify_recaptcha(g_recaptcha_response, _client_ip(request)):
+        logger.info("create captcha failed ip=%s", _client_ip(request))
+        return RedirectResponse(url="/create?err=captcha", status_code=303)
 
     utm = {
         "source": utm_source[:200] or None,

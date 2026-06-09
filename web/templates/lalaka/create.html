@@ -70,6 +70,8 @@
     <p class="lead">{{ t.create_lead }}</p>
 
     <div class="errbox" id="errbox" role="alert">{{ t.create_err }}</div>
+    <div class="errbox" id="errbox_rate" role="alert">{{ t.create_err_rate }}</div>
+    <div class="errbox" id="errbox_captcha" role="alert">{{ t.create_err_captcha }}</div>
 
     <div class="card">
       <form method="post" action="/create" id="cf" novalidate enctype="multipart/form-data">
@@ -107,6 +109,7 @@
         <input type="hidden" name="utm_term"     id="utm_term">
         <input type="hidden" name="utm_content"  id="utm_content">
         <input type="hidden" name="ref"          id="ref">
+        <input type="hidden" name="g-recaptcha-response" id="g-recaptcha-response">
 
         <button class="btn btn-block" type="submit" id="submitbtn" style="margin-top:22px">{{ t.create_submit }}</button>
         <div class="note">{{ t.create_note }}</div>
@@ -137,13 +140,38 @@
     err_t:  {{ t.err_topic_short | tojson }},
     err_e:  {{ t.err_email_invalid | tojson }},
   };
-  // Show server-side error banner if ?err=1 in URL
+  // Show server-side error banner if ?err= in URL
   (function(){
     const u = new URLSearchParams(location.search);
-    if(u.get('err') === '1'){
-      const eb = document.getElementById('errbox');
-      if(eb) eb.classList.add('on');
-    }
+    const e = u.get('err');
+    const id = (e === 'rate') ? 'errbox_rate'
+             : (e === 'captcha') ? 'errbox_captcha'
+             : (e === '1') ? 'errbox' : null;
+    if(id) document.getElementById(id)?.classList.add('on');
+  })();
+
+  // Google reCAPTCHA v3 — only attaches when recaptcha_site_key is provided.
+  // We grab a token on submit and stuff it into the hidden field, then resubmit.
+  (function(){
+    const KEY = {{ recaptcha_site_key | tojson if recaptcha_site_key else 'null' }};
+    if(!KEY) return;
+    const s = document.createElement('script');
+    s.src = 'https://www.google.com/recaptcha/api.js?render=' + encodeURIComponent(KEY);
+    s.async = true; s.defer = true;
+    document.head.appendChild(s);
+    const cf = document.getElementById('cf');
+    if(!cf) return;
+    cf.addEventListener('submit', function(e){
+      if(cf.dataset.recaptchaDone === '1' || !window.grecaptcha) return;
+      e.preventDefault();
+      grecaptcha.ready(function(){
+        grecaptcha.execute(KEY, {action: 'create'}).then(function(token){
+          document.getElementById('g-recaptcha-response').value = token;
+          cf.dataset.recaptchaDone = '1';
+          cf.requestSubmit ? cf.requestSubmit() : cf.submit();
+        });
+      });
+    }, true);
   })();
 
   // UTM persistence (first-touch, 30d)
