@@ -28,6 +28,11 @@ logger = logging.getLogger(__name__)
 ELEVENLABS_API = "https://api.elevenlabs.io"
 CACHE_TTL_SEC = 86400  # 24h
 
+# Languages we additionally enrich from the public Voice Library (shared voices).
+# Boosts thin locales like ja (16 → 60+) without hurting wider locales.
+SHARED_LANGS = ("en", "de", "es", "fr", "it", "pl", "pt", "tr", "ja", "ko", "ar")
+SHARED_PER_LANG = 50  # top professional shared voices per language
+
 _lock = asyncio.Lock()
 _cache: dict = {"fetched_at": 0.0, "voices": []}
 
@@ -134,27 +139,74 @@ def _classify_voice(v: dict) -> IntlVoice | None:
     )
 
 
+async def _fetch_shared_for_lang(session: aiohttp.ClientSession, api_key: str, lang: str) -> list[dict]:
+    """Pull the top professional shared voices for a given language tag."""
+    url = f"{ELEVENLABS_API}/v1/shared-voices"
+    params = {"language": lang, "page_size": SHARED_PER_LANG, "category": "professional"}
+    headers = {"xi-api-key": api_key}
+    try:
+        async with session.get(url, params=params, headers=headers,
+                                timeout=aiohttp.ClientTimeout(total=30)) as r:
+            if r.status != 200:
+                logger.warning("shared-voices %s returned %s", lang, r.status)
+                return []
+            data = await r.json()
+    except Exception as e:
+        logger.warning("shared-voices %s failed: %s", lang, e)
+        return []
+    voices = data.get("voices") or data.get("shared_voices") or []
+    # Each entry needs a "voice_id" — shared-voices use a different field sometimes
+    out = []
+    for v in voices:
+        vid = v.get("voice_id") or v.get("voiceId") or v.get("public_owner_id")
+        if vid:
+            v["voice_id"] = vid
+            out.append(v)
+    return out
+
+
 async def _fetch_voices_from_eleven() -> list[IntlVoice]:
     api_key = os.environ.get("ELEVENLABS_API_KEY", "")
     if not api_key:
         logger.warning("ELEVENLABS_API_KEY not set — voice intl pool empty")
         return []
-    url = f"{ELEVENLABS_API}/v1/voices"
     headers = {"xi-api-key": api_key, "Accept": "application/json"}
     try:
         async with aiohttp.ClientSession() as s:
-            async with s.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as r:
+            # 1. workspace + premade voices
+            async with s.get(f"{ELEVENLABS_API}/v1/voices", headers=headers,
+                              timeout=aiohttp.ClientTimeout(total=30)) as r:
                 if r.status != 200:
                     logger.warning("Eleven /v1/voices returned %s", r.status)
                     return []
                 data = await r.json()
+            workspace_raw = data.get("voices", [])
+
+            # 2. shared voices per supported language (in parallel)
+            shared_batches = await asyncio.gather(*[
+                _fetch_shared_for_lang(s, api_key, lang) for lang in SHARED_LANGS
+            ])
     except Exception as e:
         logger.warning("Failed to fetch voices from ElevenLabs: %s", e)
         return []
 
-    raw = data.get("voices", [])
-    classified = [c for c in (_classify_voice(v) for v in raw) if c]
-    logger.info("Fetched %d voices from ElevenLabs (%d classified)", len(raw), len(classified))
+    classified: list[IntlVoice] = []
+    seen_ids: set[str] = set()
+    for v in workspace_raw:
+        c = _classify_voice(v)
+        if c and c.voice_id not in seen_ids:
+            classified.append(c)
+            seen_ids.add(c.voice_id)
+    shared_added = 0
+    for batch in shared_batches:
+        for v in batch:
+            c = _classify_voice(v)
+            if c and c.voice_id not in seen_ids:
+                classified.append(c)
+                seen_ids.add(c.voice_id)
+                shared_added += 1
+    logger.info("Voice pool: %d workspace + %d shared = %d total",
+                len(workspace_raw), shared_added, len(classified))
     return classified
 
 

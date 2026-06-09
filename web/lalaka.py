@@ -22,7 +22,8 @@ from typing import Optional
 
 import aiohttp
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile, Response
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
+from html import escape as _escape_html
 from fastapi.templating import Jinja2Templates
 
 from web import yookassa_client
@@ -456,6 +457,171 @@ async def admin_stats(request: Request, token: str = ""):
         f"<table><thead><tr><th>id</th><th>loc</th><th>status</th><th>title</th><th>email</th><th>price</th><th>created</th></tr></thead><tbody>{rows_recent}</tbody></table>"
     )
     return HTMLResponse(body)
+
+
+# --- Voice browser (token-gated) ----------------------------------------------
+_VOICE_SAMPLE_DIR = WEB_DIR / "static" / "voice_samples_cache"
+_VOICE_SAMPLE_DIR.mkdir(parents=True, exist_ok=True)
+
+# Short bedtime opening per locale (~10s narration).
+_VOICE_SAMPLE_TEXT = {
+    "en":    "Once upon a time, there lived a brave little child who loved to dream.",
+    "de":    "Es war einmal ein mutiges kleines Kind, das gerne träumte.",
+    "es":    "Érase una vez un niño valiente que amaba soñar despierto.",
+    "fr":    "Il était une fois un petit enfant courageux qui aimait rêver.",
+    "it":    "C'era una volta un coraggioso bambino che amava sognare.",
+    "pl":    "Dawno, dawno temu żyło dzielne dziecko, które uwielbiało marzyć.",
+    "pt-BR": "Era uma vez uma criança corajosa que adorava sonhar.",
+    "tr":    "Bir zamanlar hayal kurmayı çok seven cesur bir çocuk varmış.",
+    "ja":    "むかしむかし、夢を見るのが大好きな勇敢な子供がいました。",
+    "ko":    "옛날 옛적에, 꿈꾸기를 사랑하는 용감한 아이가 살았어요.",
+    "ar":    "كان يا ما كان في قديم الزمان طفل شجاع يحب الأحلام.",
+}
+
+
+@lalaka_router.get("/admin/voices", response_class=HTMLResponse)
+async def admin_voices(request: Request, token: str = "", lang: str = ""):
+    """All voices, grouped by locale. Click → on-demand sample."""
+    if not token or token != os.environ.get("ADMIN_TOKEN"):
+        return HTMLResponse("Forbidden", status_code=403)
+    from engine.voice_pool_intl import get_voices_for_locale, CURATED_NARRATORS
+
+    locales = ["en","de","es","fr","it","pl","pt-BR","tr","ja","ko","ar"]
+    if lang and lang in locales:
+        locales = [lang]
+
+    sections = []
+    for loc in locales:
+        try:
+            vs = await get_voices_for_locale(loc)
+        except Exception as e:
+            sections.append(f"<h2>{loc} — ERROR {_escape_html(str(e))}</h2>")
+            continue
+        curated_id = CURATED_NARRATORS.get(loc)
+        # Curated voice first, then v3-verified, then alpha
+        def sort_key(v):
+            return (v.voice_id != curated_id, not v.is_v3_verified, v.name.lower())
+        vs = sorted(vs, key=sort_key)
+        cards = []
+        for v in vs:
+            is_curated = v.voice_id == curated_id
+            badge = '<span class="badge curated">✨ CURATED</span>' if is_curated else ""
+            v3 = '<span class="badge v3">v3</span>' if v.is_v3_verified else ""
+            gender_icon = {"male":"♂","female":"♀"}.get(v.gender, "·")
+            sample_url = f"/admin/voice_sample?voice_id={v.voice_id}&lang={loc}&token={token}"
+            cards.append(
+                f'<div class="card{" curated-card" if is_curated else ""}">'
+                f'<div class="hdr">{badge}{v3} <b>{_escape_html(v.name)}</b></div>'
+                f'<div class="meta">{gender_icon} {v.gender} · {v.age_group} · <em>{v.tone}</em></div>'
+                f'<div class="vid">{v.voice_id}</div>'
+                f'<button class="play" data-src="{sample_url}">▶ Listen</button>'
+                f'<audio preload="none"></audio>'
+                f'</div>'
+            )
+        cards_html = "".join(cards)
+        sections.append(f'<section><h2>{loc.upper()} <span class="cnt">({len(vs)} voices)</span></h2>'
+                        f'<div class="grid">{cards_html}</div></section>')
+
+    nav = " · ".join(
+        (f'<b>{l}</b>' if l == lang else f'<a href="/admin/voices?token={token}&lang={l}">{l}</a>')
+        for l in ["all","en","de","es","fr","it","pl","pt-BR","tr","ja","ko","ar"]
+    ).replace("?token={t}&lang=all".format(t=token), f"?token={token}")
+    if not lang:
+        nav = nav.replace("<a href=\"/admin/voices?token={t}&lang=all\">all</a>".format(t=token), "<b>all</b>")
+
+    page = f"""<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Voice browser — Lalaka</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{{--ink:#241c44;--muted:#6b6390;--accent:#7c5cff;--bg:#fbf7ff;--line:#e4dcfb}}
+body{{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;line-height:1.5}}
+.wrap{{max-width:1200px;margin:0 auto;padding:18px 22px 60px}}
+h1{{margin:8px 0 14px}}
+h2{{margin:30px 0 10px;font-size:20px}}
+.cnt{{color:var(--muted);font-size:14px;font-weight:500}}
+.nav{{margin:6px 0 18px;padding:10px 0;border-bottom:1px solid var(--line);color:var(--muted);font-size:14px}}
+.nav a{{color:var(--accent);text-decoration:none;padding:2px 4px}}
+.nav b{{color:var(--ink);background:#e9e0ff;padding:2px 6px;border-radius:6px}}
+.grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}}
+.card{{background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}}
+.card.curated-card{{border-color:#7c5cff;background:linear-gradient(135deg,#fff,#f6efff)}}
+.hdr{{font-size:14.5px}}
+.meta{{color:var(--muted);font-size:13px}}
+.meta em{{color:var(--accent);font-style:normal;font-weight:600}}
+.vid{{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:#a59cc7;word-break:break-all}}
+.badge{{display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:700;margin-right:5px;line-height:1.3}}
+.badge.curated{{background:#7c5cff;color:#fff}}
+.badge.v3{{background:#dff5e4;color:#0d6e30}}
+.play{{background:linear-gradient(135deg,#7c5cff,#ff7eb6);color:#fff;border:0;border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:14px}}
+.play:disabled{{opacity:.5;cursor:wait}}
+.play.playing{{background:#a59cc7}}
+</style>
+</head><body>
+<div class="wrap">
+<h1>Voice browser</h1>
+<div class="nav">filter: {nav}</div>
+{"".join(sections)}
+</div>
+<script>
+document.body.addEventListener("click", async function(e){{
+  const btn = e.target.closest(".play");
+  if(!btn) return;
+  // Stop any other playing audio
+  document.querySelectorAll("audio").forEach(a => {{ if(!a.paused){{ a.pause(); a.currentTime = 0; }} }});
+  document.querySelectorAll(".play").forEach(b => b.classList.remove("playing"));
+  const audio = btn.parentElement.querySelector("audio");
+  if(!audio.src){{
+    btn.disabled = true;
+    btn.textContent = "⏳ generating…";
+    try {{
+      const r = await fetch(btn.dataset.src);
+      if(!r.ok){{ throw new Error("HTTP " + r.status); }}
+      const blob = await r.blob();
+      audio.src = URL.createObjectURL(blob);
+    }} catch(e){{
+      btn.textContent = "✗ failed";
+      btn.disabled = false;
+      return;
+    }}
+    btn.disabled = false;
+    btn.textContent = "▶ Listen";
+  }}
+  if(audio.paused){{ audio.play(); btn.classList.add("playing"); btn.textContent = "⏸ playing"; }}
+  else {{ audio.pause(); btn.classList.remove("playing"); btn.textContent = "▶ Listen"; }}
+  audio.onended = () => {{ btn.classList.remove("playing"); btn.textContent = "▶ Listen"; }};
+}});
+</script>
+</body></html>"""
+    return HTMLResponse(page)
+
+
+@lalaka_router.get("/admin/voice_sample")
+async def admin_voice_sample(request: Request, voice_id: str = "", lang: str = "en", token: str = ""):
+    """On-demand TTS sample. Cached to disk by (voice_id, lang)."""
+    if not token or token != os.environ.get("ADMIN_TOKEN"):
+        return HTMLResponse("Forbidden", status_code=403)
+    if not voice_id or "/" in voice_id or len(voice_id) > 64:
+        return HTMLResponse("bad voice_id", status_code=400)
+    text = _VOICE_SAMPLE_TEXT.get(lang) or _VOICE_SAMPLE_TEXT["en"]
+    cache_path = _VOICE_SAMPLE_DIR / f"{voice_id}__{lang}.mp3"
+    if not cache_path.exists():
+        api_key = os.environ.get("ELEVENLABS_API_KEY", "")
+        if not api_key:
+            return HTMLResponse("no API key", status_code=500)
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+        body = {"text": text, "model_id": "eleven_v3"}
+        try:
+            import aiohttp as _aio
+            async with _aio.ClientSession() as s:
+                async with s.post(url, json=body, headers={"xi-api-key": api_key},
+                                  timeout=_aio.ClientTimeout(total=60)) as r:
+                    if r.status != 200:
+                        return HTMLResponse(f"eleven {r.status}: {(await r.text())[:200]}",
+                                            status_code=502)
+                    cache_path.write_bytes(await r.read())
+        except Exception as e:
+            return HTMLResponse(f"tts failed: {e}", status_code=502)
+    return FileResponse(str(cache_path), media_type="audio/mpeg")
 
 
 @lalaka_router.post("/transcribe", response_class=JSONResponse)
