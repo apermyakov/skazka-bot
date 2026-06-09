@@ -178,5 +178,7 @@
   "order_pay_again_full": "💜 {price} tutarını tekrar öde",
   "order_awaiting_sub": "Eğer ödeme işlemini tamamlamadıysan, hikaye hala burada duruyor — aşağıdan gözden geçir ve hazır olduğunda öde tuşuna bas.",
   "order_rewriting": "Geri bildirimlerinle yeniden yazılıyor…",
-  "order_revised_ok": "✓ Geri bildirimlerin uygulandı — işte yeni versiyon"
+  "order_revised_ok": "✓ Geri bildirimlerin uygulandı — işte yeni versiyon",
+  "order_read_more": "Devamını oku",
+  "order_read_less": "Daralt"
 }

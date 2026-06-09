@@ -178,5 +178,7 @@
   "order_pay_again_full": "💜 Pay {price} again",
   "order_awaiting_sub": "If you didn't complete checkout, the story is still here — review it below and click pay when you're ready.",
   "order_rewriting": "Rewriting with your feedback…",
-  "order_revised_ok": "✓ Your feedback was applied — here's the new version"
+  "order_revised_ok": "✓ Your feedback was applied — here's the new version",
+  "order_read_more": "Read full story",
+  "order_read_less": "Collapse"
 }

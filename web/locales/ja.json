@@ -178,5 +178,7 @@
   "order_pay_again_full": "💜 もう一度{price}を支払う",
   "order_awaiting_sub": "もしお会計が終わってなかったら、お話はまだここにあるよ。下で確認して、準備ができたら支払いをタップしてね。",
   "order_rewriting": "ご意見を元に書き直しているよ…",
-  "order_revised_ok": "✓ ご意見を反映したよ — 新しいバージョンはこちら"
+  "order_revised_ok": "✓ ご意見を反映したよ — 新しいバージョンはこちら",
+  "order_read_more": "詳細を読む",
+  "order_read_less": "折りたたむ"
 }

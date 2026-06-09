@@ -178,5 +178,7 @@
   "order_pay_again_full": "💜 Nochmal {price} bezahlen",
   "order_awaiting_sub": "Falls du den Kauf noch nicht abgeschlossen hast, ist die Geschichte noch da – schau sie dir unten an und klicke auf „Bezahlen“, wenn du bereit bist.",
   "order_rewriting": "Ich überarbeite es gerade mit deinem Feedback…",
-  "order_revised_ok": "✓ Dein Feedback wurde eingearbeitet – hier ist die neue Version"
+  "order_revised_ok": "✓ Dein Feedback wurde eingearbeitet – hier ist die neue Version",
+  "order_read_more": "Mehr lesen",
+  "order_read_less": "Einklappen"
 }

@@ -9,13 +9,29 @@
 <style>
   main{padding:18px 0 80px}
   h1{font-size:clamp(22px,3vw,30px);margin:8px 0 12px;letter-spacing:-0.015em}
-  .story{background:#fff;border:1.5px solid #c9b8ff;border-radius:14px;padding:18px 20px;margin:16px 0 18px;
-    box-shadow:0 14px 36px rgba(43,35,80,.18);line-height:1.7;font-size:16px;color:#2b2350}
-  /* Inner-scroll on .story used to swallow page swipes — story now flows
-     naturally and the whole page is one scroll surface. */
-  .story p{margin:0 0 10px}  /* paragraphs already come pre-wrapped — explicit margin, no browser default */
+  /* Collapsible story card — compact by default with a soft fade hint, no
+     inner scroller so page swipes never get swallowed. Click "Read more"
+     to expand to the full text in place. */
+  .story-wrap{position:relative;margin:16px 0 18px}
+  .story{background:#fff;border:1.5px solid #c9b8ff;border-radius:14px;padding:18px 20px;
+    box-shadow:0 14px 36px rgba(43,35,80,.18);line-height:1.7;font-size:16px;color:#2b2350;
+    max-height:340px;overflow:hidden;position:relative;transition:max-height .2s ease}
+  .story-wrap.open .story{max-height:none}
+  .story p{margin:0 0 10px}
   .story p:last-child{margin-bottom:0}
   .story-title{font-weight:800;font-size:18px;margin-bottom:10px;color:var(--ink)}
+  .story-wrap.open .story-fade,
+  .story-wrap.open .story-expand{display:none}
+  .story-fade{position:absolute;left:1.5px;right:1.5px;bottom:1.5px;height:90px;
+    background:linear-gradient(to bottom,rgba(255,255,255,0),#fff 70%);
+    border-radius:0 0 12px 12px;pointer-events:none}
+  .story-expand{display:flex;align-items:center;justify-content:center;gap:6px;
+    margin:-30px auto 0;position:relative;z-index:2;background:#fff;color:var(--accent);
+    border:1.5px solid #c9b8ff;border-radius:999px;padding:8px 18px;font:inherit;font-weight:700;
+    font-size:14px;cursor:pointer;box-shadow:0 4px 14px rgba(43,35,80,.10)}
+  .story-expand:hover{background:var(--soft)}
+  .story-expand .arr{transition:transform .15s ease}
+  .story-wrap.open .story-expand .arr{transform:rotate(180deg)}
   /* photo block */
   .photo-prepay{margin:14px 0 14px;padding:14px 16px;background:#f5efff;border:1.5px dashed #c9b8ff;
     border-radius:12px;text-align:center}
@@ -141,6 +157,8 @@ const T = {
   awaiting_sub:   {{ t.order_awaiting_sub | tojson }},
   rewriting:      {{ t.order_rewriting | tojson }},
   revised_ok:     {{ t.order_revised_ok | tojson }},
+  read_more:      {{ t.order_read_more | tojson }},
+  read_less:      {{ t.order_read_less | tojson }},
   generating:     {{ t.order_generating | tojson }},
   step_voice:     {{ t.order_step_voice | tojson }},
   step_illust:    {{ t.order_step_illust | tojson }},
@@ -266,7 +284,13 @@ function render(d){
       revisedBanner+
       '<h1>'+esc(d.title||'')+'</h1>'+
       photo+
-      '<div class="story"><div class="story-title">'+esc(d.title||'')+'</div>'+story+'</div>'+
+      '<div class="story-wrap" id="storywrap">'+
+        '<div class="story"><div class="story-title">'+esc(d.title||'')+'</div>'+story+'</div>'+
+        '<div class="story-fade"></div>'+
+        '<button type="button" class="story-expand" id="storyexpand">'+
+          T.read_more+'<span class="arr" aria-hidden="true">⌄</span>'+
+        '</button>'+
+      '</div>'+
       '<div class="value-stack">'+
         '<div class="row"><span>'+T.value_voice+'</span></div>'+
         '<div class="row"><span>'+T.value_illust+'</span></div>'+
@@ -282,6 +306,25 @@ function render(d){
     document.getElementById('edit').onclick = editStory;
     const inp = document.getElementById('pp-input');
     if(inp) inp.addEventListener('change', uploadPhoto);
+    // Story expand/collapse — hide the toggle if the text fits within the
+    // collapsed height, so short stories don't get a useless button.
+    (function(){
+      const wrap = document.getElementById('storywrap');
+      const story = wrap && wrap.querySelector('.story');
+      const btn = document.getElementById('storyexpand');
+      const fade = wrap && wrap.querySelector('.story-fade');
+      if(!wrap || !story || !btn) return;
+      // scrollHeight = full content height; clientHeight = visible (capped).
+      if(story.scrollHeight <= story.clientHeight + 8){
+        btn.style.display = 'none';
+        if(fade) fade.style.display = 'none';
+        return;
+      }
+      btn.onclick = function(){
+        const wasOpen = wrap.classList.toggle('open');
+        btn.firstChild.textContent = wasOpen ? T.read_less : T.read_more;
+      };
+    })();
     // Sticky pay observer
     const mainPay = document.getElementById('pay');
     if(mainPay && 'IntersectionObserver' in window){

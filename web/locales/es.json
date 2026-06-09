@@ -178,5 +178,7 @@
   "order_pay_again_full": "💜 Pagar {price} de nuevo",
   "order_awaiting_sub": "Si no terminaste la compra, la historia sigue aquí. Revísala abajo y haz clic en pagar cuando estés listo.",
   "order_rewriting": "Reescribiendo con tus comentarios…",
-  "order_revised_ok": "✓ Tus comentarios fueron aplicados — aquí tienes la nueva versión"
+  "order_revised_ok": "✓ Tus comentarios fueron aplicados — aquí tienes la nueva versión",
+  "order_read_more": "Leer más",
+  "order_read_less": "Colapsar"
 }

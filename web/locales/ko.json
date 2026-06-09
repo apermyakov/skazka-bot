@@ -178,5 +178,7 @@
   "order_pay_again_full": "💜 {price} 다시 결제하기",
   "order_awaiting_sub": "결제를 완료하지 못했다면, 이야기는 아직 여기에 있단다. 아래에서 다시 확인하고 준비되면 결제 버튼을 눌러줘.",
   "order_rewriting": "네, 말씀해주신 대로 다시 써볼게요…",
-  "order_revised_ok": "✓ 말씀해주신 대로 수정했어요! 새로운 버전이에요"
+  "order_revised_ok": "✓ 말씀해주신 대로 수정했어요! 새로운 버전이에요",
+  "order_read_more": "전체 보기",
+  "order_read_less": "접기"
 }
