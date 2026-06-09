@@ -174,5 +174,7 @@
   "create_trust_b": "💜 Später vertonen – oder auch nicht",
   "create_err_rate": "In der letzten Stunde wurden zu viele Geschichten von diesem Gerät erstellt. Bitte versuche es später noch einmal.",
   "create_err_captcha": "Wir konnten nicht überprüfen, ob du ein Mensch bist. Bitte lade die Seite neu und versuche es noch einmal.",
-  "mic_no_speech": "Wir haben nichts gehört – versuch's nochmal und sprich deutlich."
+  "mic_no_speech": "Wir haben nichts gehört – versuch's nochmal und sprich deutlich.",
+  "order_pay_again_full": "💜 Nochmal {price} bezahlen",
+  "order_awaiting_sub": "Falls du den Kauf noch nicht abgeschlossen hast, ist die Geschichte noch da – schau sie dir unten an und klicke auf „Bezahlen“, wenn du bereit bist."
 }

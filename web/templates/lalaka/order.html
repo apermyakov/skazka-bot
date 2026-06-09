@@ -31,6 +31,12 @@
   .value-stack .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--line);font-size:14.5px;color:var(--ink);gap:10px}
   .value-stack .row:last-child{border-bottom:0}
   .total{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:18px;color:var(--ink);margin-top:8px;padding-top:10px;border-top:1.5px solid var(--accent)}
+  /* awaiting payment banner */
+  .awaiting-banner{display:flex;align-items:center;gap:14px;background:#fff8e1;border:1.5px solid #f7d77c;
+    border-radius:14px;padding:14px 16px;margin:0 0 14px;color:#7a5a00}
+  .awaiting-banner b{color:#5e4500}
+  .awaiting-banner .muted{color:#7a5a00 !important}
+  .awaiting-banner .spin{border-color:#f7d77c;border-top-color:#7a5a00;flex:0 0 auto}
   /* edit box */
   .editbox{margin-top:18px}
   .editbox textarea{width:100%;min-height:70px;border:1.5px solid var(--line);border-radius:10px;
@@ -118,6 +124,8 @@ const T = {
   or_new:         {{ t.order_or_new | tojson }},
   awaiting:       {{ t.order_awaiting | tojson }},
   pay_again:      {{ t.order_pay_again | tojson }},
+  pay_again_full: {{ t.order_pay_again_full | tojson }},
+  awaiting_sub:   {{ t.order_awaiting_sub | tojson }},
   generating:     {{ t.order_generating | tojson }},
   step_voice:     {{ t.order_step_voice | tojson }},
   step_illust:    {{ t.order_step_illust | tojson }},
@@ -183,7 +191,8 @@ function render(d){
     return;
   }
 
-  if(d.status === 'text_ready'){
+  if(d.status === 'text_ready' || d.status === 'awaiting_payment'){
+    const isAwaiting = d.status === 'awaiting_payment';
     setStickyPay(true);
     const hasPhoto = !!d.photo_path;
     const ppTitle = hasPhoto ? T.photo_done : T.photo_title;
@@ -199,8 +208,18 @@ function render(d){
         '<div class="pp-priv">'+T.photo_priv+'</div>'+
       '</div>';
     const story = d.text_html || ('<div>'+esc(d.story_text||'')+'</div>');
-    const payLabel = T.pay_btn.replace('{price}', PRICE);
+    const payLabel = isAwaiting
+      ? T.pay_again_full.replace('{price}', PRICE)
+      : T.pay_btn.replace('{price}', PRICE);
+    // Subtle banner only when payment was started but didn't complete.
+    const awaitBanner = isAwaiting
+      ? '<div class="awaiting-banner">'+
+          '<span class="spin"></span>'+
+          '<div><b>'+T.awaiting+'</b><div class="muted" style="font-size:13px;margin-top:2px">'+T.awaiting_sub+'</div></div>'+
+        '</div>'
+      : '';
     box.innerHTML =
+      awaitBanner+
       '<h1>'+esc(d.title||'')+'</h1>'+
       photo+
       '<div class="story"><div class="story-title">'+esc(d.title||'')+'</div>'+story+'</div>'+
@@ -228,14 +247,6 @@ function render(d){
       io.observe(mainPay);
     }
     stickyBtn.onclick = pay;
-    return;
-  }
-
-  if(d.status === 'awaiting_payment'){
-    setStickyPay(false);
-    box.innerHTML = '<span class="spin"></span> <b>'+T.awaiting+'</b>'+
-      '<div class="muted" style="margin-top:8px"><a href="#" id="pa">'+T.pay_again+'</a></div>';
-    const pa = document.getElementById('pa'); if(pa){ pa.onclick = function(e){e.preventDefault(); pay();}; }
     return;
   }
 

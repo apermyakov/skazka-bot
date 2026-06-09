@@ -47,7 +47,10 @@
   .btn-block{width:100%}
   .btn2{background:#fff;color:var(--accent);border:1.5px solid var(--accent);
     font:inherit;font-weight:700;font-size:15px;padding:11px 16px;border-radius:12px;cursor:pointer}
-  .ghost{color:var(--muted);text-decoration:none;font-size:14px}
+  .ghost{display:inline-block;color:var(--accent);text-decoration:underline;
+    text-decoration-color:rgba(124,92,255,.4);text-underline-offset:3px;
+    font-size:14px;font-weight:600;padding:6px 4px;cursor:pointer}
+  .ghost:hover{text-decoration-color:var(--accent);background:var(--soft);border-radius:6px}
   .card{background:var(--card);border-radius:18px;padding:22px;box-shadow:0 10px 40px rgba(43,35,80,.07)}
   .muted{color:var(--muted)}
   .hint{color:var(--muted);font-size:13px;margin:6px 0 18px}

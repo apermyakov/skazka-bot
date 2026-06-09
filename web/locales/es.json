@@ -174,5 +174,7 @@
   "create_trust_b": "💜 Ponle voz después — o no",
   "create_err_rate": "Demasiadas historias desde este dispositivo en la última hora. Por favor, inténtalo de nuevo más tarde.",
   "create_err_captcha": "No pudimos verificar que eres humano. Por favor, actualiza la página e inténtalo de nuevo.",
-  "mic_no_speech": "No te escuchamos, mi amor. Intenta de nuevo, ¿sí? Habla clarito."
+  "mic_no_speech": "No te escuchamos, mi amor. Intenta de nuevo, ¿sí? Habla clarito.",
+  "order_pay_again_full": "💜 Pagar {price} de nuevo",
+  "order_awaiting_sub": "Si no terminaste la compra, la historia sigue aquí. Revísala abajo y haz clic en pagar cuando estés listo."
 }
