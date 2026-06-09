@@ -375,8 +375,11 @@ async def create_submit(
     loc = _normalize_lang_tag(locale) or detect_locale(request)
     topic = (topic or "").strip()[:2000]
     email = (email or "").strip().lower()[:200]
-    if len(topic) < 10 or not _EMAIL_RE.match(email):
-        # Re-render with error inline isn't crucial for v1; redirect to /create.
+    # Topic must be at least 40 chars AND mention a digit somewhere (age) — that's
+    # the lightweight semantic check that catches "Данил девять лет." (17 chars,
+    # no digit) without an LLM round-trip. The chip presets all clear this bar.
+    has_digit = any(c.isdigit() for c in topic)
+    if len(topic) < 40 or not has_digit or not _EMAIL_RE.match(email):
         return RedirectResponse(url="/create?err=1", status_code=303)
 
     # Honeypot: legitimate users can't fill a position:absolute -9999px input;

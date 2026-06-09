@@ -11,7 +11,9 @@
   h1{font-size:clamp(22px,3vw,30px);margin:8px 0 12px;letter-spacing:-0.015em}
   .story{background:#fff;border-radius:14px;padding:18px 20px;margin:16px 0 18px;
     box-shadow:0 6px 20px rgba(43,35,80,.06);line-height:1.7;font-size:16px;color:#2b2350;
-    max-height:420px;overflow-y:auto;white-space:pre-wrap}
+    max-height:420px;overflow-y:auto}
+  .story p{margin:0 0 10px}  /* paragraphs already come pre-wrapped — explicit margin, no browser default */
+  .story p:last-child{margin-bottom:0}
   .story-title{font-weight:800;font-size:18px;margin-bottom:10px;color:var(--ink)}
   /* photo block */
   .photo-prepay{margin:14px 0 14px;padding:14px 16px;background:#f5efff;border:1.5px dashed #c9b8ff;

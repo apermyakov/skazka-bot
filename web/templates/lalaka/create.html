@@ -292,8 +292,9 @@
   // never set the busy state, never start polling, and stay clickable.
   document.getElementById('cf').addEventListener('submit', function(e){
     const v = topicEl.value.trim();
+    const hasDigit = /\d/.test(v);
     let ok = true;
-    if(v.length < 10){
+    if(v.length < 40 || !hasDigit){
       thint.textContent = T.err_t; thint.className = 'hint warn';
       topicEl.classList.add('invalid');
       topicEl.setAttribute('aria-invalid', 'true');
