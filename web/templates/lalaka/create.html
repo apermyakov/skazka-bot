@@ -11,7 +11,12 @@
   main{padding:6px 0 80px}
   h1{font-size:28px;margin:16px 0 6px;letter-spacing:-0.02em}
   .lead{color:var(--muted);margin:0 0 22px;font-size:15px}
-  .ex{background:var(--soft);border-radius:10px;padding:10px 13px;color:var(--muted);font-size:14px;margin-bottom:14px}
+  .ex{display:flex;gap:10px;align-items:flex-start;background:transparent;
+    border-inline-start:3px solid var(--accent);border-radius:0 8px 8px 0;
+    padding:6px 0 6px 12px;color:var(--muted);font-size:14px;line-height:1.5;margin-bottom:14px;
+    font-style:italic;cursor:pointer}
+  .ex::before{content:'💡';flex:0 0 auto;font-style:normal;font-size:16px;line-height:1.4}
+  .ex:hover{color:var(--ink)}
   .create-trust{margin-top:12px;display:flex;flex-wrap:wrap;justify-content:center;
     gap:6px 10px;color:#4b3f7a;font-size:13px;font-weight:600;text-align:center;line-height:1.5}
   .create-trust span.sep{color:#cdc1ee}
@@ -79,7 +84,7 @@
 
     <div class="card">
       <form method="post" action="/create" id="cf" novalidate enctype="multipart/form-data">
-        <div class="ex">{{ t.create_example }}</div>
+        <div class="ex" onclick="document.getElementById('topic').focus()" aria-hidden="true">{{ t.create_example }}</div>
         <label for="topic">{{ t.create_topic_label }}</label>
         <div class="chips" id="chips" role="group" aria-label="{{ t.create_topic_label }}">
           <button type="button" class="chip" data-preset="{{ t.chip_dark_full }}">{{ t.chip_dark }}</button>
