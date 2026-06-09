@@ -297,6 +297,33 @@ async def generate_story_text(context: str, story_id: int = None, locale: str | 
     return {"title": title, "text": text}
 
 
+def _detect_story_locale(text: str, fallback: str | None) -> str | None:
+    """Pick the locale whose script dominates the existing story text.
+
+    The order's stored locale is what the user *visited* (e.g. /en/create) —
+    that's not always the language the story was actually written in (Russian
+    topic on the EN page produces a Russian story half the time). On revise we
+    want to preserve the language the user is reading, not silently translate.
+    """
+    if not text:
+        return fallback
+    counts = {"ja": 0, "ko": 0, "ar": 0, "ru": 0, "en": 0}
+    for ch in text:
+        o = ord(ch)
+        if 0x0400 <= o <= 0x04FF:   counts["ru"] += 1   # Cyrillic
+        elif 0x3040 <= o <= 0x30FF: counts["ja"] += 1   # Hiragana + Katakana
+        elif 0xAC00 <= o <= 0xD7A3: counts["ko"] += 1   # Hangul syllables
+        elif 0x0600 <= o <= 0x06FF: counts["ar"] += 1   # Arabic
+        elif (0x0041 <= o <= 0x005A) or (0x0061 <= o <= 0x007A): counts["en"] += 1
+    total = sum(counts.values())
+    if total < 30:
+        return fallback
+    dominant = max(counts, key=lambda k: counts[k])
+    if counts[dominant] / total < 0.4:
+        return fallback
+    return dominant
+
+
 async def revise_story_text(prev_title: str, prev_text: str, instruction: str,
                             original_context: str = "", story_id: int = None,
                             locale: str | None = None) -> dict:
@@ -319,7 +346,13 @@ async def revise_story_text(prev_title: str, prev_text: str, instruction: str,
     )
     prompt_template = await cfg.get("prompt.story_revise", default)
     system = await cfg.get("prompt.story_text_system", "Ты — талантливый детский писатель.")
-    prompt = _i18n_prefix(locale) + prompt_template.format(
+    # Override the visit-locale with the language the story is actually written
+    # in — otherwise a Russian-topic-on-/en order silently flips to English here.
+    effective_locale = _detect_story_locale(prev_text, locale)
+    if effective_locale != locale:
+        logger.info("Revise locale override: %r → %r (based on prev_text script)",
+                    locale, effective_locale)
+    prompt = _i18n_prefix(effective_locale) + prompt_template.format(
         context=(original_context or "").strip()[:1500],
         prev_title=(prev_title or "").strip()[:200],
         prev_text=(prev_text or "").strip()[:6000],
@@ -328,11 +361,11 @@ async def revise_story_text(prev_title: str, prev_text: str, instruction: str,
     response = await _call_llm(system=system, user=prompt, story_id=story_id, purpose="story_text")
     if not response or not response.strip():
         raise RuntimeError("Empty revised story response")
-    fallback = prev_title or ("Bedtime story" if (locale and locale != "ru") else "Сказка на ночь")
+    fallback = prev_title or ("Bedtime story" if (effective_locale and effective_locale != "ru") else "Сказка на ночь")
     title, text = _extract_title(response, fallback)
     if len(text) > 15000:
         text = text[:15000]
-    logger.info("Story revised [%s]: '%s', %d chars (was %d)", locale or "ru", title, len(text), len(prev_text or ""))
+    logger.info("Story revised [%s]: '%s', %d chars (was %d)", effective_locale or "ru", title, len(text), len(prev_text or ""))
     return {"title": title, "text": text}
 
 
