@@ -37,6 +37,49 @@ _LOCALE_LANG_NAME = {
 }
 
 
+# Per-locale story prompts. Written IN the target language so the model's
+# strongest signal points the same direction as the locale. Each value:
+#   system   — the LLM system prompt (role/persona, language lock)
+#   write    — short imperative that opens the user message ("Write a fairy
+#              tale" in that language) before the user's topic
+#   reminder — last line of the user message, repeats the language lock
+_LOCALE_STORY_PROMPTS: dict[str, dict] = {
+    "en":   {"system":   "You are a talented children's writer. Write exclusively in English. Never switch to another language.",
+             "write":    "Write a bedtime fairy tale for a young child based on the prompt below.",
+             "reminder": "REMINDER: the entire output — title and body — must be in English. First line MUST be: TITLE: <story name in English>"},
+    "de":   {"system":   "Du bist eine talentierte Kinderbuchautorin. Schreibe ausschließlich auf Deutsch. Wechsle niemals in eine andere Sprache.",
+             "write":    "Schreibe eine Gutenacht-Geschichte für ein kleines Kind, basierend auf dem folgenden Auftrag.",
+             "reminder": "ERINNERUNG: die gesamte Ausgabe – Titel und Text – muss auf Deutsch sein. Erste Zeile MUSS sein: TITLE: <Titel auf Deutsch>"},
+    "es":   {"system":   "Eres un talentoso autor de cuentos para niños. Escribe exclusivamente en español. Nunca cambies a otro idioma.",
+             "write":    "Escribe un cuento para dormir para un niño pequeño basado en la siguiente petición.",
+             "reminder": "RECORDATORIO: toda la salida —título y cuerpo— debe estar en español. La primera línea DEBE ser: TITLE: <título del cuento en español>"},
+    "fr":   {"system":   "Tu es un talentueux auteur de contes pour enfants. Écris exclusivement en français. Ne change jamais de langue.",
+             "write":    "Écris un conte du soir pour un jeune enfant à partir de la demande ci-dessous.",
+             "reminder": "RAPPEL : toute la sortie — titre et corps — doit être en français. La première ligne DOIT être : TITLE: <titre du conte en français>"},
+    "it":   {"system":   "Sei un talentuoso autore di favole per bambini. Scrivi esclusivamente in italiano. Non cambiare mai lingua.",
+             "write":    "Scrivi una favola della buonanotte per un bambino piccolo basata sulla richiesta qui sotto.",
+             "reminder": "PROMEMORIA: l'intero output — titolo e corpo — deve essere in italiano. La prima riga DEVE essere: TITLE: <titolo della favola in italiano>"},
+    "pl":   {"system":   "Jesteś utalentowanym autorem bajek dla dzieci. Pisz wyłącznie po polsku. Nigdy nie zmieniaj języka.",
+             "write":    "Napisz bajkę na dobranoc dla małego dziecka na podstawie poniższego polecenia.",
+             "reminder": "PRZYPOMNIENIE: cały tekst — tytuł i treść — musi być po polsku. Pierwszy wiersz MUSI brzmieć: TITLE: <tytuł bajki po polsku>"},
+    "pt-BR":{"system":   "Você é um talentoso autor de histórias infantis. Escreva exclusivamente em português brasileiro. Nunca mude de idioma.",
+             "write":    "Escreva uma história de ninar para uma criança pequena com base no pedido abaixo.",
+             "reminder": "LEMBRETE: toda a saída — título e corpo — deve estar em português brasileiro. A primeira linha DEVE ser: TITLE: <título em português>"},
+    "tr":   {"system":   "Sen yetenekli bir çocuk masalı yazarısın. Yalnızca Türkçe yaz. Asla başka bir dile geçme.",
+             "write":    "Aşağıdaki istek üzerine küçük bir çocuk için bir uyku masalı yaz.",
+             "reminder": "HATIRLATMA: tüm çıktı — başlık ve gövde — Türkçe olmalı. İlk satır şu OLMALIDIR: TITLE: <Türkçe masal başlığı>"},
+    "ja":   {"system":   "あなたは才能ある児童文学作家です。日本語のみで書いてください。他の言語に切り替えないでください。",
+             "write":    "下記のリクエストに基づいて、小さなお子様向けの就寝前の童話を書いてください。",
+             "reminder": "リマインダー: 出力全体 — タイトルと本文 — はすべて日本語でなければなりません。最初の行は必ず次のようにしてください: TITLE: <日本語のタイトル>"},
+    "ko":   {"system":   "당신은 재능 있는 아동 동화 작가입니다. 한국어로만 글을 써주세요. 절대 다른 언어로 바꾸지 마세요.",
+             "write":    "아래 요청을 바탕으로 어린 아이를 위한 잠자리 동화를 써주세요.",
+             "reminder": "알림: 출력물 전체 — 제목과 본문 — 은 모두 한국어여야 합니다. 첫 번째 줄은 반드시 다음과 같아야 합니다: TITLE: <한국어 동화 제목>"},
+    "ar":   {"system":   "أنت مؤلف موهوب لأدب الأطفال. اكتب باللغة العربية فقط. لا تتحول إلى أي لغة أخرى أبدا.",
+             "write":    "اكتب قصة ما قبل النوم لطفل صغير بناء على الطلب أدناه.",
+             "reminder": "تذكير: يجب أن يكون الناتج بأكمله — العنوان والنص — باللغة العربية. يجب أن يكون السطر الأول: TITLE: <عنوان القصة بالعربية>"},
+}
+
+
 def _i18n_prefix(locale: str | None) -> str:
     """Meta-instruction prepended to the user prompt for non-Russian locales.
     Empty for None/ru so skazik's prompts run unchanged."""
@@ -275,22 +318,15 @@ async def generate_story_text(context: str, story_id: int = None, locale: str | 
     from db.config_manager import cfg
     prompt_template = await cfg.get("prompt.story_text", "Напиши сказку.\n{context}")
     system = await cfg.get("prompt.story_text_system", "Ты — талантливый детский писатель.")
-    # For non-Russian locales, fully swap the Russian system prompt + leading
-    # template to English. The previous "Russian-template + English meta-prefix"
-    # combo let Gemini fall back to Russian half the time because the dominant
-    # signal in the prompt was still Cyrillic. Strengthening with an English
-    # framing AND closing reminder makes the language choice unambiguous.
-    if locale and locale != "ru":
-        lang = _LOCALE_LANG_NAME.get(locale, "English")
-        system = (
-            f"You are a talented children's writer. You write exclusively in {lang}. "
-            f"Never use Russian or any other language."
-        )
-        prompt = (
-            f"{_i18n_prefix(locale)}"
-            f"Write a fairy tale.\n{context}\n\n"
-            f"REMINDER: the entire output (title + body) must be in {lang}."
-        )
+    # For non-Russian locales we write the system prompt + user template in the
+    # TARGET language itself. Models anchor far more reliably to the prompt
+    # language than to a meta-instruction translated into English — a Turkish
+    # system prompt produces a Turkish story; an English meta-prefix in front
+    # of a Russian template produces ~50% Russian stories.
+    loc_prompts = _LOCALE_STORY_PROMPTS.get(locale or "ru")
+    if loc_prompts:
+        system = loc_prompts["system"]
+        prompt = f"{loc_prompts['write']}\n{context}\n\n{loc_prompts['reminder']}"
     else:
         prompt = _i18n_prefix(locale) + prompt_template.format(context=context)
 
