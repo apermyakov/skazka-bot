@@ -837,15 +837,32 @@ async def order_pay(oid: str):
         raise HTTPException(404)
     if o.get("status") not in ("text_ready", "awaiting_payment"):
         return JSONResponse({"ok": False, "error": "wrong_status"}, status_code=400)
-    pr = price_for(o.get("locale") or DEFAULT_LOCALE)
-    rub = o.get("amount_rub") or pr["amount_rub"]
+    locale = o.get("locale") or DEFAULT_LOCALE
     return_url = f"{PUBLIC_BASE}/order/{oid}"
+
+    # Prefer FastSpring when configured — it handles US/EU/JP tax for us and
+    # accepts every major card globally. Fall back to YooKassa otherwise so
+    # the form keeps working while FastSpring keys are being provisioned.
+    from engine import fastspring_client
+    if fastspring_client.is_configured():
+        try:
+            url = fastspring_client.build_checkout_url(
+                oid=oid, locale=locale, email=o.get("email"), return_url=return_url)
+        except Exception as e:
+            logger.error("lalaka FastSpring url build failed for %s: %s", oid, e)
+            return JSONResponse({"ok": False, "error": "payment_failed"}, status_code=500)
+        await L.update_order(oid, status="awaiting_payment")
+        return {"ok": True, "confirmation_url": url}
+
+    # YooKassa fallback (RU market, plus until FastSpring keys are in env)
+    pr = price_for(locale)
+    rub = o.get("amount_rub") or pr["amount_rub"]
     try:
         resp = await yookassa_client.create_payment(
             amount_rub=rub,
             description=f"Lalaka story #{oid}",
             return_url=return_url,
-            metadata={"lalaka_oid": oid, "locale": o.get("locale") or "en"},
+            metadata={"lalaka_oid": oid, "locale": locale},
         )
     except Exception as e:
         logger.error("lalaka pay create failed for %s: %s", oid, e)
@@ -876,6 +893,52 @@ async def lalaka_webhook(request: Request, background_tasks: BackgroundTasks):
     if claimed:
         background_tasks.add_task(_generate_lalaka, oid)
     return {"ok": True}
+
+
+@lalaka_router.post("/fastspring/webhook")
+async def fastspring_webhook(request: Request, background_tasks: BackgroundTasks):
+    """FastSpring webhook for Lalaka orders.
+
+    FastSpring batches multiple events per POST under `events[]`. We only
+    act on `order.completed` (payment done). All other types are
+    acknowledged with 200 so FastSpring doesn't retry them.
+    """
+    from engine import fastspring_client
+
+    raw = await request.body()
+    sig = request.headers.get("x-fs-signature") or request.headers.get("X-FS-Signature") or ""
+    if not fastspring_client.verify_webhook(raw, sig):
+        logger.warning("fastspring webhook signature mismatch from %s", _client_ip(request))
+        # 403 here makes the retry attempt visible in FS dashboard instead of
+        # silently dropping; if it's a real misconfiguration we want to see it.
+        return JSONResponse({"ok": False, "error": "bad_signature"}, status_code=403)
+
+    try:
+        import json as _json
+        payload = _json.loads(raw.decode("utf-8") or "{}")
+    except Exception as e:
+        logger.error("fastspring webhook bad json: %s", e)
+        return JSONResponse({"ok": False, "error": "bad_json"}, status_code=400)
+
+    events = payload.get("events") or []
+    handled = 0
+    for ev in events:
+        ev_type = ev.get("type") or ""
+        if ev_type != "order.completed":
+            continue
+        oid = fastspring_client.extract_oid_from_event(ev)
+        if not oid:
+            logger.warning("fastspring order.completed without oid — payload: %s", str(ev)[:200])
+            continue
+        pid = (ev.get("data") or {}).get("reference") or (ev.get("data") or {}).get("id") or ""
+        claimed = await L.claim_for_generation(oid, pid)
+        if claimed:
+            background_tasks.add_task(_generate_lalaka, oid)
+            handled += 1
+            logger.info("fastspring order.completed → generating oid=%s pid=%s", oid, pid)
+        else:
+            logger.info("fastspring duplicate/non-claimable order oid=%s pid=%s", oid, pid)
+    return {"ok": True, "handled": handled}
 
 
 # Catch-all for locale prefixes /de, /ja, /pt-BR, etc.
