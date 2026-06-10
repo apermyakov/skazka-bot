@@ -16,8 +16,10 @@ JS embed required:
 
 ENV vars expected:
     FASTSPRING_STORE          — store identifier (e.g. "lalakaai" → lalakaai.onfastspring.com)
-    FASTSPRING_PRODUCT_PATH   — product path/slug (e.g. "fairy-tale")
+    FASTSPRING_PRODUCT_PATH   — product path/slug (e.g. "lalaka-fairy-tale")
     FASTSPRING_WEBHOOK_SECRET — shared HMAC secret from dashboard
+    FASTSPRING_MODE           — "live" (default) or "test" (sandbox checkouts use
+                                {store}.test.onfastspring.com)
 """
 from __future__ import annotations
 
@@ -46,7 +48,12 @@ def build_checkout_url(oid: str, locale: str, email: Optional[str] = None,
     """
     store = os.environ["FASTSPRING_STORE"].strip()
     product = os.environ["FASTSPRING_PRODUCT_PATH"].strip().lstrip("/")
-    base = f"https://{store}.onfastspring.com/{product}"
+    # In test mode FastSpring serves the sandbox checkout from a separate
+    # subdomain ({store}.test.onfastspring.com); flip the URL with one env var
+    # so we don't have to reconfigure anything else when going live.
+    mode = (os.environ.get("FASTSPRING_MODE", "live") or "live").strip().lower()
+    host_prefix = f"{store}.test" if mode == "test" else store
+    base = f"https://{host_prefix}.onfastspring.com/{product}"
     params = {
         "referrer": oid,
         "tags": f"lalaka_oid={oid};locale={locale}",
