@@ -28,20 +28,36 @@ STOP_WORDS = {"Сказка","Сказку","Сказке","Сказкой","С�
               # start a sentence — none are names:
               "Пусть","Про","Изменения","Изменение","Сделай","Сделать","Добавь","Добавить",
               "Убери","Убрать","Замени","Заменить","Хочу","Можно","Будет",
-              "Главный","Главная","Героиня","Герой","Мальчик","Девочка","Ребёнок","Ребенок"}
+              "Главный","Главная","Героиня","Герой","Мальчик","Девочка","Ребёнок","Ребенок",
+              # Cases / role-nouns in oblique forms that show up at sentence start
+              "Героя","Героиню","Героине","Героем","Героиней",
+              "Мальчика","Мальчику","Мальчиком","Мальчике","Девочку","Девочке","Девочкой",
+              "Ребёнка","Ребёнку","Ребёнком","Ребёнке","Ребенка","Ребенку",
+              "Сын","Сына","Сыну","Сыном","Дочь","Дочка","Дочку","Дочки","Дочери"}
 
 
-def first_name(topic: str) -> str | None:
-    """First capitalised Cyrillic word in topic that isn't a stopword.
-    Skips the first match if it's 'Сказка' (the literal "fairy tale" word).
+def candidate_names(topic: str, k: int = 4) -> list[str]:
+    """Up to k capitalised Cyrillic tokens from topic that aren't stopwords.
+
+    Russian users often write the actual name 2-3 words in ("Героя зовут
+    Максим Аверьянов") — picking only the first token gives false positives
+    on role nouns ("Героя", "Девочка") and quantifiers. By scanning up to k
+    candidates we let the OR-check below find the real name even if it isn't
+    the very first capitalised token.
     """
     if not topic:
-        return None
-    for m in RU_NAME_RX.finditer(topic[:300]):
+        return []
+    out = []
+    for m in RU_NAME_RX.finditer(topic[:400]):
         token = m.group(1)
-        if token not in STOP_WORDS:
-            return token
-    return None
+        if token in STOP_WORDS:
+            continue
+        if token in out:
+            continue
+        out.append(token)
+        if len(out) >= k:
+            break
+    return out
 
 
 def name_present_in(text: str, name: str) -> bool:
@@ -73,17 +89,18 @@ async def main():
 
     flagged, ok, missing_name = [], 0, 0
     for r in rows:
-        name = first_name(r["topic"] or "")
-        if not name:
+        candidates = candidate_names(r["topic"] or "")
+        if not candidates:
             missing_name += 1
             continue
-        title_has = name_present_in(r["title"] or "", name)
-        story_has = name_present_in(r["story_head"] or "", name)
-        if not (title_has or story_has):
+        # Match if ANY of the candidate tokens shows up downstream — story is OK
+        anywhere = (r["title"] or "") + " " + (r["story_head"] or "")
+        any_match = any(name_present_in(anywhere, c) for c in candidates)
+        if not any_match:
             flagged.append({
                 "id": r["id"],
                 "topic": r["topic"],
-                "expected_name": name,
+                "expected_name": " / ".join(candidates[:3]),
                 "title": r["title"] or "",
                 "story_head": (r["story_head"] or "")[:200],
                 "status": r["status"],
