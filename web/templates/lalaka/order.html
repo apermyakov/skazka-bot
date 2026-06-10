@@ -430,7 +430,10 @@ function loadFastSpring(storefront){
     if(window.fastspring && window.fastspring.builder){ resolve(); return; }
     const s = document.createElement('script');
     s.id = 'fsc-api';
-    s.src = 'https://d1f8f9xcsvx3ha.cloudfront.net/sbl/0.9.4/fastspring-builder.min.js';
+    // Official FastSpring SBL URL (v1.0.7 as of 2026-06). Previous URL was a
+    // stale Cloudfront mirror that returned a builder so old it ignored
+    // data-storefront and fell through to a top-level redirect.
+    s.src = 'https://sbl.onfastspring.com/sbl/1.0.7/fastspring-builder.min.js';
     s.type = 'text/javascript';
     s.setAttribute('data-storefront', storefront);
     s.setAttribute('data-popup-closed', 'onFSPopupClosed');
