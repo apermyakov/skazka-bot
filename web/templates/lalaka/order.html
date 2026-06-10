@@ -437,6 +437,8 @@ function loadFastSpring(storefront){
     s.type = 'text/javascript';
     s.setAttribute('data-storefront', storefront);
     s.setAttribute('data-popup-closed', 'onFSPopupClosed');
+    s.setAttribute('data-error-callback', 'onFSError');
+    s.setAttribute('data-popup-event-received', 'onFSPopupEvent');
     s.async = true;
     s.onload = function(){
       // Builder library exposes window.fastspring shortly after script load.
@@ -460,6 +462,22 @@ window.onFSPopupClosed = function(orderRef){
   shownStatus = '';
   // Kick the polling loop right away so the user sees the transition immediately.
   setTimeout(function(){ poll && poll(); }, 250);
+};
+
+// Surface FastSpring errors. "Store Error" is FS's generic catch-all — the
+// actual code/payload comes through here so we can show something useful
+// instead of leaving the user stuck on a red modal.
+window.onFSError = function(err){
+  console.error('[FastSpring error]', err);
+  try { window.__fs_last_error = err; } catch(e){}
+  const msg = (err && (err.message || err.code)) || 'Payment provider error';
+  flash(T.err_payment + ' — ' + msg, 'err');
+};
+
+// Mirror every popup event to the console — invaluable when diagnosing why
+// the modal opened but couldn't take payment.
+window.onFSPopupEvent = function(ev){
+  try { console.log('[FastSpring event]', ev && ev.type, ev); } catch(e){}
 };
 
 async function pay(){
