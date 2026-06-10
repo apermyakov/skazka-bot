@@ -182,5 +182,12 @@
   "order_read_more": "Leer más",
   "order_read_less": "Colapsar",
   "gallery_caption_5": "Aurora sobre la cima",
-  "gallery_caption_6": "Jardín de castillo-cielo"
+  "gallery_caption_6": "Jardín de castillo-cielo",
+  "order_rate_star": "estrella",
+  "order_rate_stars": "estrellas",
+  "order_rate_ph": "Deja un comentario breve (opcional)",
+  "order_rate_ph_bad": "¿Qué no funcionó? Lo rehacemos gratis o te devolvemos el dinero.",
+  "order_rate_q_bad": "Sentimos que no te haya gustado 😔 Cuéntanos qué podemos mejorar",
+  "order_rate_send": "Enviar",
+  "order_rate_thanks_bad": "Entendido — te contactaremos pronto."
 }

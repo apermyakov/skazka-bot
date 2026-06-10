@@ -1080,6 +1080,21 @@ async def _generate_lalaka(oid: str):
                 )
             except Exception as e:
                 logger.warning("lalaka story_ready email %s: %s", oid, e)
+            # Schedule a 24h rating follow-up. The email_queue worker checks
+            # the order's rating column before sending — if the user already
+            # rated by then, we skip silently. meta is what flags the row
+            # for that skip-check.
+            try:
+                from datetime import datetime, timedelta, timezone
+                from web import lalaka_mailer
+                await lalaka_mailer.enqueue_followup_rating(
+                    buyer_email, result.get("title", ""),
+                    f"{PUBLIC_BASE}/order/{oid}", locale,
+                    send_at=datetime.now(timezone.utc) + timedelta(hours=24),
+                    meta={"type": "lalaka_followup_rating", "order_id": oid},
+                )
+            except Exception as e:
+                logger.warning("lalaka followup_rating enqueue %s: %s", oid, e)
         await _notify_admin(f"✅ Lalaka story DONE [{locale}] «{result.get('title')}»\nhttps://lalaka.ai/order/{oid}")
     except Exception as e:
         logger.error("lalaka generate %s failed: %s", oid, e, exc_info=True)

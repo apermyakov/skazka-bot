@@ -93,12 +93,17 @@ async def _should_skip(row) -> tuple[bool, str]:
             meta = json.loads(meta)
         except Exception:
             return False, ""
-    if meta.get("type") == "followup_rating":
+    t = meta.get("type")
+    # Skazik (web_orders) and Lalaka (lalaka_orders) both queue a 24h follow-up
+    # rating email; we skip delivery if the user already rated by the time the
+    # row is picked up.
+    if t in ("followup_rating", "lalaka_followup_rating"):
         oid = meta.get("order_id")
         if not oid:
             return False, ""
+        table = "lalaka_orders" if t == "lalaka_followup_rating" else "web_orders"
         async with db_mod._pool.acquire() as c:
-            r = await c.fetchrow("SELECT rating FROM web_orders WHERE id=$1", oid)
+            r = await c.fetchrow(f"SELECT rating FROM {table} WHERE id=$1", oid)
         if r and r["rating"] is not None:
             return True, "already rated"
     return False, ""

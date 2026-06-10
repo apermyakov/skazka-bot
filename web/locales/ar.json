@@ -182,5 +182,12 @@
   "order_read_more": "اقرأ القصة كاملة",
   "order_read_less": "طي",
   "gallery_caption_5": "شفق فوق القمة",
-  "gallery_caption_6": "حديقة قصر السماء"
+  "gallery_caption_6": "حديقة قصر السماء",
+  "order_rate_star": "نجمة",
+  "order_rate_stars": "نجوم",
+  "order_rate_ph": "اترك تعليقًا قصيرًا (اختياري)",
+  "order_rate_ph_bad": "ما الذي لم يعجبك؟ سنقوم بإعادة الطلب مجانًا أو استرداد المبلغ.",
+  "order_rate_q_bad": "آسفون لأن الأمر لم يسر على ما يرام 😔 أخبرنا ما الذي يجب إصلاحه",
+  "order_rate_send": "إرسال",
+  "order_rate_thanks_bad": "وصلنا طلبك — سنتواصل معك قريبًا."
 }

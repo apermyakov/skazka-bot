@@ -92,14 +92,19 @@
   @media(min-width:540px){ .illust-strip{grid-template-columns:repeat(3,1fr)} }
   .illust-strip img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:var(--soft);display:block}
   /* Rating widget */
-  .rate-card{background:#fff;border-radius:14px;padding:16px;margin-top:18px;
-    box-shadow:0 6px 20px rgba(43,35,80,.06);text-align:center}
+  .rate-card{background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:18px 16px;
+    margin-top:18px;box-shadow:0 6px 20px rgba(43,35,80,.06);text-align:center}
   .rate-card .q{font-weight:700;color:var(--ink);font-size:15.5px;margin-bottom:12px}
-  .rate-options{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
-  .rate-options button{background:#fff;color:var(--ink);border:1.5px solid var(--line);
-    border-radius:999px;padding:8px 14px;font:inherit;font-weight:600;font-size:14px;cursor:pointer}
-  .rate-options button:hover{background:var(--soft);border-color:var(--accent)}
-  .rate-options button.selected{background:var(--soft);border-color:var(--accent);color:var(--accent)}
+  .stars{display:inline-flex;gap:4px;direction:ltr}
+  .star{background:transparent;border:none;color:var(--line);font-size:34px;line-height:1;
+    cursor:pointer;padding:4px 6px;transition:color .12s, transform .12s}
+  .star:hover{transform:scale(1.12)}
+  .star.filled{color:#ffc857}
+  .star:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+  .rate-step2{margin-top:12px}
+  .rate-comment{width:100%;min-height:70px;border:1.5px solid var(--line);border-radius:10px;
+    padding:10px;font:inherit;font-size:14.5px;resize:vertical;background:#fff;color:var(--ink)}
+  .rate-comment:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,92,255,.12)}
   /* Sticky pay button (mobile) */
   .sticky-pay{position:fixed;left:0;right:0;bottom:0;padding:10px 14px 14px;
     background:linear-gradient(to top,#fbf7ff 70%,rgba(251,247,255,0));z-index:30;display:none;pointer-events:none}
@@ -179,6 +184,13 @@ const T = {
   rate_ok:        {{ t.order_rate_ok | tojson }},
   rate_bad:       {{ t.order_rate_bad | tojson }},
   rate_thanks:    {{ t.order_rate_thanks | tojson }},
+  rate_thanks_bad:{{ t.order_rate_thanks_bad | tojson }},
+  rate_star:      {{ t.order_rate_star | tojson }},
+  rate_stars:     {{ t.order_rate_stars | tojson }},
+  rate_ph:        {{ t.order_rate_ph | tojson }},
+  rate_ph_bad:    {{ t.order_rate_ph_bad | tojson }},
+  rate_q_bad:     {{ t.order_rate_q_bad | tojson }},
+  rate_send:      {{ t.order_rate_send | tojson }},
 };
 function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -398,26 +410,65 @@ function render(d){
 function rateWidgetHTML(){
   return '<div class="rate-card" id="ratecard">'+
     '<div class="q">'+T.rate_q+'</div>'+
-    '<div class="rate-options">'+
-      '<button type="button" data-rate="5">'+T.rate_loved+'</button>'+
-      '<button type="button" data-rate="3">'+T.rate_ok+'</button>'+
-      '<button type="button" data-rate="1">'+T.rate_bad+'</button>'+
-    '</div></div>';
+    '<div class="stars" id="ratestars" role="radiogroup" aria-label="'+T.rate_q+'">'+
+      [1,2,3,4,5].map(function(n){
+        return '<button type="button" class="star" data-rate="'+n+'" '+
+               'aria-label="'+n+' '+(n===1?T.rate_star:T.rate_stars)+'">★</button>';
+      }).join('')+
+    '</div>'+
+    '<div class="rate-step2" id="ratestep2" style="display:none">'+
+      '<textarea id="ratecomment" class="rate-comment" placeholder="'+T.rate_ph+'" maxlength="2000"></textarea>'+
+      '<button type="button" class="btn2" id="ratesubmit" style="margin-top:8px">'+T.rate_send+'</button>'+
+    '</div>'+
+  '</div>';
 }
 function wireRate(){
   const card = document.getElementById('ratecard');
   if(!card) return;
-  card.addEventListener('click', async function(e){
-    const b = e.target.closest('button[data-rate]');
-    if(!b) return;
-    const val = parseInt(b.dataset.rate, 10);
-    card.querySelectorAll('button').forEach(x => x.disabled = true);
-    b.classList.add('selected');
+  let selected = 0;
+  // Stars on hover/click highlight the chosen N + everything below.
+  const stars = card.querySelectorAll('.star');
+  function paint(n){
+    stars.forEach((s, i) => s.classList.toggle('filled', i < n));
+  }
+  stars.forEach(function(btn, i){
+    btn.addEventListener('mouseenter', function(){ paint(i + 1); });
+    btn.addEventListener('focus',      function(){ paint(i + 1); });
+    btn.addEventListener('click', function(){
+      selected = parseInt(btn.dataset.rate, 10);
+      paint(selected);
+      // Reveal the optional-comment step + tailor the prompt for bad ratings.
+      const step2 = document.getElementById('ratestep2');
+      const q = card.querySelector('.q');
+      if(selected <= 2){
+        q.textContent = T.rate_q_bad;
+        document.getElementById('ratecomment').placeholder = T.rate_ph_bad;
+      }
+      step2.style.display = 'block';
+      document.getElementById('ratecomment').focus();
+    });
+  });
+  // Re-paint to the selected count when the mouse leaves the row.
+  const row = document.getElementById('ratestars');
+  row.addEventListener('mouseleave', function(){ paint(selected); });
+
+  // Submit button: POST rating + comment, swap card for thanks message
+  // (or "we'll reach out" message for bad ratings since admin gets a TG ping).
+  document.getElementById('ratesubmit').addEventListener('click', async function(){
+    if(!selected){
+      stars[0].focus();
+      return;
+    }
+    const c = document.getElementById('ratecomment').value.trim();
+    document.getElementById('ratesubmit').disabled = true;
     try{
-      const fd = new FormData(); fd.append('rating', val);
+      const fd = new FormData();
+      fd.append('rating', selected);
+      if(c) fd.append('comment', c);
       await fetch('/order/'+OID+'/rate', {method:'POST', body: fd});
     }catch(e){}
-    card.innerHTML = '<div class="q">'+T.rate_thanks+'</div>';
+    const thanksMsg = selected <= 2 ? T.rate_thanks_bad : T.rate_thanks;
+    card.innerHTML = '<div class="q">'+thanksMsg+'</div>';
   });
 }
 

@@ -182,5 +182,12 @@
   "order_read_more": "전체 보기",
   "order_read_less": "접기",
   "gallery_caption_5": "정상 위 오로라",
-  "gallery_caption_6": "하늘성 정원"
+  "gallery_caption_6": "하늘성 정원",
+  "order_rate_star": "별점",
+  "order_rate_stars": "별점",
+  "order_rate_ph": "짧은 코멘트를 남겨주세요 (선택 사항)",
+  "order_rate_ph_bad": "어떤 점이 마음에 안 드셨나요? 무료로 다시 해드리거나 환불해 드릴게요.",
+  "order_rate_q_bad": "마음에 안 드셨다니 죄송해요 😔 어떤 점을 고쳐야 할지 알려주세요",
+  "order_rate_send": "보내기",
+  "order_rate_thanks_bad": "알겠습니다 — 곧 연락드릴게요."
 }

@@ -182,5 +182,12 @@
   "order_read_more": "Devamını oku",
   "order_read_less": "Daralt",
   "gallery_caption_5": "Zirvede kutup ışıkları",
-  "gallery_caption_6": "Gökyüzü kale bahçesi"
+  "gallery_caption_6": "Gökyüzü kale bahçesi",
+  "order_rate_star": "yıldız",
+  "order_rate_stars": "yıldız",
+  "order_rate_ph": "Kısa bir yorum bırakabilirsin (isteğe bağlı)",
+  "order_rate_ph_bad": "Neler istediğin gibi gitmedi? Ücretsiz tekrar yapalım veya paranı iade edelim.",
+  "order_rate_q_bad": "Üzgünüz, istediğin gibi olmamış 😔 Bize neyi düzeltmemiz gerektiğini söyler misin?",
+  "order_rate_send": "Gönder",
+  "order_rate_thanks_bad": "Anladık — seninle hemen iletişime geçeceğiz."
 }

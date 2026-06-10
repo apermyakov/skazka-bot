@@ -182,5 +182,12 @@
   "order_read_more": "Czytaj dalej",
   "order_read_less": "Zwiń",
   "gallery_caption_5": "Aurora nad szczytem",
-  "gallery_caption_6": "Podniebny zamek-ogród"
+  "gallery_caption_6": "Podniebny zamek-ogród",
+  "order_rate_star": "gwiazdka",
+  "order_rate_stars": "gwiazdki",
+  "order_rate_ph": "Zostaw krótki komentarz (opcjonalnie)",
+  "order_rate_ph_bad": "Co poszło nie tak? Poprawimy to za darmo albo zwrócimy pieniążki.",
+  "order_rate_q_bad": "Przykro nam, że się nie udało 😔 Powiedz nam, co poprawić",
+  "order_rate_send": "Wyślij",
+  "order_rate_thanks_bad": "Dostaliśmy — odezwiemy się do Ciebie wkrótce."
 }

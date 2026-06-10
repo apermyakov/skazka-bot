@@ -182,5 +182,12 @@
   "order_read_more": "Read full story",
   "order_read_less": "Collapse",
   "gallery_caption_5": "Aurora over the peak",
-  "gallery_caption_6": "Sky-castle garden"
+  "gallery_caption_6": "Sky-castle garden",
+  "order_rate_star": "star",
+  "order_rate_stars": "stars",
+  "order_rate_ph": "Leave a short comment (optional)",
+  "order_rate_ph_bad": "What didn't work? We'll redo it for free or refund.",
+  "order_rate_q_bad": "Sorry it didn't land 😔 Tell us what to fix",
+  "order_rate_send": "Send",
+  "order_rate_thanks_bad": "Got it — we'll reach out to you shortly."
 }

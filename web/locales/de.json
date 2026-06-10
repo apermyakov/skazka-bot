@@ -182,5 +182,12 @@
   "order_read_more": "Mehr lesen",
   "order_read_less": "Einklappen",
   "gallery_caption_5": "Aurora überm Gipfel",
-  "gallery_caption_6": "Himmelsburg-Garten"
+  "gallery_caption_6": "Himmelsburg-Garten",
+  "order_rate_star": "Stern",
+  "order_rate_stars": "Sterne",
+  "order_rate_ph": "Hinterlasse einen kurzen Kommentar (optional)",
+  "order_rate_ph_bad": "Was hat nicht geklappt? Wir machen es kostenlos neu oder erstatten dir das Geld.",
+  "order_rate_q_bad": "Ohje, das tut uns leid 😔 Sag uns, was wir besser machen können",
+  "order_rate_send": "Senden",
+  "order_rate_thanks_bad": "Verstanden — wir melden uns gleich bei dir."
 }

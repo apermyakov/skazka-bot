@@ -182,5 +182,12 @@
   "order_read_more": "Leggi tutto",
   "order_read_less": "Comprimi",
   "gallery_caption_5": "Aurora sulla vetta",
-  "gallery_caption_6": "Giardino del castello celeste"
+  "gallery_caption_6": "Giardino del castello celeste",
+  "order_rate_star": "stellina",
+  "order_rate_stars": "stelline",
+  "order_rate_ph": "Lascia un breve commento (facoltativo)",
+  "order_rate_ph_bad": "Cosa non ha funzionato? Lo rifaremo gratuitamente o ti rimborseremo.",
+  "order_rate_q_bad": "Ci dispiace che non sia andata bene 😔 Dicci cosa dobbiamo migliorare",
+  "order_rate_send": "Invia",
+  "order_rate_thanks_bad": "Ricevuto — ti contatteremo a breve."
 }

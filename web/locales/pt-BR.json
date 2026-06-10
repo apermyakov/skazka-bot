@@ -182,5 +182,12 @@
   "order_read_more": "Ler história completa",
   "order_read_less": "Recolher",
   "gallery_caption_5": "Aurora sobre o pico",
-  "gallery_caption_6": "Jardim do céu-castelo"
+  "gallery_caption_6": "Jardim do céu-castelo",
+  "order_rate_star": "estrela",
+  "order_rate_stars": "estrelas",
+  "order_rate_ph": "Deixe um comentário rapidinho (opcional)",
+  "order_rate_ph_bad": "O que não deu certo? A gente refaz de graça ou te reembolsa.",
+  "order_rate_q_bad": "Poxa, que pena que não deu certo 😔 Conta pra gente o que podemos melhorar",
+  "order_rate_send": "Enviar",
+  "order_rate_thanks_bad": "Recebemos — já já a gente entra em contato com você."
 }

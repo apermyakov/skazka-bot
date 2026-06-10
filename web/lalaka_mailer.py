@@ -125,7 +125,8 @@ async def send_story_ready(to_addr: str, title: str, order_url: str, locale: str
 
 
 async def send_followup_rating(to_addr: str, title: str, order_url: str, locale: str) -> bool:
-    """24h after delivery — rating ask."""
+    """24h after delivery — rating ask. Use enqueue_followup_rating() instead for
+    delivery scheduling — this immediate-send is kept for manual testing."""
     subj = _t(locale, "email_rate_subject", title=title)
     h1   = _t(locale, "email_rate_h1")
     body = _t(locale, "email_rate_body", title=f"<b>{_esc(title)}</b>")
@@ -139,3 +140,27 @@ async def send_followup_rating(to_addr: str, title: str, order_url: str, locale:
         f"{cta}: {order_url}#rate\n\n{team}\n{addr}\n{unsub}"
     )
     return await _send(to_addr, subj, plain, html)
+
+
+async def enqueue_followup_rating(to_addr: str, title: str, order_url: str, locale: str,
+                                    send_at, meta: dict | None = None) -> int:
+    """Enqueue the 24h follow-up rating ask for delayed delivery.
+
+    Returns the email_outbox row id. The worker that picks the row up reads
+    meta.type === 'lalaka_followup_rating' and skips delivery if the order's
+    rating column is already non-null — that's how an early rater stops the
+    "did you like it?" email from showing up after they already said yes."""
+    subj = _t(locale, "email_rate_subject", title=title)
+    h1   = _t(locale, "email_rate_h1")
+    body = _t(locale, "email_rate_body", title=f"<b>{_esc(title)}</b>")
+    cta  = _t(locale, "email_rate_cta")
+    team  = _t(locale, "email_footer_team")
+    addr  = _t(locale, "email_footer_addr")
+    unsub = _t(locale, "email_footer_unsub")
+    html = _render_html(h1, body, _cta_button(order_url + "#rate", cta), None, None, team, addr, unsub)
+    plain = (
+        f"{h1}\n\n«{title}»\n\n{body.replace('<b>','').replace('</b>','')}\n\n"
+        f"{cta}: {order_url}#rate\n\n{team}\n{addr}\n{unsub}"
+    )
+    from web.email_queue import enqueue_email
+    return await enqueue_email(to_addr, subj, plain, html, send_at=send_at, meta=meta)
