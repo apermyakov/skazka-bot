@@ -421,6 +421,44 @@ function wireRate(){
   });
 }
 
+// Shared FastSpring Builder loader — boots once per page even if the user
+// retries Pay. Resolves when window.fastspring is ready to accept calls.
+let _fsLoaded = null;
+function loadFastSpring(storefront){
+  if(_fsLoaded) return _fsLoaded;
+  _fsLoaded = new Promise(function(resolve, reject){
+    if(window.fastspring && window.fastspring.builder){ resolve(); return; }
+    const s = document.createElement('script');
+    s.id = 'fsc-api';
+    s.src = 'https://d1f8f9xcsvx3ha.cloudfront.net/sbl/0.9.4/fastspring-builder.min.js';
+    s.type = 'text/javascript';
+    s.setAttribute('data-storefront', storefront);
+    s.setAttribute('data-popup-closed', 'onFSPopupClosed');
+    s.async = true;
+    s.onload = function(){
+      // Builder library exposes window.fastspring shortly after script load.
+      const wait = setInterval(function(){
+        if(window.fastspring && window.fastspring.builder){
+          clearInterval(wait); resolve();
+        }
+      }, 50);
+      setTimeout(function(){ clearInterval(wait); resolve(); }, 4000);
+    };
+    s.onerror = function(e){ reject(e); };
+    document.head.appendChild(s);
+  });
+  return _fsLoaded;
+}
+
+// FastSpring Builder fires this when the popup closes — orderRef is non-null
+// only on a successful purchase. Either way we re-poll /status, which will
+// move the page into the generating state once the webhook lands.
+window.onFSPopupClosed = function(orderRef){
+  shownStatus = '';
+  // Kick the polling loop right away so the user sees the transition immediately.
+  setTimeout(function(){ poll && poll(); }, 250);
+};
+
 async function pay(){
   const b = document.getElementById('pay');
   const sb = stickyBtn;
@@ -433,6 +471,33 @@ async function pay(){
   try{
     const r = await fetch('/order/'+OID+'/pay', {method:'POST'});
     const d = await r.json();
+    if(d.ok && d.mode === 'popup'){
+      // FastSpring Builder Library — opens a modal over lalaka.ai
+      try{
+        await loadFastSpring(d.storefront);
+        const fs = window.fastspring && window.fastspring.builder;
+        if(!fs){ throw new Error('builder not loaded'); }
+        // Reset session so retries don't carry the prior cart contents.
+        try{ fs.reset(); }catch(e){}
+        // Tag the session with our order id; FastSpring echoes it back to us
+        // via the order.completed webhook under data.tags.lalaka_oid.
+        fs.tag({lalaka_oid: d.oid, locale: d.locale});
+        // Pre-fill the buyer email so they don't have to type it again.
+        if(d.email){
+          try{ fs.recognize({email: d.email}); }catch(e){}
+        }
+        // .checkout(productPath) opens the popup with that product in cart.
+        fs.checkout(d.product);
+        // We don't restore() — onFSPopupClosed handles UI reset after close.
+        return;
+      }catch(e){
+        console.error('fastspring popup failed', e);
+        flash(T.err_payment, 'err');
+        restore();
+        return;
+      }
+    }
+    // Legacy YooKassa fallback — straight redirect.
     if(d.ok && d.confirmation_url){ window.location = d.confirmation_url; return; }
     flash(T.err_payment, 'err');
     restore();

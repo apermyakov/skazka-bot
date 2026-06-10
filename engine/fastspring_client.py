@@ -37,6 +37,25 @@ def is_configured() -> bool:
     return bool(os.environ.get("FASTSPRING_STORE")) and bool(os.environ.get("FASTSPRING_PRODUCT_PATH"))
 
 
+def popup_storefront() -> str:
+    """data-storefront value for the Builder Library script tag.
+
+    FastSpring serves the popup from <store>.[test.]onfastspring.com/<popupName>.
+    We default the popup name to <store> itself since the dashboard auto-creates
+    one with that name; FASTSPRING_POPUP_NAME overrides if you renamed it.
+    """
+    store = os.environ["FASTSPRING_STORE"].strip()
+    popup = (os.environ.get("FASTSPRING_POPUP_NAME") or store).strip().lstrip("/")
+    mode = (os.environ.get("FASTSPRING_MODE", "live") or "live").strip().lower()
+    host_prefix = f"{store}.test" if mode == "test" else store
+    return f"{host_prefix}.onfastspring.com/{popup}"
+
+
+def popup_product_path() -> str:
+    """The product slug to pass to fastspring.builder.add()."""
+    return os.environ["FASTSPRING_PRODUCT_PATH"].strip().lstrip("/")
+
+
 def build_checkout_url(oid: str, locale: str, email: Optional[str] = None,
                         return_url: Optional[str] = None) -> str:
     """Return a FastSpring-hosted storefront URL for a single order.

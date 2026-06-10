@@ -840,19 +840,24 @@ async def order_pay(oid: str):
     locale = o.get("locale") or DEFAULT_LOCALE
     return_url = f"{PUBLIC_BASE}/order/{oid}"
 
-    # Prefer FastSpring when configured — it handles US/EU/JP tax for us and
-    # accepts every major card globally. Fall back to YooKassa otherwise so
-    # the form keeps working while FastSpring keys are being provisioned.
+    # Prefer FastSpring when configured — handles tax + cards globally.
+    # We return a popup-mode payload now: the front-end opens FastSpring's
+    # Builder Library modal over lalaka.ai instead of redirecting away. That
+    # gives us a clean "you stay on our domain" UX + a JS callback we use to
+    # poll status (no need for the dashboard Completion URL FastSpring won't
+    # expose for Web Storefronts). Fall back to YooKassa when env vars aren't set.
     from engine import fastspring_client
     if fastspring_client.is_configured():
-        try:
-            url = fastspring_client.build_checkout_url(
-                oid=oid, locale=locale, email=o.get("email"), return_url=return_url)
-        except Exception as e:
-            logger.error("lalaka FastSpring url build failed for %s: %s", oid, e)
-            return JSONResponse({"ok": False, "error": "payment_failed"}, status_code=500)
         await L.update_order(oid, status="awaiting_payment")
-        return {"ok": True, "confirmation_url": url}
+        return {
+            "ok": True,
+            "mode": "popup",
+            "storefront": fastspring_client.popup_storefront(),
+            "product": fastspring_client.popup_product_path(),
+            "oid": oid,
+            "email": o.get("email") or "",
+            "locale": locale,
+        }
 
     # YooKassa fallback (RU market, plus until FastSpring keys are in env)
     pr = price_for(locale)
