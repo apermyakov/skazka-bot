@@ -275,7 +275,24 @@ async def generate_story_text(context: str, story_id: int = None, locale: str | 
     from db.config_manager import cfg
     prompt_template = await cfg.get("prompt.story_text", "Напиши сказку.\n{context}")
     system = await cfg.get("prompt.story_text_system", "Ты — талантливый детский писатель.")
-    prompt = _i18n_prefix(locale) + prompt_template.format(context=context)
+    # For non-Russian locales, fully swap the Russian system prompt + leading
+    # template to English. The previous "Russian-template + English meta-prefix"
+    # combo let Gemini fall back to Russian half the time because the dominant
+    # signal in the prompt was still Cyrillic. Strengthening with an English
+    # framing AND closing reminder makes the language choice unambiguous.
+    if locale and locale != "ru":
+        lang = _LOCALE_LANG_NAME.get(locale, "English")
+        system = (
+            f"You are a talented children's writer. You write exclusively in {lang}. "
+            f"Never use Russian or any other language."
+        )
+        prompt = (
+            f"{_i18n_prefix(locale)}"
+            f"Write a fairy tale.\n{context}\n\n"
+            f"REMINDER: the entire output (title + body) must be in {lang}."
+        )
+    else:
+        prompt = _i18n_prefix(locale) + prompt_template.format(context=context)
 
     response = await _call_llm(
         system=system,
