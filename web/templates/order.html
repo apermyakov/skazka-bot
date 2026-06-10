@@ -285,13 +285,8 @@ function render(d){
       '<h1>'+esc(d.title||'Ваша сказка')+'</h1>'+
       photoBlockHtml+
       surnameBlockHtml+
-      '<div class="preview-card">'+
-        '<div class="ph"><span class="dot"></span> Пример озвучки (другая сказка про Софию)</div>'+
-        '<video class="ph-video" controls preload="metadata" poster="/static/sample/scene_1.webp" '+
-              'onplay="try{ym(109494799,\'reachGoal\',\'demo_play\')}catch(e){}">'+
-          '<source src="/static/sample/teaser.mp4" type="video/mp4"></video>'+
-        '<div class="ph-note">Так будет звучать <b>ваша</b> сказка про '+esc(d.title || 'вашего ребёнка')+' — после оплаты. <a href="/sample" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:none">Полный пример →</a></div>'+
-      '</div>'+
+      // Example video block removed per feedback — pulled focus away from the
+      // user's own story text below; example lives on the landing page only.
       '<div class="story"><div class="story-title">'+esc(d.title||'Ваша сказка')+'</div>'+(d.text_html||'')+'</div>'+
       emailCaptureHtml+
       '<div class="value-stack">'+
