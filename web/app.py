@@ -133,6 +133,14 @@ async def lifespan(app: FastAPI):
         start_worker()
     except Exception as e:
         logger.warning("email queue init failed: %s", e)
+    # Email inbox: IMAP poller for papa@skazik.app (silent no-op when creds unset)
+    try:
+        from web.inbox_poller import run_forever as run_inbox_poller
+        async with db_mod._pool.acquire() as c:
+            await c.execute(open("/app/scripts/init_inbox_schema.py").read().split('SCHEMA = """', 1)[1].split('"""', 1)[0])
+        asyncio.create_task(run_inbox_poller())
+    except Exception as e:
+        logger.warning("inbox poller init failed: %s", e)
     # Abandoned-cart: remind 1h, mark abandoned at 24h
     try:
         from web.abandoned_cart import init_schema as init_cart, start_worker as start_cart
@@ -199,6 +207,8 @@ async def _lalaka_host_router(request: Request, call_next):
 
 from web.lalaka import lalaka_router  # noqa: E402 — defined after app to avoid circular import
 app.include_router(lalaka_router, prefix="/_lalaka")
+from web.inbox_admin import router as inbox_router  # noqa: E402
+app.include_router(inbox_router)
 
 
 templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
