@@ -1,0 +1,18 @@
+{
+  "main_character": "Diana",
+  "main_appearance": "small 4-year-old girl, soft brown shoulder-length wavy hair, big curious brown eyes, fair skin, wearing pink soft pyjamas",
+  "scenes": {
+    "1": {
+      "setting": "Diana's cosy children's bedroom at night, soft warm lighting from a small night-light shaped like a flower",
+      "mood": "warm, calm, peaceful before sleep",
+      "description": "Diana is lying tucked into her wooden child's bed under a soft fluffy blanket patterned with little orange CARROTS. She is on her side, facing the viewer, eyes open and slightly anxious but cosy. The pillow has a small carrot pattern too. Beside the bed is a small chair with her pink dress draped over the back. On the chair sits her favourite plush BLUE DRAGON TOY with small GOLDEN WINGS and friendly button eyes. A tiny mushroom-shaped night-light glows softly on the bedside table. The wall behind the bed has gentle warm light. A window in the background shows a dark sky. NO BEAR ANYWHERE. NO TEDDY ANYWHERE. The only toy in the scene is the blue dragon. NO shadows that look like monsters. Just a peaceful bedtime scene.",
+      "characters_present": ["Diana"]
+    },
+    "11": {
+      "setting": "Diana's bedroom at night, looking at the wall opposite the window",
+      "mood": "magical, gently wondrous, the moment shadows turn from scary to beautiful",
+      "description": "Diana, on her bare feet, stands beside her bed wearing pink pyjamas, looking up at the wall in wonder. On the wall, soft moonlight filters through a window showing a SINGLE BARE TREE BRANCH outside; the moving leaves cast gentle dancing shadow patterns on the wall — not monsters, just delicate leaf shadows. A tiny glowing golden FIREFLY (Огонёк) hovers in mid-air pointing at the wall with its tiny light, explaining. The window in the background shows a starry night sky with a glimpse of moon. Diana looks calm and curious now, no fear. ONLY ONE Diana — no reflections, no duplicates, no second girl. The whole composition is gentle and slightly magical, focused on the leaf-shadows pattern as the visual centrepiece.",
+      "characters_present": ["Diana", "Firefly"]
+    }
+  }
+}
