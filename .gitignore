@@ -46,3 +46,4 @@ assets/ambient_sounds_new/
 
 # Personal docs not part of repo
 *.pdf
+web/static/voice_samples_cache/
