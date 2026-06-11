@@ -1,18 +1,90 @@
 {
   "main_character": "Diana",
-  "main_appearance": "small 4-year-old girl, soft brown shoulder-length wavy hair, big curious brown eyes, fair skin, wearing pink soft pyjamas",
+  "main_appearance": "small 4-year-old girl, MEDIUM-LENGTH BROWN HAIR (NOT blonde, NOT light), gentle warm brown eyes, fair skin with rosy cheeks. ALWAYS wearing the SAME pajamas: WHITE cotton long-sleeved pajamas patterned with TINY SCATTERED RED HEARTS (small red heart-shapes on white). NEVER any other color or pattern of pajamas. NEVER pink pajamas, NEVER floral pajamas — only white-with-tiny-red-hearts.",
   "scenes": {
     "1": {
-      "setting": "Diana's cosy children's bedroom at night, soft warm lighting from a small night-light shaped like a flower",
-      "mood": "warm, calm, peaceful before sleep",
-      "description": "Diana is lying tucked into her wooden child's bed under a soft fluffy blanket patterned with little orange CARROTS. She is on her side, facing the viewer, eyes open and slightly anxious but cosy. The pillow has a small carrot pattern too. Beside the bed is a small chair with her pink dress draped over the back. On the chair sits her favourite plush BLUE DRAGON TOY with small GOLDEN WINGS and friendly button eyes. A tiny mushroom-shaped night-light glows softly on the bedside table. The wall behind the bed has gentle warm light. A window in the background shows a dark sky. NO BEAR ANYWHERE. NO TEDDY ANYWHERE. The only toy in the scene is the blue dragon. NO shadows that look like monsters. Just a peaceful bedtime scene.",
+      "setting": "Diana's cosy children's bedroom at night, warm lamplight",
+      "mood": "warm cosy bedtime, mother just left",
+      "description": "Diana with BROWN hair, wearing the WHITE pyjamas with TINY RED HEARTS, lying in her wooden child's bed. The blanket is the SAME WHITE blanket with bright ORANGE CARROTS pattern she always uses (small carrots scattered on white). A small mushroom-shaped night-light glows softly on the bedside table. Beside the bed is a wooden chair with her dress draped over it. On the chair sits her favourite small plush BLUE DRAGON TOY with little GOLDEN wings and SHINY BLACK BEAD EYES (not button-eyes, not embroidered, polished black beads). A window in the background shows a dark starry sky. NO BEAR, NO TEDDY. Peaceful mood.",
       "characters_present": ["Diana"]
     },
-    "11": {
-      "setting": "Diana's bedroom at night, looking at the wall opposite the window",
-      "mood": "magical, gently wondrous, the moment shadows turn from scary to beautiful",
-      "description": "Diana, on her bare feet, stands beside her bed wearing pink pyjamas, looking up at the wall in wonder. On the wall, soft moonlight filters through a window showing a SINGLE BARE TREE BRANCH outside; the moving leaves cast gentle dancing shadow patterns on the wall — not monsters, just delicate leaf shadows. A tiny glowing golden FIREFLY (Огонёк) hovers in mid-air pointing at the wall with its tiny light, explaining. The window in the background shows a starry night sky with a glimpse of moon. Diana looks calm and curious now, no fear. ONLY ONE Diana — no reflections, no duplicates, no second girl. The whole composition is gentle and slightly magical, focused on the leaf-shadows pattern as the visual centrepiece.",
+    "2": {
+      "setting": "Diana's bedroom, shadows looking scary",
+      "mood": "Diana scared by shadows",
+      "description": "Diana with BROWN hair, WHITE pyjamas with TINY RED HEARTS, peeking out from under the SAME CARROT-PATTERN BLANKET (white with orange carrots), eyes wide with mild fear. The shadow of the dress + blue dragon toy on the wall looks slightly monster-like with a crest. The blue dragon toy on the chair has SHINY BLACK BEAD EYES.",
+      "characters_present": ["Diana"]
+    },
+    "3": {
+      "setting": "Diana's bedroom, mostly under the blanket",
+      "mood": "scared, hiding",
+      "description": "Diana with BROWN hair, WHITE pyjamas with TINY RED HEARTS, eyes squeezed shut, hiding deep under her WHITE CARROT-PATTERN BLANKET. Just her brown hair and worried face peeking out.",
+      "characters_present": ["Diana"]
+    },
+    "4": {
+      "setting": "Under the carrot blanket, intimate small space",
+      "mood": "magical, surprised",
+      "description": "Close-up under the WHITE BLANKET WITH ORANGE CARROTS: Diana with BROWN hair, WHITE pyjamas with TINY RED HEARTS, one eye open in wonder as a tiny golden glowing firefly hovers in front of her nose, casting warm light.",
       "characters_present": ["Diana", "Firefly"]
+    },
+    "5": {
+      "setting": "Diana sitting up in bed",
+      "mood": "cautious curiosity",
+      "description": "Diana with BROWN hair, WHITE pyjamas with TINY RED HEARTS, sitting up in bed with WHITE CARROT-PATTERN BLANKET around her waist. A tiny golden firefly hovers nearby. She points a small finger toward the chair (where her blue dragon toy with BLACK BEAD EYES sits).",
+      "characters_present": ["Diana", "Firefly"]
+    },
+    "6": {
+      "setting": "Mid-bedroom, near the chair",
+      "mood": "gentle exploration",
+      "description": "Diana with BROWN hair, WHITE pyjamas with TINY RED HEARTS, bare feet on the wooden floor, walking cautiously toward the chair. The tiny golden firefly leads the way, glowing brightly. The chair holds her dress and the small plush BLUE DRAGON TOY with GOLDEN WINGS and SHINY BLACK BEAD EYES (not buttons).",
+      "characters_present": ["Diana", "Firefly"]
+    },
+    "7": {
+      "setting": "Beside the chair",
+      "mood": "warm relief",
+      "description": "Diana with BROWN hair, WHITE pyjamas with TINY RED HEARTS, kneeling beside the wooden chair, gently stroking the GOLDEN wing of her BLUE PLUSH DRAGON TOY. Dragon has SHINY BLACK BEAD EYES, a small friendly smile. The firefly hovers nearby. Cosy warm light.",
+      "characters_present": ["Diana", "Firefly"]
+    },
+    "8": {
+      "setting": "Diana's room, mid-room",
+      "mood": "wonder",
+      "description": "Diana with BROWN hair, WHITE pyjamas with TINY RED HEARTS, holding the small BLUE DRAGON PLUSH (with GOLDEN wings and BLACK BEAD EYES) in her arms, looking up. The tiny firefly hovers above.",
+      "characters_present": ["Diana", "Firefly"]
+    },
+    "9": {
+      "setting": "Standing near the wall, looking up",
+      "mood": "gentle magical realisation",
+      "description": "Diana with BROWN hair, WHITE pyjamas with TINY RED HEARTS, standing barefoot in her room, looking up at the wall. On the wall, soft moonlight from the window casts gentle dancing shadow patterns of a SINGLE BARE TREE BRANCH with leaves outside (NOT monsters, just delicate leaf shadows). Firefly points at the patterns.",
+      "characters_present": ["Diana", "Firefly"]
+    },
+    "10": {
+      "setting": "By the window",
+      "mood": "approaching the moon, awe",
+      "description": "Diana with BROWN hair, WHITE pyjamas with TINY RED HEARTS, standing on bare feet next to the windowsill, looking out. The firefly sits on the windowsill. Through the glass — a HUGE round bright MOON in deep blue starry sky.",
+      "characters_present": ["Diana", "Firefly"]
+    },
+    "11": {
+      "setting": "By the window with the smiling moon",
+      "mood": "gentle conversation with the moon",
+      "description": "Diana with BROWN hair, WHITE pyjamas with TINY RED HEARTS, standing on bare feet by the window. The moon outside has a kind smile and gentle eyes (anthropomorphic friendly moon). The firefly is nearby. ONLY ONE Diana visible — NO reflections, NO duplicates, NO second girl, NO duplicate head. Just one girl, the firefly, and the smiling moon. Clean, simple composition.",
+      "characters_present": ["Diana", "Firefly", "Moon"]
+    },
+    "12": {
+      "setting": "By the window",
+      "mood": "receiving a gift",
+      "description": "Diana with BROWN hair, WHITE pyjamas with TINY RED HEARTS, holding out her small open palm toward the moon. A delicate silver moonbeam descends gently to her palm. The firefly glows nearby. ONE Diana only.",
+      "characters_present": ["Diana", "Moon", "Firefly"]
+    },
+    "13": {
+      "setting": "Back in bed, peaceful",
+      "mood": "peaceful, drifting toward sleep",
+      "description": "Diana with BROWN hair, WHITE pyjamas with TINY RED HEARTS, lying in bed under the WHITE BLANKET WITH ORANGE CARROTS (THE reference blanket — bright orange small carrots scattered on white background). On the chair next to the bed: her dress + the BLUE DRAGON PLUSH TOY with GOLDEN wings and SHINY BLACK BEAD EYES. Tiny firefly hovers above the pillow.",
+      "characters_present": ["Diana", "Firefly"]
+    },
+    "14": {
+      "setting": "Diana asleep in bed",
+      "mood": "peaceful sleep",
+      "description": "Diana with BROWN hair, WHITE pyjamas with TINY RED HEARTS, sound asleep on her side, cheek on the pillow, peaceful little smile. The WHITE BLANKET WITH ORANGE CARROTS covers her snugly. A small soft glow from the night-light. The window shows a deep starry night.",
+      "characters_present": ["Diana"]
     }
   }
 }

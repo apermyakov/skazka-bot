@@ -99,17 +99,43 @@ def _extract_text(msg: email.message.Message) -> tuple[str, str]:
 
 
 async def _correlate(from_addr: str, subject_norm: str) -> tuple[str | None, int | None]:
-    """Best-effort match to a web_orders row or feedback entry by sender
-    email + recent activity. Returns (order_id, feedback_id)."""
+    """Best-effort match to a web_orders row or feedback entry.
+
+    Three signals, in priority order:
+      1. The sender email maps to a paid order — easy direct hit.
+      2. We sent a recent outbound mail with this subject; find the original
+         recipient and look up THEIR paid order. This catches replies that
+         come in from a different address (family member, alias) than the
+         original purchase.
+      3. Feedback row by sender email.
+    """
     order_id, feedback_id = None, None
     async with dbmod._pool.acquire() as c:
-        # Sender's most recent paid order (more useful than oldest)
+        # Direct sender → paid order
         r = await c.fetchrow(
             "SELECT id FROM web_orders WHERE email=$1 AND paid_at IS NOT NULL "
             "ORDER BY paid_at DESC LIMIT 1", from_addr)
         if r:
             order_id = r["id"]
-        # Most recent feedback row from the same address, if any
+
+        # Subject-based recovery: a recently-sent outbound mail with this
+        # normalised subject points us at the original buyer's address.
+        if not order_id and subject_norm:
+            o = await c.fetchrow(
+                "SELECT to_addr FROM email_outbox "
+                "WHERE LOWER(REGEXP_REPLACE(subject, '^(re|fw|fwd|ответ|пересл)[: \\[\\]]+', '', 'i')) = $1 "
+                "  AND status='sent' "
+                "  AND created_at > NOW() - INTERVAL '60 days' "
+                "ORDER BY created_at DESC LIMIT 1",
+                subject_norm)
+            if o and o["to_addr"]:
+                r = await c.fetchrow(
+                    "SELECT id FROM web_orders WHERE email=$1 AND paid_at IS NOT NULL "
+                    "ORDER BY paid_at DESC LIMIT 1", o["to_addr"])
+                if r:
+                    order_id = r["id"]
+
+        # Feedback row from this address (independent signal)
         f = await c.fetchrow(
             "SELECT id FROM feedback WHERE email=$1 ORDER BY created_at DESC LIMIT 1",
             from_addr)
@@ -174,10 +200,14 @@ async def _poll_once() -> int:
         with imaplib.IMAP4_SSL(host, port) as imap:
             imap.login(user, pwd)
             imap.select("INBOX")
-            # Pull only UNSEEN messages so we don't re-scan the whole mailbox.
-            # The unique index on message_id is the real dedup; UNSEEN is just
-            # a speed knob.
-            typ, data = imap.search(None, "UNSEEN")
+            # Pull everything from the last 7 days — UNSEEN was wrong because
+            # if the operator opens the mail in Yandex web UI before our poll
+            # tick fires, the message becomes SEEN and we'd miss it forever.
+            # The unique index on message_id handles dedup so re-scanning a
+            # week of mail every minute is cheap and correct.
+            from datetime import datetime, timedelta
+            since = (datetime.utcnow() - timedelta(days=7)).strftime("%d-%b-%Y")
+            typ, data = imap.search(None, f"SINCE {since}")
             if typ != "OK" or not data or not data[0]:
                 return 0, []
             uids = data[0].split()
