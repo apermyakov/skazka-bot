@@ -189,5 +189,10 @@
   "order_rate_ph_bad": "O que não deu certo? A gente refaz de graça ou te reembolsa.",
   "order_rate_q_bad": "Poxa, que pena que não deu certo 😔 Conta pra gente o que podemos melhorar",
   "order_rate_send": "Enviar",
-  "order_rate_thanks_bad": "Recebemos — já já a gente entra em contato com você."
+  "order_rate_thanks_bad": "Recebemos — já já a gente entra em contato com você.",
+  "order_demo_btn": "▶ Ouvir prévia",
+  "order_demo_loading": "Preparando a prévia…",
+  "order_demo_error": "Não foi possível gerar a prévia. Tente novamente.",
+  "order_demo_already_used": "Você pode ouvir a prévia da história apenas uma vez.",
+  "order_demo_label": "🎧 Demo — primeiro minuto da história"
 }

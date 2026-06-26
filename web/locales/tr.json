@@ -189,5 +189,10 @@
   "order_rate_ph_bad": "Neler istediğin gibi gitmedi? Ücretsiz tekrar yapalım veya paranı iade edelim.",
   "order_rate_q_bad": "Üzgünüz, istediğin gibi olmamış 😔 Bize neyi düzeltmemiz gerektiğini söyler misin?",
   "order_rate_send": "Gönder",
-  "order_rate_thanks_bad": "Anladık — seninle hemen iletişime geçeceğiz."
+  "order_rate_thanks_bad": "Anladık — seninle hemen iletişime geçeceğiz.",
+  "order_demo_btn": "▶ Önizlemeyi dinleyin",
+  "order_demo_loading": "Ön dinleme hazırlanıyor…",
+  "order_demo_error": "Ön dinleme oluşturulamadı. Tekrar deneyin.",
+  "order_demo_already_used": "Hikâyenin önizlemesini yalnızca bir kez alabilirsiniz.",
+  "order_demo_label": "🎧 Demo — hikâyenin ilk dakikası"
 }

@@ -81,10 +81,14 @@ DEFAULT_STYLE = "painted"
 # Image models love sprinkling comic sound-effects / captions (often garbled Cyrillic like
 # "ДЗІН-ДЗІН"). Append this hard rule to every image prompt to keep illustrations 100% wordless.
 NO_TEXT_RULE = (
-    "CRITICAL: the image must be 100% WORDLESS. Absolutely NO text anywhere — no letters, words, "
-    "numbers, captions, titles, signs, labels, speech bubbles, and especially NO sound-effect or "
-    "onomatopoeia words (like 'ding', 'дзинь', 'дзін', 'бом', 'ring') in ANY language or alphabet. "
-    "Do not write the sound a bell or object makes. Output ONLY the picture."
+    "ABSOLUTELY CRITICAL — ZERO TEXT IN THE IMAGE: no character names floating beside them, "
+    "no labels under pets or toys, no captions, no titles, no signs, no book spines with "
+    "readable words, no calendars, no signposts, no shop signs, no greeting cards, no labels, "
+    "no speech bubbles, no sound-effects, no onomatopoeia in ANY language or alphabet "
+    "(Latin, Cyrillic, hieroglyphs, runes — nothing). Do NOT write the character's name above "
+    "their head. Do NOT label the pet with its name. Do NOT write the sound a bell or object "
+    "makes. If a sign or book would normally have text, render it as blank or with abstract "
+    "decorative marks that are NOT letters. Output PURELY THE PICTURE, 100% wordless."
 )
 
 
@@ -95,8 +99,28 @@ async def _resolve_style_block(style: str | None) -> str:
     return await cfg.get(key, fallback)
 
 SCENE_SPLIT_PROMPT = """\
+═══ АБСОЛЮТНЫЕ ЗАПРЕТЫ для поля "description" — действуют поверх всех остальных правил ═══
+В тексте description КАЖДОЙ сцены ЗАПРЕЩЕНО упоминать или подразумевать:
+  • взрослых людей (мама, папа, бабушка, дедушка, тётя, дядя, воспитательница, учитель, врач, продавец) — НИ ОДНОГО;
+  • других названных детей (Петя, Катя, конкретные братья/сёстры по имени, младенцы-сестрёнки);
+  • любые надписи, буквы, цифры, ярлыки, имена на стенах, плакаты с текстом, обложки книг с буквами;
+  • любое второе идентифицируемое человеческое лицо рядом с главным ребёнком.
+Если сегмент сказки буквально требует такого персонажа — ПЕРЕФОРМУЛИРУЙ description: ребёнок ОДИН
+с плюшевыми друзьями / питомцем / магическими существами / в волшебном окружении. Эмоциональная
+дуга сохраняется, но без обычных взрослых и без других названных детей.
+Допустимое исключение: для коллективных мест (садик, площадка, утренник) в description можно
+сказать «вдалеке играют дети-массовка не в фокусе» или «на фоне силуэты других детей вне фокуса»
+— это часть setting, НЕ персонажи; image-генератор размоет их в фон.
+═══════════════════════════════════════════════════════════════════════════════════════════
+
 Ты — режиссёр раскадровки детской аудиосказки. Озвучка УЖЕ записана.
 Каждая строка пронумерована [i] и помечена таймкодом [at Xs, dur Ys] — это КОГДА и сколько звучит сегмент.
+
+ИСХОДНЫЙ ЗАПРОС РОДИТЕЛЯ (ground truth по именам, породам животных, цветам, деталям — выше текста сказки):
+{topic}
+
+ОПИСАНИЕ ВНЕШНОСТИ ГЛАВНОГО ГЕРОЯ С ФОТО (если есть — это абсолютная истина для main character):
+{photo_analysis}
 
 Сценарий:
 Название: {title}
@@ -146,12 +170,153 @@ SCENE_SPLIT_PROMPT = """\
 7. Главный герой-ребёнок присутствует в кадрах, где он есть по сюжету.
 8. character_appearances ОБЯЗАТЕЛЕН — опиши внешность КАЖДОГО персонажа (кроме рассказчика).
 9. Если в тексте указан цвет (серый кот, рыжая лиса) — ОБЯЗАТЕЛЬНО укажи этот цвет.
+10. ПРИОРИТЕТ источников для main character (главного ребёнка) — строго в таком порядке:
+   (a) фото-анализ выше, если он есть → копируй его ДОСЛОВНО для main character;
+   (b) исходный запрос родителя выше → копируй цвета/детали оттуда (золотистые кудри,
+       порода собаки «кинг чарльз спаниель», цвет глаз — ВСЁ что родитель указал);
+   (c) только потом — детали из текста сказки.
+   ПРИДУМЫВАТЬ внешность главного героя из своей головы — ЗАПРЕЩЕНО.
+11. Если родитель указал породу животного (например «кинг чарльз спаниель», «лабрадор») —
+    эту породу нужно СЛОВО В СЛОВО вписать в character_appearances животного, не заменяя
+    на похожую («пудель», «шпиц» и т.п.).
+12. КРИТИЧНО — characters_present для каждой сцены ДОЛЖНО содержать ТОЛЬКО:
+    (a) главного героя-ребёнка, для которого есть фото;
+    (b) сказочных/волшебных персонажей (феи, единороги, говорящие звери, гномы, драконы,
+        луна с лицом, оживший плюшевый медведь — всё что НЕ обычный человек);
+    (c) питомца — ВСЕГДА если он есть в сюжете. Если в исходном запросе родителя указана
+        порода («кинг чарльз спаниель», «лабрадор») — впиши породу в character_appearances
+        ДОСЛОВНО. Если породы нет — опиши обобщённо («маленькая дружелюбная собачка»).
+    (d) плюшевые игрушки / именованные мягкие игрушки (Шарик-плюшевый-щенок, Заенька-балеринка,
+        мишка-Топтыжка) — ТОЛЬКО в тех сценах, где в тексте сегмента эта игрушка ЯВНО
+        упомянута или сюжетно задействована (ребёнок её берёт, прижимает, играет, кладёт на
+        подушку). НЕ добавляй плюшевые игрушки как «comfort object по умолчанию» — иначе
+        Шарик появится в каждом кадре и конкурирует с реальной собакой.
+    ЗАПРЕЩЕНО включать в characters_present как именованных персонажей:
+    - других реальных людей с именем: маму, папу, бабушку, дедушку, воспитательницу, врача,
+      Петю, Катю, конкретных названных друзей или братьев/сестёр.
+    ОДНАКО для сцен в коллективных местах (детский сад, школа, парк, утренник, день рождения)
+    в description можно упомянуть «другие дети играют рядом», «массовка детсадовцев» как
+    атмосферный фон — это не отдельные персонажи в characters_present, это часть setting'а.
+    Image-генератор нарисует их как абстрактный фон без четких лиц.
+    Если по сюжету был именованный взрослый или конкретный другой ребёнок — НЕ добавляй
+    его в characters_present, переформулируй description чтобы кадр работал БЕЗ него
+    как identifiable персонажа. Примеры:
+    - вместо «Мама обнимает Софиечку перед сном» → «Софиечка укрыта одеялом в уютной кровати,
+      на тумбочке настольная лампа, плюшевый щенок Шарик рядом»;
+    - вместо «Софиечка играет с конкретными Петей и Катей» → «Софиечка строит замок из
+      кубиков на полу в групповой комнате, на фоне другие дети играют» (фон, не персонажи);
+    - детский сад/школа сцена → «Софиечка с рюкзачком у входа в группу, в фоне дети-массовка
+      идут в группу» — нормально, дети как часть места.
 """
 
 
+async def analyze_child_photo(
+    photo_b64: str | None,
+    topic: str | None = None,
+    story_id: int = None,
+) -> str | None:
+    """VLM step — describe the child on the reference photo verbatim so the
+    scene_split LLM has authoritative ground truth for the main character's
+    appearance (hair, eye colour, age). Without this step, scene_split invents
+    a description from the story text and Gemini Image then prefers the
+    invented text over the photo, producing recognisable-stranger-style art.
+
+    Returns a short Russian description like:
+        "девочка ~3 года, длинные золотистые кудрявые волосы, голубые глаза,
+         пухлые щёки, розовая одежда"
+    Returns None when no photo is provided or the call fails.
+    """
+    if not photo_b64:
+        return None
+    photo_url = photo_b64
+    if not photo_url.startswith("data:"):
+        photo_url = f"data:image/jpeg;base64,{photo_b64}"
+
+    from db.config_manager import cfg
+    vlm_model = await cfg.get("model.photo_analysis", "google/gemini-2.5-flash")
+    topic_block = (
+        f"Контекст: родитель ввёл такой запрос на сказку — «{(topic or '').strip()[:600]}». "
+        "Сравни описанные там детали (имя, цвет волос, глаз) с тем, что видишь на фото; "
+        "если есть конфликт — приоритет у фото."
+    ) if topic else ""
+
+    user_text = (
+        "На фото — ребёнок, главный герой будущей детской сказки. "
+        "Опиши его внешность ОДНОЙ строкой на русском, дословно и точно, в формате: "
+        "«пол возраст, волосы (длина+цвет+текстура), глаза (цвет), кожа/щёки/особые черты, одежда». "
+        "Минимум воды, никаких комплиментов и эмоций. Только наблюдаемые признаки.\n\n"
+        + topic_block
+    )
+    payload = {
+        "model": vlm_model,
+        "messages": [
+            {"role": "system",
+             "content": "Ты педантичный наблюдатель. Возвращай ТОЛЬКО одну строку с фактами."},
+            {"role": "user", "content": [
+                {"type": "image_url", "image_url": {"url": photo_url}},
+                {"type": "text", "text": user_text},
+            ]},
+        ],
+        "temperature": 0.1,
+        "max_tokens": 200,
+    }
+    headers = {
+        "Authorization": f"Bearer {settings.openrouter_api_key}",
+        "Content-Type": "application/json",
+    }
+    t0 = time.time()
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                OPENROUTER_URL, json=payload, headers=headers,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as r:
+                duration_ms = int((time.time() - t0) * 1000)
+                if r.status != 200:
+                    body = await r.text()
+                    logger.warning("photo VLM HTTP %d: %s", r.status, body[:200])
+                    fire(log_api_call(story_id=story_id, service="openrouter",
+                                       model=vlm_model, purpose="photo_analysis",
+                                       status="failed", duration_ms=duration_ms,
+                                       error=body[:500]))
+                    return None
+                data = await r.json()
+                desc = (data.get("choices", [{}])[0].get("message", {}).get("content") or "").strip()
+                # Strip wrapping quotes or markdown the LLM may add
+                desc = desc.strip('"\'` \n\t')
+                if not desc:
+                    return None
+                # Cap to a sane length so it doesn't bloat downstream prompts
+                desc = desc[:300]
+                logger.info("photo VLM → %r", desc)
+                usage = data.get("usage", {})
+                fire(log_api_call(story_id=story_id, service="openrouter",
+                                   model=vlm_model, purpose="photo_analysis",
+                                   status="success", duration_ms=duration_ms,
+                                   tokens_in=usage.get("prompt_tokens"),
+                                   tokens_out=usage.get("completion_tokens"),
+                                   request_text=user_text[:500], response_text=desc[:500]))
+                return desc
+    except Exception as e:
+        logger.warning("photo VLM call exception: %s", e)
+        return None
+
+
 async def split_into_scenes(screenplay: dict, story_id: int = None,
-                            timeline_text: str | None = None) -> list[dict]:
-    """Split screenplay into 7-8 key visual scenes for illustration."""
+                            timeline_text: str | None = None,
+                            topic: str | None = None,
+                            photo_analysis: str | None = None) -> list[dict]:
+    """Split screenplay into 7-8 key visual scenes for illustration.
+
+    topic — original user request (verbatim) so the LLM has authoritative
+            source for names, animal breeds, hair/eye colours specified by
+            the parent. Without this, the LLM invents `character_appearances`
+            from story text alone and silently substitutes details (e.g.
+            "King Charles spaniel" → "poodle").
+    photo_analysis — optional textual description of the child's photo from
+            our VLM step (Gemini Vision). When supplied this is the absolute
+            ground truth for the main character's appearance.
+    """
     title = screenplay["title"]
     characters = ", ".join(c["name"] for c in screenplay["characters"] if c["id"] != "narrator")
 
@@ -179,6 +344,8 @@ async def split_into_scenes(screenplay: dict, story_id: int = None,
         title=title,
         characters=characters,
         story_text=story_text[:max_chars],
+        topic=(topic or "")[:1500] or "— (родитель не написал отдельный topic)",
+        photo_analysis=photo_analysis or "— (фото не было или анализ не выполнен)",
     )
 
     headers = {
@@ -660,6 +827,7 @@ async def generate_illustration(
     scene_full_text: str = "",
     character_sheet_b64: str | None = None,
     style_block: str | None = None,
+    qa_retry_warning: str | None = None,
 ) -> bytes | None:
     """Generate one scene illustration via Gemini.
 
@@ -713,17 +881,75 @@ async def generate_illustration(
             "they are the consistency anchor.\n" if main_name and main_desc else ""
         )
         text_block = f"\n\nFull scene text:\n{scene_full_text[:800]}" if scene_full_text else ""
+        retry_block = (
+            f"\n⚠ QA-RETRY WARNING — предыдущая попытка нарушила правила: {qa_retry_warning}. "
+            "В этой попытке СТРОГО соблюдай ABSOLUTE NEVER ниже. "
+            "Если сюжет вынуждает к нарушению — переформулируй: главный ребёнок ОДИН с "
+            "плюшевыми друзьями / питомцем / магическими существами. Никаких подписей.\n"
+            if qa_retry_warning else ""
+        )
         prompt = (
-            "The attached photo is a real specific child — the MAIN CHARACTER of this scene. "
-            "Render that child preserving their identity so a parent instantly recognises them. "
-            "Study the photo and copy their EXACT face shape, cheeks, eyes and apparent age. "
-            "Do NOT age them up or down. "
-            "IF the photo clearly shows their hair (length, cut, color) — copy it exactly. "
-            "IF the hair is hidden (hat, scarf, hood, profile shot) or unclear — use the MAIN "
-            "CHARACTER description below as ground truth for hair and age. NEVER invent a different "
-            "hair color or age between scenes — pick one and keep it.\n"
+            retry_block +
+            "═══ ABSOLUTE NEVER — these override every other instruction below ═══\n"
+            "1. NEVER draw an adult human face (mom, dad, grandparent, teacher, "
+            "   doctor, kindergarten staff, shopkeeper). No adults in frame at all.\n"
+            "2. NEVER draw any other named child with an identifiable face (Petya, "
+            "   Katya, sibling Marichka — none of them get a defined face).\n"
+            "3. NEVER draw text, letters, numbers, captions, name labels, book "
+            "   titles, signs, character name floats. No script anywhere in the image.\n"
+            "4. NEVER draw a second identifiable human alongside the main child. "
+            "   Only one person on screen: the main child from the photo.\n"
+            "   (Atmospheric background CROWDS in public places — kindergarten room, "
+            "   playground — are OK only as out-of-focus, faceless shapes.)\n"
+            "These four rules are absolute. If the scene description seems to ask "
+            "for an adult or second named child, REFRAME the scene around the main "
+            "child alone with pets / magical creatures / setting.\n"
+            "═══════════════════════════════════════════════════════════════════\n\n"
+            "The attached photo IS the ground truth for the MAIN CHARACTER's appearance. "
+            "Render the child preserving identity so a parent instantly recognises them. "
+            "STRICT PRIORITY for every visual trait of the main child:\n"
+            "  (1) PHOTO is the ABSOLUTE source — copy face shape, cheeks, eye colour, "
+            "      hair COLOUR/LENGTH/TEXTURE (straight vs curly), and apparent age EXACTLY.\n"
+            "  (2) The MAIN CHARACTER text below is a FALLBACK and is used ONLY for traits "
+            "      the photo cannot show (e.g. clothing the child isn't wearing in the photo).\n"
+            "  (3) If the text contradicts the photo (says brown hair but photo shows blonde "
+            "      curls; says short hair but photo shows long; says hat colour the photo "
+            "      doesn't have) — the PHOTO WINS. Ignore the conflicting text.\n"
+            "Do NOT age the child up or down between scenes. NEVER switch hair colour, length "
+            "or texture between scenes — pick what the photo shows and keep it across all scenes.\n"
             "If the photo contains other people or held objects, focus ONLY on the main child's "
             "face and ignore everything else.\n\n"
+            "RULE — DO NOT draw any IDENTIFIABLE second human (mom, dad, grandparent, "
+            "teacher, doctor, named friend like Petya or Katya, named sibling). We have no "
+            "photo of them so a specific face would commit to an invented identity. If the "
+            "scene description mentions such a person, REFRAME so the kid is alone, with "
+            "magical creatures, the pet, or the setting.\n"
+            "  Examples:\n"
+            "  - 'Mom hugs the child' → kid alone with her plush toy on the bed, warm lamp.\n"
+            "  - 'Teacher greets her' → kid at the kindergarten door with backpack.\n"
+            "  - 'Plays with Petya and Katya' → kid building blocks on a rug.\n"
+            "EXCEPTION — group / public settings (kindergarten group room, school hallway, "
+            "playground, birthday party crowd): BACKGROUND CHILDREN as an ATMOSPHERIC CROWD "
+            "are OK as part of the setting — out-of-focus, soft-focus, indistinct features, "
+            "no defined faces, treated like background extras in a film. They are not "
+            "personalised; the kindergarten / school is part of the place, not a cast of "
+            "people. Main child stays sharply in focus.\n"
+            "ALLOWED FREELY: magical/fairy creatures (fairies, unicorns, dragons, talking "
+            "animals, gnomes, animated toys with faces) AND pets — including pets with "
+            "a specific named breed (e.g. 'King Charles Spaniel', 'Labrador'). When the "
+            "parent named a breed, render the pet AS that breed — do NOT replace it with a "
+            "plush toy. The model may not nail every breed perfectly, but attempt it; "
+            "the parent prefers a best-effort spaniel to a guaranteed plush.\n"
+            "PLUSH / STUFFED TOYS (Шарик the plush puppy, Заенька ballerina bunny, teddy "
+            "bears, etc): when present, render them OBVIOUSLY as soft toys — visible "
+            "stitched seams along the head and body, button or sewn-on bead eyes (not "
+            "wet realistic eyes), nose as a stitched fabric oval, slightly squashed / "
+            "soft-bodied proportions, fluffy fabric texture, NO ear-twitching realism. "
+            "They should never be confused with a real animal: if the scene already has a "
+            "real pet (real King Charles Spaniel) AND a plush puppy, the plush must look "
+            "CLEARLY like a toy — different size, different posture (sitting limp on the "
+            "floor / held in the child's arms, not running around like an alive animal), "
+            "cartoonish features. Plush toys are inanimate props.\n\n"
             f"{main_block}"
             f"Scene: {scene.get('description', '')}\n"
             f"Setting: {scene.get('setting', 'forest')}\n"
@@ -752,6 +978,97 @@ async def generate_illustration(
     return img_bytes
 
 
+async def check_image_compliance(
+    img_bytes: bytes,
+    story_id: int = None,
+    scene_index: int = -1,
+) -> dict:
+    """VLM check on a rendered illustration for ABSOLUTE NEVER violations.
+
+    Returns {adult_present: bool, text_present: bool, ok: bool}.
+    On VLM error returns ok=True (don't block on flakiness — Layer 1 already filtered).
+    Cost ~$0.0003 per call (Gemini Flash).
+
+    We deliberately do NOT check for "other named children" — some stories legitimately
+    include siblings/friends as characters; the VLM can't tell which children are
+    in-story-allowed vs forbidden from the image alone. Adults and text are the two
+    catastrophic violations that should ALWAYS be flagged.
+    """
+    if not img_bytes:
+        return {"ok": True, "adult_present": False, "text_present": False}
+    from db.config_manager import cfg
+    vlm_model = await cfg.get("model.image_qa", "google/gemini-2.5-flash")
+    img_b64 = base64.b64encode(img_bytes).decode("ascii")
+    user_text = (
+        "На картинке — иллюстрация для детской сказки. Главный герой — ребёнок. "
+        "Проверь два факта и верни ТОЛЬКО JSON без markdown:\n"
+        "  adult_present: есть ли на картинке взрослый человек (мама, папа, бабушка, "
+        "дедушка, воспитательница, учитель, продавец, врач и т.п.) — ЛЮБОЕ его проявление: "
+        "ЛИЦО, торс, руки/ладонь крупно (взрослые пропорции), ноги взрослого, силуэт "
+        "взрослого человека. Достаточно ОДНОГО элемента взрослого тела В КАДРЕ — отвечай true. "
+        "Феи, единороги, гномы, говорящие звери, ангелы, эльфы, духи, ожившие игрушки — "
+        "это СКАЗОЧНЫЕ существа, НЕ взрослые люди, отвечай false. Дети (даже если "
+        "несколько) — НЕ взрослые, отвечай false. Сомневаешься — отвечай true.\n"
+        "  text_present: на картинке есть НАСТОЯЩИЙ читаемый текст — буквы/слова/имена/"
+        "цифры/знаки препинания, которые можно прочесть (например \"RULE #3\", \"Marisco\", "
+        "\"АБВ\", \"123\"). Декоративные узоры, орнаменты, псевдо-руны без читаемых букв, "
+        "цветные пятна, символы вроде звёздочек/сердечек — НЕ считаются, отвечай false.\n"
+        "Формат: {\"adult_present\": false, \"text_present\": false}"
+    )
+    payload = {
+        "model": vlm_model,
+        "messages": [{"role": "user", "content": [
+            {"type": "image_url",
+             "image_url": {"url": f"data:image/png;base64,{img_b64}"}},
+            {"type": "text", "text": user_text},
+        ]}],
+        "temperature": 0.0,
+        "max_tokens": 100,
+    }
+    headers = {
+        "Authorization": f"Bearer {settings.openrouter_api_key}",
+        "Content-Type": "application/json",
+    }
+    t0 = time.time()
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                OPENROUTER_URL, json=payload, headers=headers,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as r:
+                duration_ms = int((time.time() - t0) * 1000)
+                if r.status != 200:
+                    body = await r.text()
+                    logger.warning("image QA HTTP %d: %s", r.status, body[:200])
+                    fire(log_api_call(story_id=story_id, service="openrouter",
+                                       model=vlm_model, purpose="image_qa",
+                                       status="failed", duration_ms=duration_ms,
+                                       error=body[:500]))
+                    return {"ok": True, "adult_present": False, "text_present": False}
+                data = await r.json()
+                content = (data.get("choices", [{}])[0]
+                            .get("message", {}).get("content") or "").strip()
+                from engine.llm_client import _extract_json
+                parsed = _extract_json(content)
+                adult = bool(parsed.get("adult_present"))
+                txt = bool(parsed.get("text_present"))
+                ok = not (adult or txt)
+                usage = data.get("usage", {})
+                fire(log_api_call(story_id=story_id, service="openrouter",
+                                   model=vlm_model, purpose="image_qa",
+                                   status="success", duration_ms=duration_ms,
+                                   tokens_in=usage.get("prompt_tokens"),
+                                   tokens_out=usage.get("completion_tokens"),
+                                   request_text=f"scene_{scene_index}",
+                                   response_text=content[:300]))
+                logger.info("image QA scene %d → adult=%s text=%s ok=%s",
+                             scene_index, adult, txt, ok)
+                return {"ok": ok, "adult_present": adult, "text_present": txt}
+    except Exception as e:
+        logger.warning("image QA exception (scene %d): %s", scene_index, e)
+        return {"ok": True, "adult_present": False, "text_present": False}
+
+
 async def generate_illustrations_batch(
     screenplay: dict,
     reference_photo_b64: str | None = None,
@@ -762,6 +1079,7 @@ async def generate_illustrations_batch(
     timeline_text: str | None = None,
     style: str | None = None,
     locale: str | None = None,
+    topic: str | None = None,
 ) -> list[bytes]:
     """Generate all illustrations for a fairy tale in the chosen art style.
 
@@ -795,9 +1113,21 @@ async def generate_illustrations_batch(
             style_block = style_block + "\n\nLOCALE CONTEXT: " + hint
     has_photo = bool(reference_photo_b64 or (reference_photos and any(reference_photos)))
 
-    # Step 1: Split into scenes (with timeline if available)
+    # Step 0: VLM photo analysis — describe the child verbatim so scene_split
+    # has photo-grounded appearance instead of having to invent it from text.
+    photo_analysis = None
+    primary_photo = reference_photo_b64 or (reference_photos[0] if reference_photos else None)
+    if primary_photo:
+        try:
+            photo_analysis = await analyze_child_photo(
+                primary_photo, topic=topic, story_id=story_id)
+        except Exception as e:
+            logger.warning("photo VLM step failed (continuing without): %s", e)
+
+    # Step 1: Split into scenes (with timeline + topic + photo analysis if available)
     scenes, character_appearances = await split_into_scenes(
-        screenplay, story_id=story_id, timeline_text=timeline_text)
+        screenplay, story_id=story_id, timeline_text=timeline_text,
+        topic=topic, photo_analysis=photo_analysis)
 
     title = screenplay["title"]
     characters_desc = ", ".join(
@@ -872,6 +1202,9 @@ async def generate_illustrations_batch(
 
     sem = asyncio.Semaphore(5)
 
+    from db.config_manager import cfg
+    qa_enabled = bool(await cfg.get("image.qa_check_enabled", True))
+
     async def _gen_one(i: int, scene: dict) -> bytes | None:
         async with sem:
             img = await generate_illustration(
@@ -889,6 +1222,35 @@ async def generate_illustrations_batch(
                 character_sheet_b64=character_sheet_b64,
                 style_block=style_block,
             )
+            # Layer 2 QA: VLM compliance check + 1 retry on violation.
+            # Only run when we have a photo (the no-photo path uses character sheets
+            # and is much less likely to insert other identifiable humans by mistake).
+            if img and qa_enabled and (reference_photo_b64 or reference_photos):
+                qa = await check_image_compliance(img, story_id=story_id, scene_index=i)
+                if not qa["ok"]:
+                    violations = []
+                    if qa["adult_present"]: violations.append("нарисован взрослый человек")
+                    if qa["text_present"]: violations.append("есть читаемые надписи/буквы")
+                    warning = "; ".join(violations)
+                    logger.warning("scene %d QA failed (%s) — retrying once", i, warning)
+                    retry_img = await generate_illustration(
+                        scene=scene,
+                        scene_index=i,
+                        total_scenes=len(scenes),
+                        reference_photo_b64=reference_photo_b64,
+                        previous_scene_desc=None,
+                        fairy_tale_title=title,
+                        characters_desc=characters_desc,
+                        character_appearances=character_appearances,
+                        reference_photos=reference_photos,
+                        story_id=story_id,
+                        scene_full_text=_scene_text(scene),
+                        character_sheet_b64=character_sheet_b64,
+                        style_block=style_block,
+                        qa_retry_warning=warning,
+                    )
+                    if retry_img:
+                        img = retry_img
         logger.info("Illustration %d/%d: %s", i + 1, len(scenes),
                     f"{len(img):,}b" if img else "FAILED")
         if img and on_illustration_ready:

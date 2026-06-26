@@ -31,6 +31,7 @@ async def generate_fairytale(
     tempo: float = 1.0,
     style: str | None = None,
     locale: str | None = None,
+    original_title: str | None = None,
 ) -> dict:
     """Generate a complete fairy tale: MP3 audio + illustrations.
 
@@ -146,7 +147,37 @@ async def generate_fairytale(
 
         # ── Step 3: Build TTS requests ──
         tts_requests = []
+
+        # Prepend a randomized brand intro that announces the title before the
+        # story begins. Voiced by the narrator using the same TTS pass so the
+        # cadence stays consistent. `segments` and `seg_char_ids` get a
+        # synthetic leading entry so the rest of the pipeline (concat, scene
+        # split, timeline) keeps working without special-casing.
+        from engine.story_intro import pick_intro_text
+        # Prefer the original buyer-facing title over the screenplay's
+        # LLM-regenerated one — the latter can drift on shorter inputs.
+        title_for_intro = (original_title or screenplay.get("title") or "").strip()
+        intro_text = pick_intro_text(title_for_intro, locale=(locale or "ru"))
+        if intro_text:
+            narrator_voice = voice_map.get("narrator") or next(iter(voice_map.values()))
+            tts_requests.append({
+                "text": intro_text,
+                "voice_id": narrator_voice.voice_id,
+                "stability": narrator_voice.default_stability,
+                "similarity": narrator_voice.default_similarity,
+                "style": narrator_voice.default_style,
+            })
+            # Insert a matching synthetic segment so downstream loops that
+            # index into `segments` still line up.
+            segments = [{"character_id": "narrator",
+                          "emotion": "mysterious", "pace": "slow",
+                          "text": intro_text, "_intro": True}] + list(segments)
+            logger.info("Story intro prepended (title=%r): %r",
+                         title_for_intro, intro_text)
+
         for seg in segments:
+            if seg.get("_intro"):
+                continue  # intro request already pushed above
             char_id = seg["character_id"]
             voice = voice_map.get(char_id, voice_map.get("narrator"))
             tagged_text = build_tagged_text(
@@ -291,6 +322,7 @@ async def generate_fairytale(
                     timeline_text=timeline_text,
                     style=style,
                     locale=locale,
+                    topic=context,
                 ),
                 timeout=600,  # 10 min
             )

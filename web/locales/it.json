@@ -189,5 +189,10 @@
   "order_rate_ph_bad": "Cosa non ha funzionato? Lo rifaremo gratuitamente o ti rimborseremo.",
   "order_rate_q_bad": "Ci dispiace che non sia andata bene 😔 Dicci cosa dobbiamo migliorare",
   "order_rate_send": "Invia",
-  "order_rate_thanks_bad": "Ricevuto — ti contatteremo a breve."
+  "order_rate_thanks_bad": "Ricevuto — ti contatteremo a breve.",
+  "order_demo_btn": "▶ Ascolta l'anteprima",
+  "order_demo_loading": "Preparazione dell'anteprima…",
+  "order_demo_error": "Impossibile generare l'anteprima. Riprova.",
+  "order_demo_already_used": "Puoi ottenere l'anteprima della storia solo una volta.",
+  "order_demo_label": "🎧 Demo — primo minuto della storia"
 }

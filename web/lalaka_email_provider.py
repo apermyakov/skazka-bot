@@ -24,7 +24,7 @@ import aiohttp
 
 logger = logging.getLogger(__name__)
 
-ELASTIC_URL = "https://api.elasticemail.com/v4/emails"
+ELASTIC_URL = "https://api.elasticemail.com/v4/emails/transactional"
 
 
 def _is_configured() -> bool:
@@ -57,8 +57,12 @@ async def send_via_resend(to_addr: str, subject: str, body_text: str,
         # noreply@ is the safer sender (some providers denylist hello@), but customer
         # replies should still reach a real inbox — set Reply-To to hello@lalaka.ai.
         content["ReplyTo"] = reply_to
+    # /v4/emails/transactional expects Recipients as {"To": [...]} — different
+    # schema from /v4/emails. The transactional endpoint bypasses the
+    # marketing-consent contact status that was Bouncing our story-ready
+    # emails for contacts opted into transactional-only (see 2026-06-25 fix).
     payload = {
-        "Recipients": [{"Email": to_addr}],
+        "Recipients": {"To": [to_addr]},
         "Content": content,
     }
     headers = {

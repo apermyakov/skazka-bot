@@ -189,5 +189,10 @@
   "order_rate_ph_bad": "어떤 점이 마음에 안 드셨나요? 무료로 다시 해드리거나 환불해 드릴게요.",
   "order_rate_q_bad": "마음에 안 드셨다니 죄송해요 😔 어떤 점을 고쳐야 할지 알려주세요",
   "order_rate_send": "보내기",
-  "order_rate_thanks_bad": "알겠습니다 — 곧 연락드릴게요."
+  "order_rate_thanks_bad": "알겠습니다 — 곧 연락드릴게요.",
+  "order_demo_btn": "▶ 미리듣기",
+  "order_demo_loading": "미리듣기 준비 중…",
+  "order_demo_error": "미리듣기를 생성할 수 없습니다. 다시 시도해 주세요.",
+  "order_demo_already_used": "동화 미리듣기는 1회만 가능합니다.",
+  "order_demo_label": "🎧 데모 — 이야기 첫 1분"
 }

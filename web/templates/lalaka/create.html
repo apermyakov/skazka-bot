@@ -84,14 +84,6 @@
       <form method="post" action="/create" id="cf" novalidate enctype="multipart/form-data">
         <div class="ex" onclick="document.getElementById('topic').focus()" aria-hidden="true">{{ t.create_example }}</div>
         <label for="topic">{{ t.create_topic_label }}</label>
-        <div class="chips" id="chips" role="group" aria-label="{{ t.create_topic_label }}">
-          <button type="button" class="chip" data-preset="{{ t.chip_dark_full }}">{{ t.chip_dark }}</button>
-          <button type="button" class="chip" data-preset="{{ t.chip_teeth_full }}">{{ t.chip_teeth }}</button>
-          <button type="button" class="chip" data-preset="{{ t.chip_doctor_full }}">{{ t.chip_doctor }}</button>
-          <button type="button" class="chip" data-preset="{{ t.chip_puppy_full }}">{{ t.chip_puppy }}</button>
-          <button type="button" class="chip" data-preset="{{ t.chip_garden_full }}">{{ t.chip_garden }}</button>
-          <button type="button" class="chip" data-preset="{{ t.chip_swim_full }}">{{ t.chip_swim }}</button>
-        </div>
         <textarea id="topic" name="topic" maxlength="2000" minlength="10" required
                   aria-required="true"
                   placeholder="{{ t.create_topic_ph }}"></textarea>
@@ -277,18 +269,6 @@
   topicEl.addEventListener('input', saveDraft);
   emailEl.addEventListener('input', saveDraft);
   refresh();
-
-  // Chips: click → fill topic with preset, mark active
-  document.getElementById('chips').addEventListener('click', function(e){
-    const b = e.target.closest('.chip');
-    if(!b) return;
-    document.querySelectorAll('.chip.active').forEach(c => c.classList.remove('active'));
-    b.classList.add('active');
-    topicEl.value = b.dataset.preset || '';
-    refresh();
-    saveDraft();
-    topicEl.focus();
-  });
 
   // Submit with inline validation. Runs in CAPTURE phase so it sees the
   // event before the reCAPTCHA polling handler — if validation fails we

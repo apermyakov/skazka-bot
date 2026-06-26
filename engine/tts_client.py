@@ -50,7 +50,10 @@ async def synthesize_batch(
         url = ELEVENLABS_TTS_URL.format(voice_id=seg["voice_id"])
         from db.config_manager import cfg
         tts_model = await cfg.get("model.tts", "eleven_v3")
-        tts_lang = await cfg.get("tts.language_code", "ru")
+        # Per-segment override wins over global config — needed by the lalaka
+        # demo endpoint which generates non-RU previews and can't flip the DB
+        # config just for one call.
+        tts_lang = seg.get("language_code") or await cfg.get("tts.language_code", "ru")
         def_stab = await cfg.get("tts.default_stability", 0.45)
         def_sim = await cfg.get("tts.default_similarity", 0.80)
         def_style = await cfg.get("tts.default_style", 0.25)

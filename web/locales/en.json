@@ -189,5 +189,10 @@
   "order_rate_ph_bad": "What didn't work? We'll redo it for free or refund.",
   "order_rate_q_bad": "Sorry it didn't land 😔 Tell us what to fix",
   "order_rate_send": "Send",
-  "order_rate_thanks_bad": "Got it — we'll reach out to you shortly."
+  "order_rate_thanks_bad": "Got it — we'll reach out to you shortly.",
+  "order_demo_btn": "▶ Listen to a preview",
+  "order_demo_loading": "Preparing your preview…",
+  "order_demo_error": "Couldn't generate preview. Try again.",
+  "order_demo_already_used": "You can get a story preview only once.",
+  "order_demo_label": "🎧 Demo — first minute of the story"
 }

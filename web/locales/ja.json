@@ -189,5 +189,10 @@
   "order_rate_ph_bad": "何がうまくいかなかったかな？無料でやり直すか、返金するね。",
   "order_rate_q_bad": "ごめんね、うまくいかなかったみたい😔 どこを直せばいいか教えてね",
   "order_rate_send": "送信",
-  "order_rate_thanks_bad": "了解！すぐに連絡するね。"
+  "order_rate_thanks_bad": "了解！すぐに連絡するね。",
+  "order_demo_btn": "▶ 試聴する",
+  "order_demo_loading": "プレビューを準備中…",
+  "order_demo_error": "プレビューを生成できませんでした。もう一度お試しください。",
+  "order_demo_already_used": "物語の試聴は1回のみご利用いただけます。",
+  "order_demo_label": "🎧 デモ — 物語の冒頭1分"
 }

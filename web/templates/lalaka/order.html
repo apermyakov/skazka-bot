@@ -84,13 +84,18 @@
   .etabar{height:8px;background:var(--soft);border-radius:999px;overflow:hidden;margin:10px 0}
   .etabar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));
     width:0%;transition:width .5s ease}
+  /* demo preview progress — gentle slow start (~3x slower than the
+     generation bar), then accelerating through the middle, then easing
+     into 95%. Snaps to 100% from JS on success. */
+  .demo-pbar{height:8px;background:var(--soft);border-radius:6px;overflow:hidden;margin-top:8px}
+  .demo-pbar i{display:block;height:100%;width:1%;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    animation:demoFill 55s cubic-bezier(.3,.4,.3,1) forwards}
+  @keyframes demoFill{to{width:95%}}
   /* done state */
   .done-actions{display:flex;flex-direction:column;gap:10px;margin-top:18px}
   .done-actions a{text-decoration:none;text-align:center}
   .done-video{width:100%;border-radius:14px;background:#000;max-height:520px;display:block}
-  .illust-strip{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:14px 0}
-  @media(min-width:540px){ .illust-strip{grid-template-columns:repeat(3,1fr)} }
-  .illust-strip img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:var(--soft);display:block}
   /* Rating widget */
   .rate-card{background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:18px 16px;
     margin-top:18px;box-shadow:0 6px 20px rgba(43,35,80,.06);text-align:center}
@@ -162,6 +167,11 @@ const T = {
   awaiting_sub:   {{ t.order_awaiting_sub | tojson }},
   rewriting:      {{ t.order_rewriting | tojson }},
   revised_ok:     {{ t.order_revised_ok | tojson }},
+  demo_btn:       {{ t.order_demo_btn | tojson }},
+  demo_loading:   {{ t.order_demo_loading | tojson }},
+  demo_error:     {{ t.order_demo_error | tojson }},
+  demo_already_used: {{ t.order_demo_already_used | tojson }},
+  demo_label:     {{ t.order_demo_label | tojson }},
   read_more:      {{ t.order_read_more | tojson }},
   read_less:      {{ t.order_read_less | tojson }},
   generating:     {{ t.order_generating | tojson }},
@@ -220,7 +230,10 @@ function setStickyPay(visible){
 
 function render(d){
   if(!d){ box.innerHTML = '<span class="spin"></span> '+T.loading; return; }
-  if(d.status === shownStatus && d.status !== 'generating' && d.status !== 'done') return;
+  // Skip re-render when status is unchanged (except 'generating', where we want
+  // to refresh the in-place progress text). For 'done' specifically: re-rendering
+  // wipes the rate widget textarea while the user is typing a comment.
+  if(d.status === shownStatus && d.status !== 'generating') return;
   shownStatus = d.status;
 
   if(d.status === 'composing'){
@@ -309,6 +322,10 @@ function render(d){
         '<div class="row"><span>'+T.value_video+'</span></div>'+
         '<div class="total"><span>'+T.total+'</span><span>'+PRICE+'</span></div>'+
       '</div>'+
+      '<div class="demo-block" id="demoblock">'+
+        '<button type="button" class="btn2 btn-block" id="demobtn">'+T.demo_btn+'</button>'+
+        '<div id="demoarea" style="display:none;margin-top:10px"></div>'+
+      '</div>'+
       '<button class="btn btn-block" id="pay" style="margin-top:8px">'+payLabel+'</button>'+
       '<div class="muted" style="text-align:center;font-size:13px;margin-top:6px">'+T.pay_lock+'</div>'+
       '<div class="editbox"><textarea id="comment" placeholder="'+T.edit_ph+'"></textarea>'+
@@ -316,6 +333,64 @@ function render(d){
         '<a class="ghost" href="/create">'+T.or_new+'</a></div>';
     document.getElementById('pay').onclick = pay;
     document.getElementById('edit').onclick = editStory;
+    (function(){
+      const btn = document.getElementById('demobtn');
+      const area = document.getElementById('demoarea');
+      if(!btn || !area) return;
+      btn.addEventListener('click', async function(){
+        btn.disabled = true;
+        const orig = btn.textContent;
+        btn.innerHTML =
+          '<div style="display:flex;flex-direction:column;gap:8px">' +
+            '<div style="font-weight:600;color:var(--ink);font-size:14px">'+esc(T.demo_loading)+'</div>' +
+            '<div class="demo-pbar"><i id="demopbarfill"></i></div>' +
+          '</div>';
+        btn.style.background = 'transparent';
+        btn.style.border = '1.5px solid var(--line)';
+        btn.style.padding = '14px';
+        btn.style.cursor = 'default';
+        try{
+          const r = await fetch('/order/'+OID+'/demo', {method:'POST'});
+          const d = await r.json();
+          const fill = document.getElementById('demopbarfill');
+          if(d.ok && d.url){
+            if(fill){
+              fill.style.animation = 'none';
+              fill.style.width = '100%';
+              fill.style.transition = 'width .25s ease-out';
+            }
+            setTimeout(function(){
+              area.innerHTML =
+                '<div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px;text-align:center">' +
+                  esc(T.demo_label) +
+                '</div>' +
+                '<audio controls autoplay style="width:100%" src="'+esc(d.url)+'"></audio>';
+              area.style.display = 'block';
+              btn.style.display = 'none';
+            }, 300);
+          } else {
+            btn.textContent = orig;
+            btn.disabled = false;
+            btn.style.background = '';
+            btn.style.border = '';
+            btn.style.padding = '';
+            btn.style.cursor = '';
+            const msg = d.error === 'already_used'
+              ? (T.demo_already_used || 'Preview already used from this device.')
+              : T.demo_error;
+            flash(msg, 'err');
+          }
+        }catch(e){
+          btn.textContent = orig;
+          btn.disabled = false;
+          btn.style.background = '';
+          btn.style.border = '';
+          btn.style.padding = '';
+          btn.style.cursor = '';
+          flash(T.demo_error, 'err');
+        }
+      });
+    })();
     const inp = document.getElementById('pp-input');
     if(inp) inp.addEventListener('change', uploadPhoto);
     // Story expand/collapse — hide the toggle if the text fits within the
@@ -385,16 +460,10 @@ function render(d){
     try{ localStorage.removeItem('gen_started_'+OID); }catch(e){}
     const v = d.video_url||'', a = d.audio_url||'';
     const player = v ? '<video class="done-video" controls preload="metadata" src="'+esc(v)+'"></video>' : '';
-    const illus = Array.isArray(d.illustrations) ? d.illustrations.filter(Boolean) : [];
-    const strip = illus.length ?
-      ('<div class="illust-strip">' +
-        illus.map(function(u){ return '<img src="'+esc(u)+'" alt="" loading="lazy">'; }).join('') +
-       '</div>') : '';
     const rate = (d.rating ? '' : rateWidgetHTML());
     box.innerHTML =
       '<h1>'+T.done_title+'</h1>'+
       player +
-      strip +
       '<div class="done-actions">'+
         (a ? '<a class="btn2" href="'+esc(a)+'" download>'+T.done_audio+'</a>' : '')+
         '<a class="btn2" href="/create">'+T.done_again+'</a>'+
@@ -543,6 +612,11 @@ async function pay(){
   try{
     const r = await fetch('/order/'+OID+'/pay', {method:'POST'});
     const d = await r.json();
+    if(d.ok && d.mode === 'redirect'){
+      // FastSpring hosted checkout — full-page redirect.
+      window.location = d.url;
+      return;
+    }
     if(d.ok && d.mode === 'popup'){
       // FastSpring Builder Library — opens a modal over lalaka.ai
       try{
@@ -558,8 +632,10 @@ async function pay(){
         if(d.email){
           try{ fs.recognize({email: d.email}); }catch(e){}
         }
-        // .checkout(productPath) opens the popup with that product in cart.
-        fs.checkout(d.product);
+        // Popup mode requires add(productPath) THEN checkout() with no arg.
+        // Passing the product to checkout() triggers "Store Error" in popup mode.
+        fs.add(d.product);
+        fs.checkout();
         // We don't restore() — onFSPopupClosed handles UI reset after close.
         return;
       }catch(e){

@@ -189,5 +189,10 @@
   "order_rate_ph_bad": "¿Qué no funcionó? Lo rehacemos gratis o te devolvemos el dinero.",
   "order_rate_q_bad": "Sentimos que no te haya gustado 😔 Cuéntanos qué podemos mejorar",
   "order_rate_send": "Enviar",
-  "order_rate_thanks_bad": "Entendido — te contactaremos pronto."
+  "order_rate_thanks_bad": "Entendido — te contactaremos pronto.",
+  "order_demo_btn": "▶ Escuchar avance",
+  "order_demo_loading": "Preparando el avance…",
+  "order_demo_error": "No pudimos generar el avance. Inténtalo de nuevo.",
+  "order_demo_already_used": "Solo puedes obtener un avance de la historia una vez.",
+  "order_demo_label": "🎧 Demo — primer minuto del cuento"
 }

@@ -1,0 +1,82 @@
+{
+  "main_character": "Sofiyka",
+  "main_appearance": "A 4-year-old little girl with BRIGHT GOLDEN BLONDE WAVY HAIR (NOT brown, NOT chestnut, NOT dark — clearly golden blonde like in the reference photo) in TWO LONG BRAIDS, big blue eyes, soft pink dress with short sleeves, chubby cheeks, peaceful warm smile. CRITICAL: there is ALWAYS exactly ONE Sofiyka in every frame — NEVER two girls of similar age, NEVER duplicates, NEVER mirror reflections of Sofiyka.",
+  "extra_characters": {
+    "Mariyka": "Sofiyka's tiny baby sister, a 1-year-old TODDLER (much smaller than Sofiyka) with SHORT CHESTNUT BROWN HAIR (NOT blonde, NOT golden — clearly chestnut brown), small pink bow on top of head, wearing a YELLOW short-sleeved bodysuit/onesie, chubby baby cheeks, gummy smile. Mariyka is ALWAYS shown sitting, crawling, or being carried by Sofiyka — never standing in the same pose as Sofiyka.",
+    "Riccik": "A King Charles Spaniel puppy with brown-and-white fur, long silky brown ears, fluffy white tail like a propeller, friendly expression."
+  },
+  "scenes": {
+    "1": {
+      "setting": "cozy children's bedroom at warm evening, soft golden sunset light through window, toys and bookshelf, warm pastel colors",
+      "mood": "warm, peaceful, intimate family scene",
+      "description": "Sofiyka (4yo girl, golden blonde hair in two braids, pink dress) standing in cozy nursery, gently holding tiny baby Mariyka's hand. Mariyka sits on the soft rug, dressed in yellow bodysuit with pink bow on chestnut hair. Riccik the spaniel puppy lies nearby. Soft warm sunset light. EXACTLY ONE Sofiyka — no duplicate girls.",
+      "characters_present": ["Sofiyka", "Mariyka", "Riccik"]
+    },
+    "2": {
+      "setting": "the same cozy nursery, but now a small magical glowing door made of golden light has appeared on the rug, glowing softly, smelling of strawberries",
+      "mood": "magical wonder, gentle curiosity",
+      "description": "Sofiyka kneeling on the rug, looking with wide-eyed wonder at a small magical door on the carpet that glows with warm golden light. Tiny baby Mariyka sits beside her, also fascinated. Riccik peers curiously. ONLY ONE Sofiyka in the frame.",
+      "characters_present": ["Sofiyka", "Mariyka", "Riccik"]
+    },
+    "3": {
+      "setting": "cozy nursery interior, golden magical light from the small door bathes the scene",
+      "mood": "brave, tender — older sister taking care of baby sister",
+      "description": "Sofiyka gently holds tiny baby Mariyka's little hand, leading her toward the glowing magical door on the rug. Mariyka reaches her free hand toward the light with curiosity. Riccik walks alongside protectively. EXACTLY ONE Sofiyka — no other girls in the frame.",
+      "characters_present": ["Sofiyka", "Mariyka", "Riccik"]
+    },
+    "4": {
+      "setting": "a magical meadow where grass is soft as silk and giant flowers tower like trees, but everything is in muted twilight colors — all flower buds are closed and sleeping, no fairies visible, eerie quiet",
+      "mood": "gentle mystery, hushed wonder, slightly melancholy",
+      "description": "Sofiyka (the ONLY older girl in the frame) stands in a magical meadow surrounded by giant closed sleeping flower buds. She holds tiny baby Mariyka in her arms or by the hand. Riccik stands beside them looking up at the giant sleeping flowers. CRITICAL: there is ONLY ONE older girl — Sofiyka with her golden blonde braids and pink dress. ABSOLUTELY NO duplicates, NO mirror images, NO other girl of similar age. The baby Mariyka is much smaller, in yellow bodysuit, clearly a toddler, not standing like Sofiyka.",
+      "characters_present": ["Sofiyka", "Mariyka", "Riccik"]
+    },
+    "5": {
+      "setting": "magical meadow, focus on one large drooping blue bellflower",
+      "mood": "warm magic, awakening, golden light",
+      "description": "Sofiyka gently touches one petal of a large blue bellflower with her fingertips. The flower immediately glows with warm golden light, golden pollen sparkles fly outward. Tiny baby Mariyka watches from a few steps away, clapping her tiny hands. Riccik wags his tail. ONLY ONE Sofiyka.",
+      "characters_present": ["Sofiyka", "Mariyka", "Riccik"]
+    },
+    "6": {
+      "setting": "magical meadow now fully awake — giant poppies, forget-me-nots, daisies all blooming in bright colors, surrounded by golden glow",
+      "mood": "joyful, blooming, celebratory",
+      "description": "Sofiyka runs joyfully through the awakened magical meadow, lightly touching tall blooming flowers as she passes. Tiny Mariyka in yellow bodysuit watches with delighted gummy smile from beside Riccik. ONLY ONE Sofiyka — no duplicate girl.",
+      "characters_present": ["Sofiyka", "Mariyka", "Riccik"]
+    },
+    "7": {
+      "setting": "magical meadow edge, near a leafy bush",
+      "mood": "tender, compassionate",
+      "description": "Sofiyka kneels and carefully extends her open palm toward a tiny butterfly-fairy named Mila (a small fairy with crumpled translucent wing) who sits sadly on a leaf. Mila is a delicate, palm-sized winged sprite. Tiny baby Mariyka watches from beside Riccik. ONLY ONE Sofiyka.",
+      "characters_present": ["Sofiyka", "Mariyka", "Riccik", "Mila"]
+    },
+    "8": {
+      "setting": "close-up magical meadow setting, focus on Sofiyka's open palm",
+      "mood": "warm magic, healing, golden glow",
+      "description": "Sofiyka cradles tiny Mila the butterfly-fairy on her open palm and gently blows warm breath on the fairy's wing. A soft golden glow spreads from Sofiyka's palms, healing the wing which now shimmers brightly. Tiny baby Mariyka and Riccik watch with wonder. ONLY ONE Sofiyka.",
+      "characters_present": ["Sofiyka", "Mariyka", "Riccik", "Mila"]
+    },
+    "9": {
+      "setting": "deeper part of the magical fairy-tale forest, dappled sunlight, mossy ground",
+      "mood": "tender meeting with new friend, gentle sadness",
+      "description": "Sofiyka and friends meet a small baby unicorn named Zvyozdochka — snow-white fur, pearlescent horn dim and almost faded, ears drooping sadly, tears in big eyes. Sofiyka stands looking at the unicorn with sympathy. Tiny baby Mariyka rides on Riccik's back, holding gently to his fur. ONLY ONE Sofiyka.",
+      "characters_present": ["Sofiyka", "Mariyka", "Riccik", "Zvyozdochka"]
+    },
+    "10": {
+      "setting": "magical forest, sunlight breaking through trees",
+      "mood": "warm magic, healing, friendship",
+      "description": "Sofiyka tenderly hugs the small white baby unicorn Zvyozdochka around the neck. The unicorn's horn instantly bursts into bright warm light, shadows vanish around them. Tiny baby Mariyka and Riccik look up in wonder. ONLY ONE Sofiyka.",
+      "characters_present": ["Sofiyka", "Mariyka", "Riccik", "Zvyozdochka"]
+    },
+    "11": {
+      "setting": "magical forest path with golden sparkles, small woodland creatures along the way",
+      "mood": "joyful adventure, kindness in motion",
+      "description": "Sofiyka rides on the back of the small white unicorn Zvyozdochka through the forest, holding tiny baby Mariyka safely in front of her. Riccik gallops alongside. Sofiyka reaches out to gently pet a little singing bird on a branch. ONLY ONE Sofiyka.",
+      "characters_present": ["Sofiyka", "Mariyka", "Riccik", "Zvyozdochka"]
+    },
+    "12": {
+      "setting": "a huge magical meadow with a palace made of rose petals, all kingdom inhabitants gathered — fairies, animals, mother unicorn, Queen Butterfly-Fairy descending",
+      "mood": "triumphant, ceremonial, warm and magical",
+      "description": "Sofiyka stands in the center of the great magical meadow as the beautiful Queen Butterfly-Fairy hovers gracefully before her, gently placing a delicate crown of flowers on Sofiyka's head. Tiny baby Mariyka sits on the soft grass nearby holding Riccik. The mother unicorn and small Zvyozdochka stand happily to the side. Many tiny fairies flutter around in celebration. ONLY ONE Sofiyka — she is the crowned Princess-Fairy. ABSOLUTELY NO duplicate girls.",
+      "characters_present": ["Sofiyka", "Mariyka", "Riccik", "Zvyozdochka"]
+    }
+  }
+}

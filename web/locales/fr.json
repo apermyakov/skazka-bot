@@ -189,5 +189,10 @@
   "order_rate_ph_bad": "Qu'est-ce qui n'a pas été ? On refait gratuitement ou on te rembourse.",
   "order_rate_q_bad": "Désolé que ça n'ait pas plu 😔 Dis-nous ce qu'il faut améliorer",
   "order_rate_send": "Envoyer",
-  "order_rate_thanks_bad": "C'est noté — on te contacte très vite."
+  "order_rate_thanks_bad": "C'est noté — on te contacte très vite.",
+  "order_demo_btn": "▶ Écouter l'aperçu",
+  "order_demo_loading": "Préparation de l'aperçu…",
+  "order_demo_error": "Impossible de générer l'aperçu. Réessayez.",
+  "order_demo_already_used": "Vous ne pouvez obtenir un aperçu qu'une seule fois.",
+  "order_demo_label": "🎧 Démo — première minute de l'histoire"
 }

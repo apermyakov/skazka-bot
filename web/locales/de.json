@@ -189,5 +189,10 @@
   "order_rate_ph_bad": "Was hat nicht geklappt? Wir machen es kostenlos neu oder erstatten dir das Geld.",
   "order_rate_q_bad": "Ohje, das tut uns leid 😔 Sag uns, was wir besser machen können",
   "order_rate_send": "Senden",
-  "order_rate_thanks_bad": "Verstanden — wir melden uns gleich bei dir."
+  "order_rate_thanks_bad": "Verstanden — wir melden uns gleich bei dir.",
+  "order_demo_btn": "▶ Hörprobe anhören",
+  "order_demo_loading": "Hörprobe wird vorbereitet…",
+  "order_demo_error": "Hörprobe konnte nicht erstellt werden. Bitte erneut versuchen.",
+  "order_demo_already_used": "Sie können die Hörprobe nur einmal abrufen.",
+  "order_demo_label": "🎧 Demo — erste Minute der Geschichte"
 }

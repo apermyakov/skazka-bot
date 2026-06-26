@@ -7,6 +7,7 @@ Postgres pool and dynamic config. Payment is stubbed until the YuKassa key arriv
 """
 import asyncio
 import base64
+import html as _html
 import logging
 import os
 import time
@@ -319,7 +320,7 @@ async def _generate(oid: str):
                 context=o["topic"], screenplay=screenplay,
                 reference_photo_b64=(photos[0] if photos else None),
                 reference_photos=photos, tempo=1.15, style="painted",
-                on_status=on_status)
+                on_status=on_status, original_title=o["title"])
 
         # Auto-retry once on transient failure so users don't see "failed"
         # for hiccups in TTS/image APIs. Both attempts must throw before we give up.
@@ -819,6 +820,109 @@ async def order_set_photo(oid: str, photo: UploadFile = File(...)):
     return JSONResponse({"ok": True})
 
 
+_SKAZIK_DEMO_DIR = Path("/app/media/_demos")
+_SKAZIK_DEMO_BUCKET: dict[str, list[float]] = {}
+_SKAZIK_DEMO_WINDOW = 3600
+_SKAZIK_DEMO_LIMIT = 5
+_SKAZIK_DEMO_VOICE_ID = "ymDCYd8puC7gYjxIamPt"  # Marina_EL — warm narrator
+
+
+def _skazik_demo_text_slice(story_text: str, target_words: int = 145) -> str:
+    text = (story_text or "").strip()
+    if not text:
+        return ""
+    words = text.split()
+    if len(words) <= target_words:
+        return text
+    head = " ".join(words[:target_words])
+    for i in range(len(head) - 1, max(0, len(head) - 200), -1):
+        if head[i] in ".!?":
+            return head[: i + 1]
+    return head
+
+
+def _skazik_client_ip(request: Request) -> str:
+    return (
+        request.headers.get("cf-connecting-ip")
+        or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        or (request.client.host if request.client else "0.0.0.0")
+    )
+
+
+def _skazik_demo_rate_limited(request: Request) -> bool:
+    import time as _t
+    ip = _skazik_client_ip(request)
+    now = _t.time()
+    bucket = _SKAZIK_DEMO_BUCKET.setdefault(ip, [])
+    cutoff = now - _SKAZIK_DEMO_WINDOW
+    bucket[:] = [t for t in bucket if t > cutoff]
+    if len(bucket) >= _SKAZIK_DEMO_LIMIT:
+        return True
+    bucket.append(now)
+    return False
+
+
+@app.post("/order/{oid}/demo")
+async def skazik_order_demo(oid: str, request: Request):
+    """1-minute personalized voice preview for the Skazik buyer flow."""
+    o = await get_order(oid)
+    if not o:
+        return JSONResponse({"ok": False, "error": "not_found"}, status_code=404)
+    if o.get("status") not in ("text_ready", "awaiting_payment", "done"):
+        return JSONResponse({"ok": False, "error": "wrong_status"}, status_code=400)
+    story_text = (o.get("story_text") or "").strip()
+    if not story_text:
+        return JSONResponse({"ok": False, "error": "no_text"}, status_code=400)
+
+    # One demo per IP, strict. Check the lock BEFORE any branching so that
+    # even a cached file is denied to a fresh OID once the IP has used its
+    # one-time slot on something else.
+    import db.database as _db
+    ip = _skazik_client_ip(request)
+    async with _db._pool.acquire() as c:
+        already = await c.fetchrow(
+            "SELECT first_oid FROM demo_ip_log WHERE ip=$1", ip)
+    if already and already["first_oid"] != oid:
+        return JSONResponse({"ok": False, "error": "already_used"}, status_code=429)
+
+    _SKAZIK_DEMO_DIR.mkdir(parents=True, exist_ok=True)
+    out_path = _SKAZIK_DEMO_DIR / f"{oid}.mp3"
+    public_url = f"/media/_demos/{oid}.mp3"
+    if out_path.exists() and out_path.stat().st_size > 1024:
+        # Cache hit on the same (or first) OID — record the IP so the next
+        # different-OID call from this IP gets blocked above.
+        async with _db._pool.acquire() as c:
+            await c.execute(
+                "INSERT INTO demo_ip_log (ip, first_oid) VALUES ($1, $2) "
+                "ON CONFLICT (ip) DO NOTHING", ip, oid)
+        return {"ok": True, "url": public_url, "cached": True}
+
+    # IP lock was already enforced above (before the cache-hit branch); we
+    # only land here when this IP either has no row in demo_ip_log or has a
+    # row for THIS oid, so we can proceed with a fresh generation.
+    from engine.demo_audio import build_demo
+    try:
+        info = await build_demo(
+            story_text=story_text,
+            title=o.get("title") or "Сказка",
+            out_path=out_path,
+            locale="ru",
+            fallback_voice_id=_SKAZIK_DEMO_VOICE_ID,
+            ambient_path=None,  # let build_demo pick from screenplay
+        )
+    except Exception as e:
+        logger.exception("skazik demo build failed oid=%s: %s", oid, e)
+        return JSONResponse({"ok": False, "error": "build_failed"}, status_code=500)
+    logger.info("skazik demo built oid=%s mode=%s voices=%d segs=%d bytes=%d",
+                 oid, info["mode"], info["num_voices"], info["num_segments"],
+                 out_path.stat().st_size)
+    async with _db._pool.acquire() as c:
+        await c.execute(
+            "INSERT INTO demo_ip_log (ip, first_oid) VALUES ($1, $2) "
+            "ON CONFLICT (ip) DO NOTHING", ip, oid)
+    return {"ok": True, "url": public_url, "cached": False, "mode": info["mode"]}
+
+
 @app.post("/order/{oid}/pay")
 async def order_pay(oid: str):
     o = await get_order(oid)
@@ -994,6 +1098,117 @@ async def privacy(request: Request):
     ctx = await _legal_ctx("Политика конфиденциальности", lc.PRIVACY_BODY)
     ctx["canonical"] = f"{PUBLIC_BASE}/privacy"
     return templates.TemplateResponse(request, "legal.html", ctx)
+
+
+@app.get("/admin/reset-create", response_class=HTMLResponse)
+async def admin_reset_create(token: str = "", ip: str = ""):
+    """Clear an IP's lifetime create quota by deleting their UNPAID orders.
+    Paid orders are kept so real customers aren't affected; only test
+    artefacts go away."""
+    expected = os.environ.get("ADMIN_TOKEN", "")
+    if not expected or token != expected:
+        return HTMLResponse("<p>forbidden</p>", status_code=403,
+                             headers={"X-Robots-Tag": "noindex, nofollow, noarchive"})
+    ip = (ip or "").strip()
+    if not ip:
+        return HTMLResponse(
+            "<!doctype html><meta charset=utf-8><title>Reset create quota</title>"
+            "<style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;"
+            "max-width:520px;margin:60px auto;padding:0 16px;color:#241c44}"
+            "input,button{font:inherit;padding:10px 14px;border-radius:10px;border:1px solid #ccd}"
+            "button{background:#7c5cff;color:#fff;border:0;cursor:pointer}</style>"
+            "<h2>Reset create quota</h2>"
+            "<p>Удалит все НЕоплаченные заказы (включая text_ready, failed, "
+            "awaiting_payment) этого IP — даст ему свежий лимит. Платные заказы остаются.</p>"
+            f"<form method='get' action='/admin/reset-create'>"
+            f"<input type='hidden' name='token' value='{_html.escape(token)}'>"
+            "<input name='ip' placeholder='94.158.245.193' style='width:60%'> "
+            "<button type='submit'>Reset</button></form>"
+        )
+
+    import db.database as _db
+    async with _db._pool.acquire() as c:
+        rows = await c.fetch(
+            "DELETE FROM web_orders WHERE ip=$1 AND paid_at IS NULL "
+            "RETURNING id", ip)
+        paid_left = await c.fetchval(
+            "SELECT count(*) FROM web_orders WHERE ip=$1 AND paid_at IS NOT NULL", ip)
+    n = len(rows)
+    return HTMLResponse(
+        "<!doctype html><meta charset=utf-8><title>Reset create quota</title>"
+        "<style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;"
+        "max-width:520px;margin:60px auto;padding:0 16px;color:#241c44}"
+        "a{color:#7c5cff}</style>"
+        "<h2>Reset create quota</h2>"
+        f"<p>IP <code>{_html.escape(ip)}</code>: удалено <b>{n}</b> неоплаченных заказов, "
+        f"платных оставлено <b>{paid_left}</b>.</p>"
+        f"<p><a href='/admin/reset-create?token={_html.escape(token)}'>← сбросить другой IP</a></p>"
+    )
+
+
+@app.get("/admin/reset-demo", response_class=HTMLResponse)
+async def admin_reset_demo(token: str = "", ip: str = ""):
+    """Wipe an IP's demo-once lockout so they can generate a fresh preview.
+    Also removes any cached demo MP3 that IP triggered. Used when an operator
+    wants to retest the demo flow or a customer reports the lockout firing
+    incorrectly.
+
+    Auth: ?token=$ADMIN_TOKEN
+    Example: GET /admin/reset-demo?token=...&ip=94.158.245.193
+    """
+    expected = os.environ.get("ADMIN_TOKEN", "")
+    if not expected or token != expected:
+        return HTMLResponse("<p>forbidden</p>", status_code=403,
+                             headers={"X-Robots-Tag": "noindex, nofollow, noarchive"})
+    ip = (ip or "").strip()
+    if not ip:
+        # Tiny form for operator convenience
+        return HTMLResponse(
+            "<!doctype html><meta charset=utf-8><title>Reset demo IP</title>"
+            "<style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;"
+            "max-width:520px;margin:60px auto;padding:0 16px;color:#241c44}"
+            "input,button{font:inherit;padding:10px 14px;border-radius:10px;border:1px solid #ccd}"
+            "button{background:#7c5cff;color:#fff;border:0;cursor:pointer}</style>"
+            "<h2>Reset demo IP</h2>"
+            "<p>Введите IP, и я уберу его из <code>demo_ip_log</code> + удалю кешированный MP3 этой записи.</p>"
+            f"<form method='get' action='/admin/reset-demo'>"
+            f"<input type='hidden' name='token' value='{_html.escape(token)}'>"
+            "<input name='ip' placeholder='94.158.245.193' style='width:60%'> "
+            "<button type='submit'>Reset</button></form>"
+        )
+
+    import db.database as _db
+    async with _db._pool.acquire() as c:
+        row = await c.fetchrow(
+            "DELETE FROM demo_ip_log WHERE ip=$1 RETURNING first_oid, generated_at", ip)
+    cleared_oid = row["first_oid"] if row else None
+    file_removed = False
+    if cleared_oid:
+        from pathlib import Path as _P
+        f = _P(f"/app/media/_demos/{cleared_oid}.mp3")
+        if f.exists():
+            try:
+                f.unlink()
+                file_removed = True
+            except Exception:
+                pass
+
+    msg = (
+        f"<p>✓ IP <code>{_html.escape(ip)}</code> сброшен. "
+        f"Старая запись на заказ <code>{_html.escape(cleared_oid or '—')}</code> "
+        f"удалена из <code>demo_ip_log</code>. "
+        f"Кеш-файл удалён: <b>{'да' if file_removed else 'не было'}</b>.</p>"
+        if row else
+        f"<p>⚠ IP <code>{_html.escape(ip)}</code> не найден в <code>demo_ip_log</code>.</p>"
+    )
+    return HTMLResponse(
+        "<!doctype html><meta charset=utf-8><title>Reset demo IP</title>"
+        "<style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;"
+        "max-width:520px;margin:60px auto;padding:0 16px;color:#241c44}"
+        "a{color:#7c5cff}</style>"
+        "<h2>Reset demo IP</h2>" + msg +
+        f"<p><a href='/admin/reset-demo?token={_html.escape(token)}'>← сбросить другой IP</a></p>"
+    )
 
 
 @app.get("/admin/checkpoint")

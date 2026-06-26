@@ -189,5 +189,10 @@
   "order_rate_ph_bad": "Co poszło nie tak? Poprawimy to za darmo albo zwrócimy pieniążki.",
   "order_rate_q_bad": "Przykro nam, że się nie udało 😔 Powiedz nam, co poprawić",
   "order_rate_send": "Wyślij",
-  "order_rate_thanks_bad": "Dostaliśmy — odezwiemy się do Ciebie wkrótce."
+  "order_rate_thanks_bad": "Dostaliśmy — odezwiemy się do Ciebie wkrótce.",
+  "order_demo_btn": "▶ Posłuchaj zapowiedzi",
+  "order_demo_loading": "Przygotowuję zapowiedź…",
+  "order_demo_error": "Nie udało się wygenerować zapowiedzi. Spróbuj ponownie.",
+  "order_demo_already_used": "Zapowiedź bajki możesz odsłuchać tylko raz.",
+  "order_demo_label": "🎧 Demo — pierwsza minuta bajki"
 }

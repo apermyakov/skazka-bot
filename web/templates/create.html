@@ -116,15 +116,7 @@
   <p class="lead">Бесплатно, без регистрации. Если понравится — озвучим и нарисуем.</p>
   <div class="card">
     <form method="post" action="/create" enctype="multipart/form-data">
-      <label for="topic">Выберите тему — или напишите свою</label>
-      <div class="chips" id="chips">
-        <button type="button" class="chip" data-preset="Сказка про Машу, 4 года, которая боится темноты и не хочет засыпать одна. Пусть найдёт волшебного помощника и научится с этим справляться.">🌙 Боится темноты</button>
-        <button type="button" class="chip" data-preset="Сказка про Артёма, 5 лет, который не любит чистить зубы. Пусть встретит волшебную фею, которая научит, что бывает с зубами без ухода.">🦷 Не любит чистить зубы</button>
-        <button type="button" class="chip" data-preset="Сказка про Сашу, 3 года, который боится идти к врачу. Пусть подружится с добрым доктором-зверем и поймёт, что бояться нечего.">🏥 Боится врачей</button>
-        <button type="button" class="chip" data-preset="Сказка про Лизу, 6 лет, которая очень хочет завести щенка. Пусть совершит маленький подвиг и докажет, что готова заботиться о питомце.">🐶 Хочет щенка</button>
-        <button type="button" class="chip" data-preset="Сказка про Никиту, 4 года, который первый раз идёт в детский сад и переживает. Пусть найдёт там добрых друзей и поймёт, что в саду интересно.">🎒 Идёт в сад</button>
-        <button type="button" class="chip" data-preset="Сказка про Мишу, 5 лет, который учится плавать и пока боится воды. Пусть встретит подводного жителя, который научит дружить с водой.">🏊 Учится плавать</button>
-      </div>
+      <label for="topic">Имя ребёнка и тема сказки</label>
       <textarea id="topic" name="topic" maxlength="2000" minlength="10" required
                 placeholder="Имя ребёнка (можно с фамилией), возраст, тема — например: «Сказка про Машу Петрову, 4 года, которая боится темноты»"></textarea>
       <div class="row-meta">
@@ -277,26 +269,6 @@
   });
   refreshTopic();
 
-  // Topic chips — single-click auto-fill with full preset.
-  // Clicking selects that preset; place caret on [имя], [возраст] лет for quick edit.
-  const chipsRoot = document.getElementById('chips');
-  chipsRoot.addEventListener('click', function(e){
-    const b = e.target.closest('.chip');
-    if(!b) return;
-    document.querySelectorAll('.chip.active').forEach(c => c.classList.remove('active'));
-    b.classList.add('active');
-    topicEl.value = b.dataset.preset || '';
-    refreshTopic();
-    saveDraft();
-    topicEl.focus();
-    // Auto-select "Имя, N года/лет" so user types right over the example name.
-    const m = topicEl.value.match(/Сказка про (.+?, \d+ (?:год|года|лет))/);
-    if(m){
-      const start = topicEl.value.indexOf(m[1]);
-      if(start >= 0) topicEl.setSelectionRange(start, start + m[1].length);
-    }
-  });
-
   // Photo upload moved to /order text_ready — no JS here anymore.
 
   // Voice input → /transcribe → fill topic textarea
@@ -411,7 +383,6 @@
     const triggers = [
       document.getElementById('topic'),
       document.getElementById('email'),
-      ...document.querySelectorAll('.chip'),
       document.getElementById('mic'),
     ].filter(Boolean);
     triggers.forEach(function(el){

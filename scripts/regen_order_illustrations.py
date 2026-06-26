@@ -86,8 +86,10 @@ async def regen(oid: str, cfg_path: Path, dry_run: bool = False) -> None:
 
     main_name = cfg.get("main_character", "Hero")
     main_appearance = cfg.get("main_appearance", "")
+    extra_characters = cfg.get("extra_characters") or {}
     character_appearances = {main_name: main_appearance} if main_appearance else {}
-    characters_desc = main_name
+    character_appearances.update(extra_characters)
+    characters_desc = ", ".join([main_name, *extra_characters.keys()])
 
     from engine.image_generator import generate_illustration, _resolve_style_block
     style_block = await _resolve_style_block(None)

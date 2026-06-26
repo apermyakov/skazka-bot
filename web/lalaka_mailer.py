@@ -18,8 +18,20 @@ def _esc(s: str) -> str:
 
 
 def _render_html(title_block: str, body_block: str, cta_block: str, perk_block: str | None,
-                 foot_block: str | None, team_line: str, addr_line: str, unsub_line: str) -> str:
-    """Shared HTML scaffold for all lalaka emails."""
+                 foot_block: str | None, team_line: str, addr_line: str, unsub_line: str,
+                 cover_image_url: str | None = None) -> str:
+    """Shared HTML scaffold for all lalaka emails.
+
+    cover_image_url — optional URL of a hero image rendered between the wordmark
+    and the title. We use this in the story-ready email to show the first
+    illustration as an emotional anchor (the buyer sees their child's
+    personalized artwork right away).
+    """
+    cover_html = (
+        f'<tr><td style="padding:0 0 18px"><img src="{_esc(cover_image_url)}" '
+        f'alt="" width="508" '
+        f'style="display:block;width:100%;max-width:508px;height:auto;border-radius:14px"></td></tr>'
+    ) if cover_image_url else ""
     perk_html = (
         f'<tr><td style="padding:14px 16px;background:#f5efff;border-radius:12px;'
         f'color:#3a2f6b;font-size:14px;line-height:1.55">{perk_block}</td></tr>'
@@ -38,9 +50,10 @@ def _render_html(title_block: str, body_block: str, cta_block: str, perk_block: 
         '<tr><td style="padding:0 0 14px"><a href="https://lalaka.ai/" style="text-decoration:none;display:inline-block">'
         '<img src="https://lalaka.ai/static/lalaka_wordmark_transparent.png" alt="Lalaka" height="42" '
         'style="display:block;height:42px;width:auto"></a></td></tr>'
+        f'{cover_html}'
         f'<tr><td style="padding:0 0 6px;font-size:22px;font-weight:800;line-height:1.25">{title_block}</td></tr>'
-        f'<tr><td style="padding:0 0 16px;color:#241c44">{body_block}</td></tr>'
-        f'<tr><td style="padding:0 0 6px" align="center">{cta_block}</td></tr>'
+        f'<tr><td style="padding:0 0 4px;color:#241c44">{body_block}</td></tr>'
+        f'<tr><td style="padding:20px 0 20px" align="center">{cta_block}</td></tr>'
         f'{perk_html}'
         f'{foot_html}'
         f'<tr><td style="padding:14px 0 0;color:#6b6390;font-size:13px">{team_line}</td></tr>'
@@ -106,8 +119,11 @@ async def send_text_ready(to_addr: str, title: str, order_url: str, locale: str,
     return await _send(to_addr, subj, plain, html)
 
 
-async def send_story_ready(to_addr: str, title: str, order_url: str, locale: str) -> bool:
-    """Full audio+video story ready (after payment)."""
+async def send_story_ready(to_addr: str, title: str, order_url: str, locale: str,
+                            cover_image_url: str | None = None) -> bool:
+    """Full audio+video story ready (after payment). When the first illustration
+    URL is passed via cover_image_url it appears as a hero above the title.
+    """
     subj = _t(locale, "email_story_ready_subject", title=title)
     h1   = _t(locale, "email_story_ready_h1")
     body = _t(locale, "email_story_ready_body", title=f"<b>{_esc(title)}</b>")
@@ -116,7 +132,8 @@ async def send_story_ready(to_addr: str, title: str, order_url: str, locale: str
     team  = _t(locale, "email_footer_team")
     addr  = _t(locale, "email_footer_addr")
     unsub = _t(locale, "email_footer_unsub")
-    html = _render_html(h1, body, _cta_button(order_url, cta), perks, None, team, addr, unsub)
+    html = _render_html(h1, body, _cta_button(order_url, cta), perks, None,
+                         team, addr, unsub, cover_image_url=cover_image_url)
     plain = (
         f"{h1}\n\n«{title}»\n\n{body.replace('<b>','').replace('</b>','')}\n\n"
         f"{cta}: {order_url}\n\n{team}\n{addr}\n{unsub}"

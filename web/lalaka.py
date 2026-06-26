@@ -203,6 +203,12 @@ _CREATE_RATE_BUCKET: dict[str, list[float]] = {}
 _CREATE_RATE_WINDOW = 3600          # 1 hour
 _CREATE_RATE_LIMIT = 5              # 5 fresh creates per hour per IP
 
+# Demo (60s voice preview) rate limit. Each demo costs ~$0.024 (TTS only),
+# so a wider window is fine but we still want a soft anti-abuse cap.
+_DEMO_RATE_BUCKET: dict[str, list[float]] = {}
+_DEMO_RATE_WINDOW = 3600
+_DEMO_RATE_LIMIT = 5
+
 
 def _client_ip(request: Request) -> str:
     return (
@@ -228,6 +234,24 @@ def _create_rate_limited(request: Request) -> bool:
         for k in list(_CREATE_RATE_BUCKET):
             if not _CREATE_RATE_BUCKET[k] or _CREATE_RATE_BUCKET[k][-1] < cutoff:
                 _CREATE_RATE_BUCKET.pop(k, None)
+    return False
+
+
+def _demo_rate_limited(request: Request) -> bool:
+    """Same shape as _create_rate_limited but for /order/{oid}/demo. Each
+    generation costs us TTS time + a few cents, so we cap per-IP per hour."""
+    ip = _client_ip(request)
+    now = time.time()
+    bucket = _DEMO_RATE_BUCKET.setdefault(ip, [])
+    cutoff = now - _DEMO_RATE_WINDOW
+    bucket[:] = [t for t in bucket if t > cutoff]
+    if len(bucket) >= _DEMO_RATE_LIMIT:
+        return True
+    bucket.append(now)
+    if len(_DEMO_RATE_BUCKET) > 5000:
+        for k in list(_DEMO_RATE_BUCKET):
+            if not _DEMO_RATE_BUCKET[k] or _DEMO_RATE_BUCKET[k][-1] < cutoff:
+                _DEMO_RATE_BUCKET.pop(k, None)
     return False
 
 
@@ -265,6 +289,65 @@ async def home(request: Request, lang: str | None = None):
     loc = detect_locale(request, explicit=lang)
     ctx = _build_context(request, loc)
     return _set_locale_cookie(templates.TemplateResponse(request, "lalaka/landing.html", ctx), loc)
+
+
+@lalaka_router.get("/fs-popup-test", response_class=HTMLResponse)
+async def fs_popup_test():
+    """Minimal isolated page for FastSpring support to debug the popup-lalakaai
+    storefront. Hardcoded to TEST mode + popup-lalakaai. Not linked from the site.
+    """
+    html = """<!doctype html>
+<html><head>
+<meta charset="utf-8">
+<title>FastSpring popup test (test mode)</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:640px;margin:60px auto;padding:0 20px;line-height:1.5;color:#222}
+button{background:#7c3aed;color:#fff;border:0;padding:14px 28px;font-size:16px;border-radius:8px;cursor:pointer}
+code{background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:13px}
+pre{background:#f3f4f6;padding:12px;border-radius:6px;overflow:auto;font-size:12px}
+</style>
+</head>
+<body>
+<h2>FastSpring popup test page</h2>
+<p>Minimal repro for the <code>popup-lalakaai</code> Store Error. This page loads
+the SBL builder against the <strong>test subdomain</strong> and calls
+<code>fastspring.builder.checkout('lalaka-fairy-tale')</code>.</p>
+
+<p>Expected: popup modal opens with a checkout form.<br>
+Actual: popup opens but the iframe shows &quot;Store Error&quot;.</p>
+
+<p><button id="open">Open popup</button></p>
+
+<h3>Events</h3>
+<pre id="log">(waiting)</pre>
+
+<script id="fsc-api" src="https://sbl.onfastspring.com/sbl/1.0.7/fastspring-builder.min.js"
+        type="text/javascript"
+        data-storefront="lalakaai.test.onfastspring.com/popup-lalakaai"
+        data-popup-closed="onClosed"
+        data-error-callback="onErr"
+        data-popup-event-received="onEvt"></script>
+<script>
+const log = document.getElementById('log');
+const out = [];
+function push(line){ out.push(new Date().toISOString().slice(11,19)+' '+line); log.textContent = out.join('\\n'); }
+window.onClosed = function(ref){ push('popup-closed orderRef='+JSON.stringify(ref)); };
+window.onErr    = function(err){ push('ERROR '+JSON.stringify(err)); };
+window.onEvt    = function(ev){  push('event '+(ev&&ev.type)); };
+document.getElementById('open').addEventListener('click', function(){
+  try{
+    const fs = window.fastspring && window.fastspring.builder;
+    if(!fs){ push('builder not loaded'); return; }
+    fs.reset();
+    fs.add('lalaka-fairy-tale');
+    fs.checkout();
+    push('called reset() + add(lalaka-fairy-tale) + checkout()');
+  }catch(e){ push('throw '+e.message); }
+});
+push('page ready, builder='+(!!(window.fastspring&&window.fastspring.builder)));
+</script>
+</body></html>"""
+    return HTMLResponse(html)
 
 
 @lalaka_router.get("/health", response_class=JSONResponse)
@@ -811,6 +894,96 @@ async def order_rate(oid: str, rating: int = Form(...), comment: str = Form(""))
     return {"ok": True, "rating": rating}
 
 
+# Demo files live under MEDIA_ROOT/_demos/<oid>.mp3 so they share the nginx
+# /media route and are easy to clean up later.
+_DEMO_DIR = Path("/app/media/_demos")
+
+
+def _demo_text_slice(story_text: str, target_words: int = 145) -> str:
+    """First ~target_words of the story, stopping on the nearest sentence
+    boundary so the preview never cuts mid-word. ~145 words is roughly 60s
+    at our narration pace."""
+    text = (story_text or "").strip()
+    if not text:
+        return ""
+    words = text.split()
+    if len(words) <= target_words:
+        return text
+    head = " ".join(words[:target_words])
+    # Walk back to the last sentence-ender so we don't clip mid-thought.
+    for i in range(len(head) - 1, max(0, len(head) - 200), -1):
+        if head[i] in ".!?":
+            return head[: i + 1]
+    return head
+
+
+# Single warm narrator voice for previews — full generation still picks the
+# best voice per locale/character via voice_pool, but for a 1-min preview the
+# extra latency of the scoring pipeline isn't worth it.
+_DEMO_VOICE_ID = "ymDCYd8puC7gYjxIamPt"  # Marina_EL — warm female narrator
+
+
+@lalaka_router.post("/order/{oid}/demo")
+async def order_demo(oid: str, request: Request):
+    """Generate (or return cached) ~60-second voice preview for an order.
+
+    Costs ~$0.024 in TTS per fresh generation; cached MP3 is served from disk
+    for repeat plays. Rate-limited per IP."""
+    o = await L.get_order(oid)
+    if not o:
+        raise HTTPException(404)
+    if o.get("status") not in ("text_ready", "awaiting_payment", "done"):
+        return JSONResponse({"ok": False, "error": "wrong_status"}, status_code=400)
+    story_text = (o.get("story_text") or "").strip()
+    if not story_text:
+        return JSONResponse({"ok": False, "error": "no_text"}, status_code=400)
+
+    # One demo per IP — strict. Block here BEFORE the cache-hit branch so a
+    # visitor can't sidestep the rule by hitting a pre-cached demo.
+    import db.database as _db
+    ip = _client_ip(request)
+    async with _db._pool.acquire() as c:
+        already = await c.fetchrow(
+            "SELECT first_oid FROM demo_ip_log WHERE ip=$1", ip)
+    if already and already["first_oid"] != oid:
+        return JSONResponse({"ok": False, "error": "already_used"}, status_code=429)
+
+    _DEMO_DIR.mkdir(parents=True, exist_ok=True)
+    out_path = _DEMO_DIR / f"{oid}.mp3"
+    public_url = f"/media/_demos/{oid}.mp3"
+    if out_path.exists() and out_path.stat().st_size > 1024:
+        # Cache hit on this OID — record the IP so future different-OID calls
+        # from this IP are denied above.
+        async with _db._pool.acquire() as c:
+            await c.execute(
+                "INSERT INTO demo_ip_log (ip, first_oid) VALUES ($1, $2) "
+                "ON CONFLICT (ip) DO NOTHING", ip, oid)
+        return {"ok": True, "url": public_url, "cached": True}
+
+    locale = o.get("locale") or DEFAULT_LOCALE
+    from engine.demo_audio import build_demo
+    try:
+        info = await build_demo(
+            story_text=story_text,
+            title=o.get("title") or "Preview",
+            out_path=out_path,
+            locale=locale,
+            fallback_voice_id=_DEMO_VOICE_ID,
+            ambient_path=None,  # let build_demo pick from screenplay
+        )
+    except Exception as e:
+        logger.exception("demo build failed oid=%s: %s", oid, e)
+        return JSONResponse({"ok": False, "error": "build_failed"}, status_code=500)
+    logger.info("demo built oid=%s mode=%s voices=%d segs=%d bytes=%d",
+                 oid, info["mode"], info["num_voices"], info["num_segments"],
+                 out_path.stat().st_size)
+    async with _db._pool.acquire() as c:
+        await c.execute(
+            "INSERT INTO demo_ip_log (ip, first_oid) VALUES ($1, $2) "
+            "ON CONFLICT (ip) DO NOTHING", ip, oid)
+    return {"ok": True, "url": public_url, "cached": False, "mode": info["mode"]}
+
+
 @lalaka_router.post("/order/{oid}/photo")
 async def order_photo(oid: str, photo: UploadFile = File(...)):
     o = await L.get_order(oid)
@@ -840,12 +1013,10 @@ async def order_pay(oid: str):
     locale = o.get("locale") or DEFAULT_LOCALE
     return_url = f"{PUBLIC_BASE}/order/{oid}"
 
-    # Prefer FastSpring when configured — handles tax + cards globally.
-    # We return a popup-mode payload now: the front-end opens FastSpring's
-    # Builder Library modal over lalaka.ai instead of redirecting away. That
-    # gives us a clean "you stay on our domain" UX + a JS callback we use to
-    # poll status (no need for the dashboard Completion URL FastSpring won't
-    # expose for Web Storefronts). Fall back to YooKassa when env vars aren't set.
+    # Prefer FastSpring when configured — popup mode keeps the user on lalaka.ai.
+    # Must use fs.add() + fs.checkout() (no arg) on the frontend — passing the
+    # product slug to fs.checkout() triggers a "Store Error" in popup mode (it
+    # gets interpreted as a storefront override).
     from engine import fastspring_client
     if fastspring_client.is_configured():
         await L.update_order(oid, status="awaiting_payment")
@@ -1053,7 +1224,7 @@ async def _generate_lalaka(oid: str):
             reference_photo_b64=(photos[0] if photos else None),
             reference_photos=photos,
             tempo=1.15, style="painted",
-            locale=locale,
+            locale=locale, original_title=o["title"],
             on_status=on_status,
         )
         mid = result.get("order_id")
@@ -1074,9 +1245,17 @@ async def _generate_lalaka(oid: str):
         if buyer_email:
             try:
                 from web import lalaka_mailer
+                # First illustration as the cover image for the buyer email
+                cover_url = None
+                if illus:
+                    # illus[0] is a path like "/media/<mid>/illustrations/scene_1.png".
+                    # Email clients (especially Gmail's image proxy) need a fully
+                    # qualified URL.
+                    cover_url = f"{PUBLIC_BASE}{illus[0]}" if illus[0].startswith("/") else illus[0]
                 await lalaka_mailer.send_story_ready(
                     buyer_email, result.get("title", ""),
                     f"{PUBLIC_BASE}/order/{oid}", locale,
+                    cover_image_url=cover_url,
                 )
             except Exception as e:
                 logger.warning("lalaka story_ready email %s: %s", oid, e)

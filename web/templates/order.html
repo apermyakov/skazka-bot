@@ -49,6 +49,13 @@
   .pbar{height:8px;background:#e4dcfb;border-radius:6px;overflow:hidden;margin-top:16px}
   .pbar > i{display:block;height:100%;width:2%;background:linear-gradient(90deg,var(--accent),var(--accent2));animation:fill 55s cubic-bezier(.2,.8,.3,1) forwards}
   @keyframes fill{to{width:97%}}
+  /* Demo preview bar: gentle slow start (~3x slower than .pbar) so users see
+     the progress crawl at first, then accelerate, then ease into 95%. */
+  .demo-pbar{height:8px;background:#e4dcfb;border-radius:6px;overflow:hidden;margin-top:8px}
+  .demo-pbar > i{display:block;height:100%;width:1%;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    animation:demoFill 55s cubic-bezier(.3,.4,.3,1) forwards}
+  @keyframes demoFill{to{width:95%}}
   .etabar{height:10px;background:#e4dcfb;border-radius:6px;overflow:hidden;margin:8px 0 6px}
   .etabar > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .8s linear}
   .eta-text{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
@@ -218,6 +225,9 @@ function once(key){ try{ if(localStorage.getItem(key)) return false; localStorag
 
 function render(d){
   if(d.status === 'composing' && shownStatus === 'composing') return;  // keep the progress bar
+  // Once we're on `done`, do not rebuild on every poll — that wipes the rate widget
+  // textarea while the user is typing a comment.
+  if(d.status === 'done' && shownStatus === 'done') return;
   if(d.status === 'generating' && shownStatus === 'generating'){
     // status unchanged → just refresh stage + progress text in place, keep ETA bar smooth
     const p = (d.progress || '').toLowerCase();
@@ -295,6 +305,10 @@ function render(d){
         '<div class="row"><span>🎬 HD-видео для большого экрана</span><span class="anchor">≈ 500 ₽</span></div>'+
         '<div class="total"><span>Ваша цена</span><span>'+PRICE+' ₽ <span class="save">стартовая цена · до 30 июня</span></span></div>'+
       '</div>'+
+      '<div class="demo-block" id="demoblock" style="margin:14px 0">'+
+        '<button type="button" class="btn2" id="demobtn" style="width:100%">▶ Послушать превью озвучки</button>'+
+        '<div id="demoarea" style="display:none;margin-top:10px"></div>'+
+      '</div>'+
       '<button class="btn" id="pay">💜 Оплатить '+PRICE+' ₽ и озвучить</button>'+
       '<div class="lock">Через ЮKassa · 5–8 минут — и придёт готовое видео, аудио и 4-6 иллюстраций</div>'+
       '<div class="pay-trust">'+
@@ -313,6 +327,68 @@ function render(d){
     document.getElementById('edit').onclick = editStory;
     const psk = document.getElementById('paysticky');
     if(psk) psk.onclick = pay;
+    (function(){
+      const btn = document.getElementById('demobtn');
+      const area = document.getElementById('demoarea');
+      if(!btn || !area) return;
+      btn.addEventListener('click', async function(){
+        const orig = btn.textContent;
+        btn.disabled = true;
+        // Smooth progress bar with deceleration (reuses .pbar from the
+        // existing generation flow). Snap to 100% on response.
+        btn.innerHTML =
+          '<div style="display:flex;flex-direction:column;gap:8px">' +
+            '<div style="font-weight:600;color:var(--ink)">🎙 Готовлю превью озвучки…</div>' +
+            '<div class="demo-pbar" id="demopbar"><i id="demopbarfill"></i></div>' +
+          '</div>';
+        btn.style.background = 'transparent';
+        btn.style.border = '1.5px solid #e4dcfb';
+        btn.style.padding = '14px';
+        btn.style.cursor = 'default';
+        try{
+          const r = await fetch('/order/'+OID+'/demo', {method:'POST'});
+          const d = await r.json();
+          const fill = document.getElementById('demopbarfill');
+          if(d.ok && d.url){
+            if(fill){
+              fill.style.animation = 'none';
+              fill.style.width = '100%';
+              fill.style.transition = 'width .25s ease-out';
+            }
+            setTimeout(function(){
+              area.innerHTML =
+                '<div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px;text-align:center">' +
+                  '🎧 Демонстрационная версия — первая минута сказки' +
+                '</div>' +
+                '<audio controls autoplay style="width:100%" src="'+d.url+'"></audio>';
+              area.style.display = 'block';
+              btn.style.display = 'none';
+            }, 300);
+          } else {
+            btn.textContent = orig;
+            btn.disabled = false;
+            btn.style.background = '';
+            btn.style.border = '';
+            btn.style.padding = '';
+            btn.style.cursor = '';
+            const msg = d.error === 'already_used'
+              ? 'Вы можете получить демонстрацию сказки только один раз.'
+              : d.error === 'rate_limited'
+                ? 'Слишком часто — попробуйте позже'
+                : 'Не удалось подготовить превью';
+            alert(msg);
+          }
+        } catch(e){
+          btn.textContent = orig;
+          btn.disabled = false;
+          btn.style.background = '';
+          btn.style.border = '';
+          btn.style.padding = '';
+          btn.style.cursor = '';
+          alert('Ошибка сети');
+        }
+      });
+    })();
     const lef = document.getElementById('leform');
     if(lef) lef.addEventListener('submit', saveLateEmail);
     const ppi = document.getElementById('pp-input');
