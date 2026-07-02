@@ -795,7 +795,9 @@ async def order_set_surname(oid: str, surname: str = Form(...)):
         return JSONResponse({"ok": False, "error": "not_found"}, status_code=404)
     if o.get("status") not in ("text_ready", "awaiting_payment", "failed"):
         return JSONResponse({"ok": False, "error": "bad state"}, status_code=400)
-    s = (surname or "").strip()[:60]
+    # Surname goes into TTS credits and admin pages — angle brackets have no
+    # business in a family name; strip them as defense-in-depth against markup.
+    s = (surname or "").replace("<", "").replace(">", "").strip()[:60]
     await update_order(oid, child_surname=s or None)
     return JSONResponse({"ok": True, "surname": s})
 

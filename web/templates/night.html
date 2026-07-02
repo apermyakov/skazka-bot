@@ -112,7 +112,7 @@
     <div class="videoframe">
       <video id="hv" autoplay muted loop playsinline controls preload="metadata"
              poster="/static/sample/scene_1.webp"
-             onplay="try{ym(109494799,'reachGoal','demo_play')}catch(e){}">
+             onvolumechange="if(!this.muted&&!window.__dp){window.__dp=1;try{ym(109494799,'reachGoal','demo_play')}catch(e){}}">
         <source src="/static/sample/teaser.mp4" type="video/mp4">
       </video>
       <div class="vf-hint">▶ Звук появится при нажатии</div>

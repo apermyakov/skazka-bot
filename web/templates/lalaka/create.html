@@ -275,9 +275,12 @@
   // never set the busy state, never start polling, and stay clickable.
   document.getElementById('cf').addEventListener('submit', function(e){
     const v = topicEl.value.trim();
-    const hasDigit = /\d/.test(v);
     let ok = true;
-    if(v.length < 40 || !hasDigit){
+    // Length is the only BLOCKING check. A digit-in-topic requirement used to
+    // block here too, but parents who write the age in words ("five years old")
+    // or skip it entirely were rejected with a misleading "too short" hint —
+    // a silent conversion killer. The LLM composes fine without an age.
+    if(v.length < 40){
       thint.textContent = T.err_t; thint.className = 'hint warn';
       topicEl.classList.add('invalid');
       topicEl.setAttribute('aria-invalid', 'true');

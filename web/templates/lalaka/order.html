@@ -580,8 +580,13 @@ function loadFastSpring(storefront){
 // move the page into the generating state once the webhook lands.
 window.onFSPopupClosed = function(orderRef){
   shownStatus = '';
+  if(!orderRef || !orderRef.id){
+    // Closed without a purchase — release the awaiting_payment hold, or the
+    // page shows the «Checking payment…» banner forever on every next visit.
+    fetch('/order/'+OID+'/pay/cancel', {method:'POST'}).catch(function(){});
+  }
   // Kick the polling loop right away so the user sees the transition immediately.
-  setTimeout(function(){ poll && poll(); }, 250);
+  setTimeout(function(){ poll && poll(); }, 350);
 };
 
 // Surface FastSpring errors. "Store Error" is FS's generic catch-all — the

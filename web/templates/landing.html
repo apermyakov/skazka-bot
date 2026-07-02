@@ -263,7 +263,7 @@
     <div class="hero-sample hero-video">
       <video class="hs-video" autoplay muted loop playsinline controls preload="metadata"
              poster="/static/sample/scene_1.webp"
-             onplay="try{ym(109494799,'reachGoal','demo_play')}catch(e){}">
+             onvolumechange="if(!this.muted&&!window.__dp){window.__dp=1;try{ym(109494799,'reachGoal','demo_play')}catch(e){}}">
         <source src="/static/sample/teaser.mp4" type="video/mp4">
       </video>
       <div class="hs-note">▶ Звук появится при нажатии · <a href="/sample" style="color:var(--accent);font-weight:600;text-decoration:none">полный пример с озвучкой →</a></div>

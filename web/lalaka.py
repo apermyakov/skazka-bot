@@ -458,11 +458,11 @@ async def create_submit(
     loc = _normalize_lang_tag(locale) or detect_locale(request)
     topic = (topic or "").strip()[:2000]
     email = (email or "").strip().lower()[:200]
-    # Topic must be at least 40 chars AND mention a digit somewhere (age) — that's
-    # the lightweight semantic check that catches "Данил девять лет." (17 chars,
-    # no digit) without an LLM round-trip. The chip presets all clear this bar.
-    has_digit = any(c.isdigit() for c in topic)
-    if len(topic) < 40 or not has_digit or not _EMAIL_RE.match(email):
+    # Length is the only topic gate. A digit-in-topic (age) requirement used to
+    # live here too, but parents writing the age in words ("five years old",
+    # "fünf Jahre") or omitting it were bounced with a generic error — a silent
+    # conversion killer. The LLM composes fine without an explicit age.
+    if len(topic) < 40 or not _EMAIL_RE.match(email):
         return RedirectResponse(url="/create?err=1", status_code=303)
 
     # Honeypot: legitimate users can't fill a position:absolute -9999px input;
@@ -1049,6 +1049,21 @@ async def order_pay(oid: str):
     conf = (resp.get("confirmation") or {}).get("confirmation_url")
     await L.update_order(oid, status="awaiting_payment", payment_id=resp["id"])
     return {"ok": True, "confirmation_url": conf}
+
+
+@lalaka_router.post("/order/{oid}/pay/cancel")
+async def order_pay_cancel(oid: str):
+    """Release the awaiting_payment hold when the FastSpring popup is closed
+    without a purchase. Otherwise the order page shows the «Checking payment…»
+    banner forever. Guarded: never reverts a paid order (the webhook may land
+    while the popup is closing)."""
+    o = await L.get_order(oid)
+    if not o:
+        raise HTTPException(404)
+    if o.get("status") == "awaiting_payment" and not o.get("paid_at"):
+        await L.update_order(oid, status="text_ready")
+        return {"ok": True, "reverted": True}
+    return {"ok": True, "reverted": False}
 
 
 @lalaka_router.post("/yookassa/webhook/lalaka")
