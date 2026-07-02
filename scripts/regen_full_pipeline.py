@@ -76,9 +76,17 @@ async def main(order_id: str) -> None:
         log.error("illustrations dir missing"); return
 
     # Backup originals
-    backup = media_dir / f"illustrations_backup_{int(time.time())}"
+    ts = int(time.time())
+    backup = media_dir / f"illustrations_backup_{ts}"
     shutil.copytree(illust_dir, backup)
-    log.info("backed up to %s", backup)
+    log.info("backed up illustrations to %s", backup)
+    # Also keep the old video — it gets rebuilt in place, and without a copy
+    # the "before" version is unrecoverable (needed for before/after comparison
+    # when replying to customers).
+    if video_path.exists():
+        video_backup = media_dir / f"fairytale_backup_{ts}.mp4"
+        shutil.copy2(video_path, video_backup)
+        log.info("backed up video to %s", video_backup)
 
     story_text = order["story_text"]
     if not story_text:
